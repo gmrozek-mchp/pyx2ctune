@@ -1,0 +1,232 @@
+/**
+ * SCCP1-TIMER Generated Driver Source File
+ * 
+ * @file      sccp1.c
+ * 
+ * @ingroup   timerdriver
+ * 
+ * @brief     This is the generated driver source file for SCCP1-TIMER driver
+ *
+ * @skipline @version   Firmware Driver Version 1.6.1
+ *
+ * @skipline @version   PLIB Version 1.6.6
+ *
+ * @skipline  Device : dsPIC33CK256MP508
+*/
+
+/*
+© [2026] Microchip Technology Inc. and its subsidiaries.
+
+    Subject to your compliance with these terms, you may use Microchip 
+    software and any derivatives exclusively with Microchip products. 
+    You are responsible for complying with 3rd party license terms  
+    applicable to your use of 3rd party software (including open source  
+    software) that may accompany Microchip software. SOFTWARE IS ?AS IS.? 
+    NO WARRANTIES, WHETHER EXPRESS, IMPLIED OR STATUTORY, APPLY TO THIS 
+    SOFTWARE, INCLUDING ANY IMPLIED WARRANTIES OF NON-INFRINGEMENT,  
+    MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT 
+    WILL MICROCHIP BE LIABLE FOR ANY INDIRECT, SPECIAL, PUNITIVE, 
+    INCIDENTAL OR CONSEQUENTIAL LOSS, DAMAGE, COST OR EXPENSE OF ANY 
+    KIND WHATSOEVER RELATED TO THE SOFTWARE, HOWEVER CAUSED, EVEN IF 
+    MICROCHIP HAS BEEN ADVISED OF THE POSSIBILITY OR THE DAMAGES ARE 
+    FORESEEABLE. TO THE FULLEST EXTENT ALLOWED BY LAW, MICROCHIP?S 
+    TOTAL LIABILITY ON ALL CLAIMS RELATED TO THE SOFTWARE WILL NOT 
+    EXCEED AMOUNT OF FEES, IF ANY, YOU PAID DIRECTLY TO MICROCHIP FOR 
+    THIS SOFTWARE.
+*/
+
+// Section: Included Files
+
+#include <stddef.h> 
+#include "../sccp1.h"
+#include "../timer_interface.h"
+
+// Section: Data Type Definitions
+
+#define MASK_32_BIT_LOW 0x0000FFFFU
+#define MASK_32_BIT_HIGH 0xFFFF0000U
+
+// Section: File specific functions
+
+static void (*SCCP1_TimeoutHandler)(void) = NULL;
+
+// Section: Driver Interface
+
+// Defines an object for TIMER_INTERFACE
+
+const struct TIMER_INTERFACE MCC_TMR_PROFILE = {
+    .Initialize     = &SCCP1_Timer_Initialize,
+    .Deinitialize   = &SCCP1_Timer_Deinitialize,
+    .Start          = &SCCP1_Timer_Start,
+    .Stop           = &SCCP1_Timer_Stop,
+    #if TIMER_PERIODCOUNTSET_API_SUPPORT
+    .PeriodCountSet = &SCCP1_Timer_PeriodCountSet,
+    #endif
+    .PeriodSet      = &SCCP1_Timer_PeriodSet,
+    .CounterGet     = &SCCP1_Timer_CounterGet,
+    .PeriodGet	    = &SCCP1_Timer_PeriodGet,
+    .InterruptPrioritySet = &SCCP1_Timer_InterruptPrioritySet,
+    .TimeoutCallbackRegister = &SCCP1_Timer_TimeoutCallbackRegister,
+    .Tasks          = &SCCP1_Timer_Tasks,
+};
+
+// Section: Driver Interface Function Definitions
+
+void SCCP1_Timer_Initialize(void)
+{
+    // MOD 16-Bit/32-Bit Timer; CCSEL disabled; TMR32 16 Bit; TMRPS 1:1; CLKSEL FOSC/2; TMRSYNC disabled; CCPSLP disabled; CCPSIDL disabled; CCPON disabled; 
+    CCP1CON1L = 0x0U; //The module is disabled, till other settings are configured
+    //SYNC None; ALTSYNC disabled; ONESHOT disabled; TRIGEN disabled; IOPS Each Time Base Period Match; RTRGEN disabled; OPSRC Timer Interrupt Event; 
+    CCP1CON1H = 0x0U;
+    //ASDG 0x0; SSDG disabled; ASDGM disabled; PWMRSEN disabled; 
+    CCP1CON2L = 0x0U;
+    //ICSEL ; AUXOUT Disabled; ICGSM Level-Sensitive mode; OCAEN disabled; OENSYNC disabled; 
+    CCP1CON2H = 0x0U;
+    //PSSACE Tri-state; POLACE disabled; OSCNT None; OETRIG disabled; 
+    CCP1CON3H = 0x0U;
+    //ICOV disabled; ICDIS disabled; SCEVT disabled; ASEVT disabled; TRCLR disabled; TRSET disabled; ICGARM disabled; 
+    CCP1STATL = 0x0U;
+    //TMRL 0x0000; 
+    CCP1TMRL = 0x0U;
+    //TMRH 0x0000; 
+    CCP1TMRH = 0x0U;
+    //PRL 65535; 
+    CCP1PRL = 0xFFFFU;
+    //PRH 0; 
+    CCP1PRH = 0x0U;
+    //CMPA 0; 
+    CCP1RA = 0x0U;
+    //CMPB 0; 
+    CCP1RB = 0x0U;
+    //BUFL 0x0000; 
+    CCP1BUFL = 0x0U;
+    //BUFH 0x0000; 
+    CCP1BUFH = 0x0U;
+    
+    SCCP1_Timer_TimeoutCallbackRegister(&SCCP1_TimeoutCallback);
+
+
+    CCP1CON1Lbits.CCPON = 1; //Enable Module
+}
+
+void SCCP1_Timer_Deinitialize(void)
+{
+    CCP1CON1Lbits.CCPON = 0;
+    
+    CCP1CON1L = 0x0U; 
+    CCP1CON1H = 0x0U; 
+    CCP1CON2L = 0x0U; 
+    CCP1CON2H = 0x100U; 
+    CCP1CON3H = 0x0U; 
+    CCP1STATL = 0x0U; 
+    CCP1TMRL = 0x0U; 
+    CCP1TMRH = 0x0U; 
+    CCP1PRL = 0xFFFFU; 
+    CCP1PRH = 0xFFFFU; 
+    CCP1RA = 0x0U; 
+    CCP1RB = 0x0U; 
+    CCP1BUFL = 0x0U; 
+    CCP1BUFH = 0x0U; 
+}
+
+void SCCP1_Timer_Start(void)
+{
+    CCP1CON1Lbits.CCPON = 1;
+}
+
+void SCCP1_Timer_Stop(void)
+{
+    CCP1CON1Lbits.CCPON = 0;
+}
+
+void SCCP1_Timer_PeriodSet(uint32_t count)
+{
+    if(count > 0xFFFFU)
+    {
+        CCP1PRL = (uint16_t)(count & MASK_32_BIT_LOW);
+        CCP1PRH = (uint16_t)((count & MASK_32_BIT_HIGH) >> 16);
+        CCP1CON1Lbits.T32 = 1;
+    }
+    else
+    {
+        CCP1PRL = (uint16_t)(count & MASK_32_BIT_LOW);
+        CCP1CON1Lbits.T32 = 0;
+    }
+}
+
+uint32_t SCCP1_Timer_CounterGet(void)
+{ 
+    uint16_t tmrLow;
+    uint16_t tmrHigh;
+    uint16_t tmrLowRepeat;
+    
+    if(CCP1CON1Lbits.T32 == 1)
+    {
+        tmrLow = CCP1TMRL;
+        tmrHigh = CCP1TMRH;
+        tmrLowRepeat = CCP1TMRL;
+        
+        if(tmrLowRepeat < tmrLow)
+        {
+            return (((uint32_t)CCP1TMRH << 16U) | tmrLowRepeat); 
+        }
+        else 
+        {
+            return (((uint32_t)tmrHigh << 16U) | tmrLowRepeat);
+        }
+    }
+    else
+    {
+        return (uint32_t)CCP1TMRL;
+    }
+}
+
+void SCCP1_Timer_InterruptPrioritySet(enum INTERRUPT_PRIORITY priority)
+{
+    IPC1bits.CCT1IP = priority;
+}
+
+void SCCP1_Timer_TimeoutCallbackRegister(void (*handler)(void))
+{
+    if(NULL != handler)
+    {
+        SCCP1_TimeoutHandler = handler;
+    }
+}
+
+void SCCP1_TimeoutCallbackRegister(void* handler)
+{
+    if(NULL != handler)
+    {
+        SCCP1_TimeoutHandler = handler;
+    }
+}
+
+void __attribute__ ((weak)) SCCP1_TimeoutCallback (void)
+{ 
+
+} 
+
+void SCCP1_Timer_Tasks(void)
+{
+    if(IFS0bits.CCT1IF == 1)
+    {
+        if(NULL != SCCP1_TimeoutHandler)
+        {
+            (*SCCP1_TimeoutHandler)();
+        }
+        IFS0bits.CCT1IF = 0;
+    }
+}
+
+#if TIMER_PERIODCOUNTSET_API_SUPPORT
+void SCCP1_PeriodCountSet(size_t count)
+{
+    CCP1PRL = count & MASK_32_BIT_LOW;
+    CCP1PRH = (count & MASK_32_BIT_HIGH) >> 16;
+}
+#endif
+
+/**
+ End of File
+*/

@@ -34,7 +34,14 @@
 #include "../system_types.h"
 #include "../clock.h"
 #include "../pins.h"
+#include "../../adc/adc1.h"
+#include "../../cmp/cmp1.h"
 #include "../dmt.h"
+#include "../../pwm_hs/pwm.h"
+#include "../../qei/qei1.h"
+#include "../../timer/sccp1.h"
+#include "../../timer/tmr1.h"
+#include "../../uart/uart1.h"
 #include "../interrupt.h"
 
 
@@ -42,7 +49,14 @@ void SYSTEM_Initialize(void)
 {
     CLOCK_Initialize();
     PINS_Initialize();
+    ADC1_Initialize();
+    CMP1_Initialize();
     DMT_Initialize();
+    PWM_Initialize();
+    QEI1_Initialize();
+    SCCP1_Timer_Initialize();
+    TMR1_Initialize();
+    UART1_Initialize();
     INTERRUPT_GlobalEnable();
     INTERRUPT_Initialize();
 }
