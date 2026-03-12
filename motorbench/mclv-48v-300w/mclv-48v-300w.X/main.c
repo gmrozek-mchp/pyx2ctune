@@ -18,8 +18,8 @@
     EXCEED AMOUNT OF FEES, IF ANY, YOU PAID DIRECTLY TO MICROCHIP FOR 
     THIS SOFTWARE.
 */
+#include "mcc_generated_files/motorBench/mcaf_main.h"
 #include "mcc_generated_files/system/system.h"
-
 
 /*
     Main application
@@ -28,8 +28,10 @@
 int main(void)
 {
     SYSTEM_Initialize();
+    MCAF_MainInit();
 
     while(1)
     {
+        MCAF_MainLoop();
     }    
 }
