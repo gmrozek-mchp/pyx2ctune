@@ -93,8 +93,10 @@ class CurrentTuning:
         if params is not None:
             kp_info = params.get_info(_PARAM_KIP)
             ki_info = params.get_info(_PARAM_KII)
-            kp_eng = (kp_counts / (1 << nkp)) * kp_info.scale
-            ki_eng = (ki_counts / (1 << nki)) * ki_info.scale
+            # nkp/nki are post-shift counts: nkp=0 → Q15, nkp=1 → Q14, etc.
+            # See foc_params.h: QKNP = (15 - KIP_Q)
+            kp_eng = (kp_counts / (1 << (15 - nkp))) * kp_info.scale
+            ki_eng = (ki_counts / (1 << (15 - nki))) * ki_info.scale
         else:
             kp_eng = float(kp_counts)
             ki_eng = float(ki_counts)
@@ -104,8 +106,8 @@ class CurrentTuning:
             ki=ki_eng,
             kp_counts=kp_counts,
             ki_counts=ki_counts,
-            kp_shift=nkp,
-            ki_shift=nki,
+            kp_shift=15 - nkp,
+            ki_shift=15 - nki,
         )
         logger.info(
             "Read %s-axis gains: Kp=%.4f %s (counts=%d, Q%d), "
@@ -178,8 +180,8 @@ class CurrentTuning:
             ki=ki if units == "engineering" else float(ki_counts),
             kp_counts=kp_counts,
             ki_counts=ki_counts,
-            kp_shift=actual_nkp,
-            ki_shift=actual_nki,
+            kp_shift=15 - actual_nkp,
+            ki_shift=15 - actual_nki,
         )
         logger.info(
             "Set current gains: Kp=%.4f %s (counts=%d, Q%d), "
@@ -193,13 +195,16 @@ class CurrentTuning:
     def _engineering_to_counts_with_shift(
         self, param_key: str, value: float
     ) -> tuple[int, int]:
-        """Convert an engineering value to counts, adjusting shift if needed.
+        """Convert an engineering value to counts, adjusting nkp if needed.
 
-        If the value overflows at the default Q-format, reduce the shift count
-        and scale the counts accordingly to stay within int16 range.
+        nkp is a post-shift: nkp=0 → Q15, nkp=1 → Q14, etc.
+        counts = value / scale * 2^(15 - nkp)
+
+        If counts overflows int16 at nkp=0 (Q15), increase nkp to reduce
+        the effective Q-format and allow larger values.
 
         Returns:
-            (counts, shift) tuple.
+            (counts, nkp) tuple.
         """
         params = self._session.params
         if params is None:
@@ -209,23 +214,22 @@ class CurrentTuning:
             )
 
         info = params.get_info(param_key)
-        base_q = info.q
-        raw_counts = value / info.scale * (1 << base_q)
+        nkp = 15 - info.q  # default: QKNP = 15 - KIP_Q
+        effective_q = 15 - nkp
+        counts = round(value / info.scale * (1 << effective_q))
 
-        shift = base_q
-        counts = round(raw_counts)
-
-        while not (-32768 <= counts <= 32767) and shift > 0:
-            shift -= 1
-            counts = round(value / info.scale * (1 << shift))
+        while not (-32768 <= counts <= 32767) and effective_q > 0:
+            nkp += 1
+            effective_q = 15 - nkp
+            counts = round(value / info.scale * (1 << effective_q))
 
         if not (-32768 <= counts <= 32767):
             raise ValueError(
                 f"Cannot represent {value} {info.units} for {param_key!r} "
-                f"in any Q format (min shift tried: Q{shift})"
+                f"in int16 (tried nkp up to {nkp}, Q{effective_q})"
             )
 
-        return counts, shift
+        return counts, nkp
 
     @staticmethod
     def _resolve_axes(axes: str) -> list[str]:

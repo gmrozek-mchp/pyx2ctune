@@ -2,15 +2,53 @@
 
 A Python library for real-time tuning of Microchip MCAF motor control firmware via [X2Cscope](https://x2cscope.github.io/).
 
-pyx2ctune wraps [pyX2Cscope](https://pypi.org/project/pyx2cscope/) to provide MCAF-specific tuning workflows: automated test harness control, PI gain adjustment in engineering units, step response capture, and performance metric computation.
+pyx2ctune wraps [pyX2Cscope](https://pypi.org/project/pyx2cscope/) to provide MCAF-specific tuning workflows: automated test harness control, PI gain adjustment in engineering units (with Q-format conversion), step response capture, and performance metric computation.
 
-## Installation
+## Getting Started
+
+### Prerequisites
+
+- Python 3.10+ ([python.org](https://www.python.org/downloads/))
+- MCAF firmware built and flashed with X2Cscope enabled
+- Target board connected via USB/UART
+
+### Setup
+
+Create a virtual environment and install the package with Jupyter support:
 
 ```bash
-pip install -e .
+python -m venv .venv
+source .venv/bin/activate   # macOS/Linux
+# .venv\Scripts\activate    # Windows
+
+pip install -e ".[notebook]"
 ```
 
-## Quick Start
+This installs the `pyx2ctune` library, its dependencies (`pyx2cscope`, `numpy`,
+`matplotlib`), and Jupyter (`jupyterlab`, `ipykernel`).
+
+If you only need the library (no notebook), use `pip install -e .` instead.
+
+### Launch the Notebook
+
+```bash
+jupyter lab notebooks/current_loop_tuning.ipynb
+```
+
+The notebook walks through the full current loop tuning workflow:
+
+1. Configure serial port and file paths
+2. Connect to the target board
+3. Read current PI gains from firmware
+4. Enter current test mode (activates test harness guard)
+5. Set PI gains in engineering units (V/A, V/A/s)
+6. Configure scope and start square-wave perturbation
+7. Capture and analyze step response (overshoot, rise time, settling time)
+8. Iterate on gains with quick re-capture
+9. (Optional) Automated Kp sweep with summary plot
+10. Clean up
+
+## Quick Start (Script)
 
 ```python
 from pyx2ctune import TuningSession
@@ -23,8 +61,11 @@ session = TuningSession(
     parameters_json="path/to/parameters.json",
 )
 
+gains = session.current.get_gains(axis="q")
+print(f"Kp = {gains.kp:.4f} {gains.kp_units}  (Q{gains.kp_shift})")
+
 session.test_harness.enter_current_test_mode()
-session.current.set_gains(kp=4.487, ki=12168)
+session.current.set_gains(kp=3.0, ki=5000)
 
 session.capture.configure_current_loop(axis="q")
 session.current.setup_step_test(axis="q", amplitude=500, halfperiod=100)
@@ -38,9 +79,18 @@ session.test_harness.exit_test_mode()
 session.disconnect()
 ```
 
-See [SPEC.md](SPEC.md) for full documentation.
+## Session Logging
+
+Each `TuningSession` automatically creates a timestamped log file in the `logs/` directory
+(e.g. `logs/session_20260319_143022.log`). The log captures all variable reads/writes,
+gain changes, test harness events, and scope captures at DEBUG level.
+
+Console output is kept quiet by default. To see log messages inline in a notebook,
+change the `logging.basicConfig` level from `WARNING` to `INFO`.
 
 ## References
+
+See [SPEC.md](SPEC.md) for full architecture and module documentation.
 
 - [motorBench Development Suite](https://www.microchip.com/en-us/solutions/technologies/motor-control-and-drive/motorbench-development-suite)
 - [MCAF Documentation](https://microchiptech.github.io/mcaf-doc/9.0.1/index.html)

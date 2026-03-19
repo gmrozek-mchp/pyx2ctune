@@ -132,7 +132,7 @@ class TestHarness:
         """Background thread that periodically refreshes the guard timeout."""
         while not self._guard_stop_event.wait(timeout=_GUARD_REFRESH_INTERVAL_S):
             try:
-                self._session.write_variable(_VAR_GUARD_TIMEOUT, GUARD_TIMEOUT_MAX)
+                self._session.get_variable(_VAR_GUARD_TIMEOUT).set_value(GUARD_TIMEOUT_MAX)
             except Exception:
                 logger.warning("Guard timeout refresh failed", exc_info=True)
 

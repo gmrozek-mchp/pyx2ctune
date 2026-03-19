@@ -57,7 +57,16 @@ class TuningSession:
 
         logger.info("Connecting to %s at %d baud", port, baud_rate)
         self._x2c = X2CScope(port=port, baud_rate=baud_rate)
-        self._x2c.import_variables(self._elf_file)
+
+        # pyX2Cscope's DWARF parser emits many harmless warnings for
+        # XC16-compiled ELFs; suppress them during import.
+        root_logger = logging.getLogger()
+        prev_level = root_logger.level
+        root_logger.setLevel(logging.ERROR)
+        try:
+            self._x2c.import_variables(self._elf_file)
+        finally:
+            root_logger.setLevel(prev_level)
         logger.info("Loaded variables from %s", self._elf_file)
 
         self.params: ParameterDB | None = None
@@ -150,7 +159,11 @@ class TuningSession:
 
         pkg_logger = logging.getLogger("pyx2ctune")
         pkg_logger.addHandler(handler)
-        pkg_logger.setLevel(min(pkg_logger.level or logging.DEBUG, logging.DEBUG))
+        # Set logger to DEBUG so the file handler captures everything,
+        # but don't affect console output -- that's controlled by the
+        # root logger's handler level (set via logging.basicConfig).
+        pkg_logger.setLevel(logging.DEBUG)
+        pkg_logger.propagate = False
 
         self._log_path = log_path
         logger.info("Session log: %s", log_path)
