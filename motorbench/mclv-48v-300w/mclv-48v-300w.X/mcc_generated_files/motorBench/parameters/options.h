@@ -95,7 +95,7 @@ inline static bool MCAF_DutyCycleFeedbackIncludesClipping(void) { return true; }
 
 /** Enables the test harness.
  */
-// #define MCAF_TEST_HARNESS 
+#define MCAF_TEST_HARNESS 
 
 /** Enables cpu profiling.
  */

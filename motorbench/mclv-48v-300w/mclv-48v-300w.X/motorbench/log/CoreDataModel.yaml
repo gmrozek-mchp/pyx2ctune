@@ -1,5 +1,5 @@
 meta :
-  timeStamp : 2026-03-18T22:43:23.719Z
+  timeStamp : 2026-03-19T20:00:01.530Z
 motor:
   Tfr: 0.006072
   B: 1.1095029E-5
@@ -397,7 +397,7 @@ config:
       board_service-uiButtonDebounceTime: 7.0
       board_service-uiButtonLongPressTime: 2.5
       test_harness-perturbation_asymmetric: false
-      test_harness-codegen-test_harness: false
+      test_harness-codegen-test_harness: true
       test_harness-codegen-test_profiling: false
       adc-vtempbridge: false
       adc-temp_bridge_params-threshold: 50.0

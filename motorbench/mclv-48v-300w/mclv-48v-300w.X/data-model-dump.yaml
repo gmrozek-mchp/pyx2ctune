@@ -395,7 +395,7 @@ config:
       board_service-uiButtonDebounceTime: 7.0
       board_service-uiButtonLongPressTime: 2.5
       test_harness-perturbation_asymmetric: false
-      test_harness-codegen-test_harness: false
+      test_harness-codegen-test_harness: true
       test_harness-codegen-test_profiling: false
       adc-vtempbridge: false
       adc-temp_bridge_params-threshold: 50.0
