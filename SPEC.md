@@ -6,7 +6,7 @@ A Python library for real-time tuning of Microchip MCAF motor control firmware v
 
 Build a Python package (`pyx2ctune`) that wraps [pyX2Cscope](https://x2cscope.github.io/pyx2cscope/) to provide **MCAF-aware motor control tuning workflows**. The library automates the [MCAF test harness](https://microchiptech.github.io/mcaf-doc/9.0.1/components/testharness.html) to tune PI control loop gains on live hardware, capture step responses, and compute performance metrics -- all from Python scripts or Jupyter notebooks.
 
-**Phase 1** delivers a scriptable library for current loop tuning. **Phase 2** adds a cross-platform GUI (Windows, macOS, Linux) for ease of use by others.
+**Phase 1** delivers a scriptable library and Jupyter notebook for current loop tuning. **Phase 2** (implemented) provides a cross-platform PyQt5 GUI application with standalone executables for Windows, macOS, and Linux.
 
 ## Background
 
@@ -58,12 +58,20 @@ pyx2ctune/                  # Python package
   capture.py                # Scope data acquisition
   analysis.py               # Step response metric computation
   plotting.py               # matplotlib visualization
+  gui/                      # PyQt5 GUI application
+    __init__.py             # Entry point (main())
+    __main__.py             # python -m pyx2ctune.gui support
+    main_window.py          # Main window with all panels
+    workers.py              # Background thread for serial I/O
+    plot_widget.py          # Embedded matplotlib canvas
 examples/
   current_loop_tune.py      # End-to-end current loop tuning script
   gain_sweep.py             # Automated Kp/Ki sweep with metrics
 notebooks/
   current_loop_tuning.ipynb  # Interactive Jupyter tuning workflow
 logs/                        # Session log files (gitignored)
+pyx2ctune.spec               # PyInstaller build configuration
+.github/workflows/build.yml  # CI: cross-platform executable builds
 pyproject.toml               # Package config, dependencies
 SPEC.md                      # This file
 ```
@@ -78,7 +86,7 @@ pyx2ctune uses pyX2Cscope as a library. It does **not** reimplement any low-leve
 ### Data Flow
 
 ```
-User script (Python / Jupyter)
+User interface (GUI / Jupyter / Python script)
   │
   ▼
 pyx2ctune library
@@ -431,6 +439,7 @@ Example: `motor.idCtrl.kp` corresponds to `MCAF_MOTOR_DATA.idCtrl.kp` in the fir
 | `pyx2cscope` | `>= 0.5.0` | X2Cscope communication, ELF parsing |
 | `numpy` | `>= 1.26` | Numerical computation (transitive via pyx2cscope) |
 | `matplotlib` | `>= 3.7` | Plotting (transitive via pyx2cscope) |
+| `PyQt5` | `>= 5.15` | GUI framework (transitive via pyx2cscope) |
 
 **Python version**: 3.12 (compatible with pyX2Cscope's supported range of 3.10-3.12)
 
@@ -485,14 +494,68 @@ session.disconnect()
 A Jupyter notebook (`notebooks/current_loop_tuning.ipynb`) provides an interactive
 version of this workflow with quick-iteration cells and an optional automated gain sweep.
 
-## Phase 2: Cross-Platform GUI
+## GUI Application
 
-Once the library is validated with real hardware, add a GUI layer:
+### 8. `gui/` -- PyQt5 Desktop Application
 
-- **Framework**: Qt (PySide6) or web (Flask) -- to be decided based on Phase 1 experience
-- **Features**: Interactive gain sliders, live step response display, Bode plot visualization, parameter presets
-- **Packaging**: Standalone executable via PyInstaller or Briefcase (Windows, macOS, Linux)
-- **Architecture**: Thin UI layer calling the same pyx2ctune library functions -- no business logic in the GUI
+A cross-platform desktop GUI (Windows, macOS, Linux) built with PyQt5. The GUI is a
+thin layer over the pyx2ctune library -- no business logic in the UI code.
+
+**Launch:**
+
+```bash
+pyx2ctune-gui              # console script entry point
+python -m pyx2ctune.gui    # module entry point
+```
+
+**Architecture:**
+
+- `gui/__init__.py` -- `main()` creates a `QApplication` with Fusion style
+- `gui/main_window.py` -- `MainWindow` assembles all panels, connects signals/slots
+- `gui/workers.py` -- `SessionWorker(QObject)` runs on a `QThread`; all serial I/O
+  is serialized through a command queue, results emitted as Qt signals
+- `gui/plot_widget.py` -- Matplotlib `FigureCanvasQTAgg` embedded in a QWidget
+  with `NavigationToolbar`
+
+**Panels:**
+
+| Panel | Purpose |
+|-------|---------|
+| Connection | Port dropdown (auto-populated), ELF/params file browsers, baud rate, Connect/Disconnect |
+| PI Gains | Read current gains from board, set new Kp/Ki in engineering units |
+| Test Harness | Enter/exit test mode, operating mode and guard status display |
+| Perturbation | Axis selector, amplitude, half-period, Start/Stop buttons |
+| Capture | "Capture & Analyze" button triggers scope acquisition + metric computation |
+| Plot | Embedded matplotlib figure: current reference vs measured (top), voltage (bottom) |
+| Metrics | Overshoot, rise time, settling time, steady-state error, step count |
+
+**Persistence:** Connection settings, file paths, gain parameters, perturbation
+settings, and window geometry are saved via `QSettings` and restored on next launch.
+
+**Threading model:** A single `SessionWorker` runs on a dedicated `QThread`.
+The main thread posts `Command` enums to a queue; the worker executes them
+sequentially against the pyx2ctune library and emits result signals. This keeps
+the GUI responsive and ensures UART access is serialized.
+
+### Standalone Executables
+
+Pre-built executables are produced by GitHub Actions using PyInstaller
+(`pyx2ctune.spec`). The CI workflow (`.github/workflows/build.yml`) builds
+for all three platforms on every push to `main` and creates GitHub Releases
+with attached binaries on version tags (`v*`).
+
+| Platform | Artifact |
+|----------|----------|
+| Linux | `pyx2ctune-linux.tar.gz` |
+| macOS | `pyx2ctune-macos.tar.gz` |
+| Windows | `pyx2ctune-windows.zip` |
+
+### Future GUI Enhancements
+
+- Automated gain sweep dialog
+- Bode plot visualization
+- Parameter presets (save/load tuning configurations)
+- Dark mode theming
 
 ## References
 

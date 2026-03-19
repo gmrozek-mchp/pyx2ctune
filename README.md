@@ -27,9 +27,29 @@ pip install -e ".[notebook]"
 This installs the `pyx2ctune` library, its dependencies (`pyx2cscope`, `numpy`,
 `matplotlib`), and Jupyter (`jupyterlab`, `ipykernel`).
 
-If you only need the library (no notebook), use `pip install -e .` instead.
+If you only need the library (no notebook or GUI), use `pip install -e .` instead.
 
-### Launch the Notebook
+### GUI Application
+
+Launch the standalone GUI:
+
+```bash
+pyx2ctune-gui
+# or: python -m pyx2ctune.gui
+```
+
+The GUI provides the same tuning workflow as the notebook in a point-and-click
+interface: connect to the board, read/set PI gains, enter test mode, configure
+perturbation, capture step responses, and view metrics -- all without writing code.
+Connection settings and file paths are remembered between sessions.
+
+Pre-built executables for Windows, macOS, and Linux are available on the
+[Releases](https://github.com/gmrozek-mchp/pyx2ctune/releases) page (no Python
+installation required).
+
+### Jupyter Notebook
+
+Alternatively, use the interactive notebook for a code-driven workflow:
 
 ```bash
 jupyter lab notebooks/current_loop_tuning.ipynb

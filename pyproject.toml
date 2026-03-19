@@ -23,7 +23,11 @@ notebook = [
 dev = [
     "pytest>=7.0",
     "pytest-cov",
+    "pyinstaller>=6.0",
 ]
+
+[project.scripts]
+pyx2ctune-gui = "pyx2ctune.gui:main"
 
 [tool.setuptools.packages.find]
 include = ["pyx2ctune*"]
