@@ -128,6 +128,13 @@
           <itemPath>mcc_generated_files/motorBench/util_dspic_16bit.h</itemPath>
           <itemPath>mcc_generated_files/motorBench/util_types.h</itemPath>
         </logicalFolder>
+        <logicalFolder name="opa" displayName="opa" projectFiles="true">
+          <itemPath>mcc_generated_files/opa/opa2.h</itemPath>
+          <itemPath>mcc_generated_files/opa/opa_interface.h</itemPath>
+          <itemPath>mcc_generated_files/opa/opa1.h</itemPath>
+          <itemPath>mcc_generated_files/opa/opa_types.h</itemPath>
+          <itemPath>mcc_generated_files/opa/opa3.h</itemPath>
+        </logicalFolder>
         <logicalFolder name="pwm_hs" displayName="pwm_hs" projectFiles="true">
           <itemPath>mcc_generated_files/pwm_hs/pwm.h</itemPath>
           <itemPath>mcc_generated_files/pwm_hs/pwm_features.h</itemPath>
@@ -245,6 +252,13 @@
           <itemPath>mcc_generated_files/motorBench/test_harness_timestamps.c</itemPath>
           <itemPath>mcc_generated_files/motorBench/ui.c</itemPath>
         </logicalFolder>
+        <logicalFolder name="opa" displayName="opa" projectFiles="true">
+          <logicalFolder name="src" displayName="src" projectFiles="true">
+            <itemPath>mcc_generated_files/opa/src/opa3.c</itemPath>
+            <itemPath>mcc_generated_files/opa/src/opa1.c</itemPath>
+            <itemPath>mcc_generated_files/opa/src/opa2.c</itemPath>
+          </logicalFolder>
+        </logicalFolder>
         <logicalFolder name="pwm_hs" displayName="pwm_hs" projectFiles="true">
           <logicalFolder name="src" displayName="src" projectFiles="true">
             <itemPath>mcc_generated_files/pwm_hs/src/pwm.c</itemPath>
@@ -292,7 +306,7 @@
         <targetDevice>dsPIC33CK256MP508</targetDevice>
         <targetHeader></targetHeader>
         <targetPluginBoard></targetPluginBoard>
-        <platformTool>noID</platformTool>
+        <platformTool>pkob4hybrid</platformTool>
         <languageToolchain>XCDSC</languageToolchain>
         <languageToolchainVersion>3.31.00</languageToolchainVersion>
         <platform>3</platform>

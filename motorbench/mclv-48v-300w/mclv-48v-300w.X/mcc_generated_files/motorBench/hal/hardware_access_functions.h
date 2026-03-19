@@ -75,6 +75,9 @@
 #include "timer/sccp1.h"
 #include "timer/tmr1.h"
 #include "uart/uart1.h"
+#include "opa/opa1.h"
+#include "opa/opa2.h"
+#include "opa/opa3.h"
 #include "cmp/cmp1.h"
 
 #include "system/system.h"

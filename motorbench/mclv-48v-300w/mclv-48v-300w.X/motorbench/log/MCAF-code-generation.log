@@ -328,3 +328,223 @@
 03-12 18:03 mcaf_parameters._init_manager:152  INFO     Initializer audit: sat_pi.annotate_parameters=ok
 03-12 18:03 mcaf_parameters._init_manager:152  INFO     Initializer audit: startup.annotate_parameters=ok
 03-12 18:03 mcaf_parameters._init_manager:152  INFO     Initializer audit: timing.annotate_parameters=ok
+03-13 08:19 motorbench_logging:28   INFO     --------------------------------------------------------------------------------
+03-13 08:19 motorbench_logging:29   INFO     Logging setup complete (2026-03-13T13:19:10.963999)
+03-13 08:19 motorbench_logging:31   INFO     logdir_source=motorBench, logdir=C:\Users\c17370\Projects\microchip\pyx2ctune\motorbench\mclv-48v-300w\mclv-48v-300w.X\motorbench\log\
+03-13 08:19 init_data_model:466  INFO     code_generation_tag_map 1: {u'diagnostics': u'x2cscope', u'application': u'sample'}
+03-13 08:19 ui_data     :161  INFO     shadowed: replacement=True spec={'display': {'note': 'Primary estimator'}, 'source': 'state:estimator-type=pll', 'name': 'estimator', 'replacement': {'value': True}}
+03-13 08:19 ui_data     :148  INFO     not shadowed spec={'display': {'note': 'Primary estimator'}, 'source': 'state:estimator-type=smo', 'name': 'estimator', 'replacement': {'value': True}}
+03-13 08:19 ui_data     :148  INFO     not shadowed spec={'display': {'note': 'Primary estimator'}, 'source': 'state:estimator-type=qei', 'name': 'estimator', 'replacement': {'value': True}}
+03-13 08:19 ui_data     :148  INFO     not shadowed spec={'display': {'note': 'Primary estimator'}, 'source': 'state:estimator-type=atpll', 'name': 'estimator', 'replacement': {'value': True}}
+03-13 08:19 ui_data     :148  INFO     not shadowed spec={'display': {'note': 'Primary estimator'}, 'source': 'state:estimator-type=zsmt', 'name': 'estimator', 'replacement': {'value': True}}
+03-13 08:19 ui_data     :148  INFO     not shadowed spec={'display': {'note': 'Primary estimator'}, 'source': 'state:estimator-type=ideal', 'name': 'estimator', 'replacement': {'value': True}}
+03-13 08:19 ui_data     :148  INFO     not shadowed spec={'display': {'coverage': 'full', 'note': 'Not available on selected board'}, 'source': {'subject': 'drive.configuration.peripherals.adc.other.bridgeTemperature', 'operator': '!?', 'space': 'model', 'value': False}, 'name': 'adc', 'replacement': {'value': False}}
+03-13 08:19 ui_data     :148  INFO     not shadowed spec={'display': {'coverage': 'full', 'note': 'Not available on selected board'}, 'source': {'subject': 'drive.configuration.peripherals.adc.voltage.absoluteReference', 'operator': '!?', 'space': 'model', 'value': False}, 'name': 'adc', 'replacement': {'value': False}}
+03-13 08:19 ui_data     :148  INFO     not shadowed spec={'display': {'coverage': 'full', 'note': 'Not available on selected board'}, 'source': {'subject': 'drive.configuration.peripherals.adc.voltage.a', 'operator': '!?', 'space': 'model', 'value': False}, 'name': 'adc', 'replacement': {'value': False}}
+03-13 08:19 ui_data     :148  INFO     not shadowed spec={'display': {'coverage': 'full', 'note': 'Not available on selected board'}, 'source': {'subject': 'drive.configuration.peripherals.adc.voltage.b', 'operator': '!?', 'space': 'model', 'value': False}, 'name': 'adc', 'replacement': {'value': False}}
+03-13 08:19 ui_data     :148  INFO     not shadowed spec={'display': {'coverage': 'full', 'note': 'Not available on selected board'}, 'source': {'subject': 'drive.configuration.peripherals.adc.voltage.c', 'operator': '!?', 'space': 'model', 'value': False}, 'name': 'adc', 'replacement': {'value': False}}
+03-13 08:19 ui_data     :148  INFO     not shadowed spec={'display': {'coverage': 'full', 'note': 'Diagnostics UART not available on selected board'}, 'source': {'subject': 'drive.configuration.peripherals.uart', 'operator': '!?', 'space': 'model'}, 'name': 'uart', 'replacement': {'value': 'none'}}
+03-13 08:19 init_data_model:473  INFO     code_generation_tag_map 2: {'estimator=ideal': False, 'deadtimecomp': u'none', 'estimator=pll': True, 'estimator=zsmt': False, 'flux_control': u'none', 'current_measure': u'dual_channel', 'estimator=smo': False, 'estimator=qei': False, 'estimator=minotaur': False, u'diagnostics': u'x2cscope', 'estimator=atpll': False, 'qei_sync': u'align', u'application': u'sample', 'startup': u'classic', 'dyn_current': u'none'}
+03-13 08:19 init_data_model:108  INFO     Relocating None from None to velocity/fullscale
+03-13 08:19 mcaf_parameters._init_manager:198  INFO     conditionally_declared_modules={'estimator=ideal': False, u'deadtimecomp=none': True, u'dyn_current=none': True, 'estimator=pll': True, u'diagnostics=x2cscope': True, 'estimator=zsmt': False, u'application=sample': True, 'estimator=smo': False, 'estimator=qei': False, 'estimator=minotaur': False, u'startup=classic': True, 'estimator=atpll': False, u'flux_control=none': True, u'qei_sync=align': True, u'current_measure=dual_channel': True}
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip _common
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip _estimator
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip _init_manager
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip _units
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  adc
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip atpll
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  board_service
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip current_measure
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip deadtimecomp
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip dyn_current1
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip estimator_minotaur
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  fault_detect
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip flux_control
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  foc
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  hal
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  mcapi
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  motor
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  operation
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  outerloop
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  overmodulation
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  pll
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip qei
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  qei_sync
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  recovery
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  sat_pi
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip smo
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  startup
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  timing
+03-13 08:19 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip zsmt
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: adc.init_data_model=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: board_service.init_data_model=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: fault_detect.init_data_model=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: foc.init_data_model=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: hal.init_data_model=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: mcapi.init_data_model=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: motor.init_data_model=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: operation.init_data_model=absent
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: outerloop.init_data_model=absent
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: overmodulation.init_data_model=absent
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: pll.init_data_model=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: qei_sync.init_data_model=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: recovery.init_data_model=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: sat_pi.init_data_model=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: startup.init_data_model=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: timing.init_data_model=ok
+03-13 08:19 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.adc
+03-13 08:19 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.board_service
+03-13 08:19 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.fault_detect
+03-13 08:19 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.foc
+03-13 08:19 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.hal
+03-13 08:19 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.mcapi
+03-13 08:19 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.motor
+03-13 08:19 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.operation
+03-13 08:19 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.outerloop
+03-13 08:19 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.overmodulation
+03-13 08:19 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.pll
+03-13 08:19 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.recovery
+03-13 08:19 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.startup
+03-13 08:19 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.timing
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: adc.calculate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: board_service.calculate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: fault_detect.calculate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: foc.calculate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: hal.calculate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: mcapi.calculate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: motor.calculate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: operation.calculate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: outerloop.calculate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: overmodulation.calculate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: pll.calculate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: qei_sync.calculate_parameters=absent
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: recovery.calculate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: sat_pi.calculate_parameters=absent
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: startup.calculate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: timing.calculate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: adc.annotate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: board_service.annotate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: fault_detect.annotate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: foc.annotate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: hal.annotate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: mcapi.annotate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: motor.annotate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: operation.annotate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: outerloop.annotate_parameters=absent
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: overmodulation.annotate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: pll.annotate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: qei_sync.annotate_parameters=absent
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: recovery.annotate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: sat_pi.annotate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: startup.annotate_parameters=ok
+03-13 08:19 mcaf_parameters._init_manager:152  INFO     Initializer audit: timing.annotate_parameters=ok
+03-18 17:43 motorbench_logging:28   INFO     --------------------------------------------------------------------------------
+03-18 17:43 motorbench_logging:29   INFO     Logging setup complete (2026-03-18T22:43:28.871999)
+03-18 17:43 motorbench_logging:31   INFO     logdir_source=motorBench, logdir=C:\Users\c17370\Projects\microchip\pyx2ctune\motorbench\mclv-48v-300w\mclv-48v-300w.X\motorbench\log\
+03-18 17:43 init_data_model:466  INFO     code_generation_tag_map 1: {u'diagnostics': u'x2cscope', u'application': u'sample'}
+03-18 17:43 ui_data     :161  INFO     shadowed: replacement=True spec={'display': {'note': 'Primary estimator'}, 'source': 'state:estimator-type=pll', 'name': 'estimator', 'replacement': {'value': True}}
+03-18 17:43 ui_data     :148  INFO     not shadowed spec={'display': {'note': 'Primary estimator'}, 'source': 'state:estimator-type=smo', 'name': 'estimator', 'replacement': {'value': True}}
+03-18 17:43 ui_data     :148  INFO     not shadowed spec={'display': {'note': 'Primary estimator'}, 'source': 'state:estimator-type=qei', 'name': 'estimator', 'replacement': {'value': True}}
+03-18 17:43 ui_data     :148  INFO     not shadowed spec={'display': {'note': 'Primary estimator'}, 'source': 'state:estimator-type=atpll', 'name': 'estimator', 'replacement': {'value': True}}
+03-18 17:43 ui_data     :148  INFO     not shadowed spec={'display': {'note': 'Primary estimator'}, 'source': 'state:estimator-type=zsmt', 'name': 'estimator', 'replacement': {'value': True}}
+03-18 17:43 ui_data     :148  INFO     not shadowed spec={'display': {'note': 'Primary estimator'}, 'source': 'state:estimator-type=ideal', 'name': 'estimator', 'replacement': {'value': True}}
+03-18 17:43 ui_data     :148  INFO     not shadowed spec={'display': {'coverage': 'full', 'note': 'Not available on selected board'}, 'source': {'subject': 'drive.configuration.peripherals.adc.other.bridgeTemperature', 'operator': '!?', 'space': 'model', 'value': False}, 'name': 'adc', 'replacement': {'value': False}}
+03-18 17:43 ui_data     :148  INFO     not shadowed spec={'display': {'coverage': 'full', 'note': 'Not available on selected board'}, 'source': {'subject': 'drive.configuration.peripherals.adc.voltage.absoluteReference', 'operator': '!?', 'space': 'model', 'value': False}, 'name': 'adc', 'replacement': {'value': False}}
+03-18 17:43 ui_data     :148  INFO     not shadowed spec={'display': {'coverage': 'full', 'note': 'Not available on selected board'}, 'source': {'subject': 'drive.configuration.peripherals.adc.voltage.a', 'operator': '!?', 'space': 'model', 'value': False}, 'name': 'adc', 'replacement': {'value': False}}
+03-18 17:43 ui_data     :148  INFO     not shadowed spec={'display': {'coverage': 'full', 'note': 'Not available on selected board'}, 'source': {'subject': 'drive.configuration.peripherals.adc.voltage.b', 'operator': '!?', 'space': 'model', 'value': False}, 'name': 'adc', 'replacement': {'value': False}}
+03-18 17:43 ui_data     :148  INFO     not shadowed spec={'display': {'coverage': 'full', 'note': 'Not available on selected board'}, 'source': {'subject': 'drive.configuration.peripherals.adc.voltage.c', 'operator': '!?', 'space': 'model', 'value': False}, 'name': 'adc', 'replacement': {'value': False}}
+03-18 17:43 ui_data     :148  INFO     not shadowed spec={'display': {'coverage': 'full', 'note': 'Diagnostics UART not available on selected board'}, 'source': {'subject': 'drive.configuration.peripherals.uart', 'operator': '!?', 'space': 'model'}, 'name': 'uart', 'replacement': {'value': 'none'}}
+03-18 17:43 init_data_model:473  INFO     code_generation_tag_map 2: {'estimator=ideal': False, 'deadtimecomp': u'none', 'estimator=pll': True, 'estimator=zsmt': False, 'flux_control': u'none', 'current_measure': u'dual_channel', 'estimator=smo': False, 'estimator=qei': False, 'estimator=minotaur': False, u'diagnostics': u'x2cscope', 'estimator=atpll': False, 'qei_sync': u'align', u'application': u'sample', 'startup': u'classic', 'dyn_current': u'none'}
+03-18 17:43 init_data_model:108  INFO     Relocating None from None to velocity/fullscale
+03-18 17:43 mcaf_parameters._init_manager:198  INFO     conditionally_declared_modules={'estimator=ideal': False, u'deadtimecomp=none': True, u'dyn_current=none': True, 'estimator=pll': True, u'diagnostics=x2cscope': True, 'estimator=zsmt': False, u'application=sample': True, 'estimator=smo': False, 'estimator=qei': False, 'estimator=minotaur': False, u'startup=classic': True, 'estimator=atpll': False, u'flux_control=none': True, u'qei_sync=align': True, u'current_measure=dual_channel': True}
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip _common
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip _estimator
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip _init_manager
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip _units
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  adc
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip atpll
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  board_service
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip current_measure
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip deadtimecomp
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip dyn_current1
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip estimator_minotaur
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  fault_detect
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip flux_control
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  foc
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  hal
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  mcapi
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  motor
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  operation
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  outerloop
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  overmodulation
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  pll
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip qei
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  qei_sync
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  recovery
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  sat_pi
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip smo
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  startup
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: use  timing
+03-18 17:43 mcaf_parameters._init_manager:154  INFO     Initializer audit: skip zsmt
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: adc.init_data_model=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: board_service.init_data_model=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: fault_detect.init_data_model=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: foc.init_data_model=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: hal.init_data_model=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: mcapi.init_data_model=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: motor.init_data_model=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: operation.init_data_model=absent
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: outerloop.init_data_model=absent
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: overmodulation.init_data_model=absent
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: pll.init_data_model=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: qei_sync.init_data_model=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: recovery.init_data_model=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: sat_pi.init_data_model=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: startup.init_data_model=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: timing.init_data_model=ok
+03-18 17:43 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.adc
+03-18 17:43 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.board_service
+03-18 17:43 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.fault_detect
+03-18 17:43 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.foc
+03-18 17:43 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.hal
+03-18 17:43 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.mcapi
+03-18 17:43 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.motor
+03-18 17:43 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.operation
+03-18 17:43 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.outerloop
+03-18 17:43 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.overmodulation
+03-18 17:43 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.pll
+03-18 17:43 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.recovery
+03-18 17:43 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.startup
+03-18 17:43 mcaf_parameters._init_manager:243  INFO     Calculating parameters for mcaf_parameters.timing
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: adc.calculate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: board_service.calculate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: fault_detect.calculate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: foc.calculate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: hal.calculate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: mcapi.calculate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: motor.calculate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: operation.calculate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: outerloop.calculate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: overmodulation.calculate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: pll.calculate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: qei_sync.calculate_parameters=absent
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: recovery.calculate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: sat_pi.calculate_parameters=absent
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: startup.calculate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: timing.calculate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: adc.annotate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: board_service.annotate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: fault_detect.annotate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: foc.annotate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: hal.annotate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: mcapi.annotate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: motor.annotate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: operation.annotate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: outerloop.annotate_parameters=absent
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: overmodulation.annotate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: pll.annotate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: qei_sync.annotate_parameters=absent
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: recovery.annotate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: sat_pi.annotate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: startup.annotate_parameters=ok
+03-18 17:43 mcaf_parameters._init_manager:152  INFO     Initializer audit: timing.annotate_parameters=ok

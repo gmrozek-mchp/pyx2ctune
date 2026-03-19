@@ -37,6 +37,9 @@
 #include "../../adc/adc1.h"
 #include "../../cmp/cmp1.h"
 #include "../dmt.h"
+#include "../../opa/opa1.h"
+#include "../../opa/opa2.h"
+#include "../../opa/opa3.h"
 #include "../../pwm_hs/pwm.h"
 #include "../../qei/qei1.h"
 #include "../../timer/sccp1.h"
@@ -52,6 +55,9 @@ void SYSTEM_Initialize(void)
     ADC1_Initialize();
     CMP1_Initialize();
     DMT_Initialize();
+    OPA1_Initialize();
+    OPA2_Initialize();
+    OPA3_Initialize();
     PWM_Initialize();
     QEI1_Initialize();
     SCCP1_Timer_Initialize();

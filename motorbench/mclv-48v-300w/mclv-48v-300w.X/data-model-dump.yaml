@@ -41,6 +41,12 @@ metadata:
         type: timer
       - name: UART1
         type: uart
+      - name: OPA1
+        type: opa
+      - name: OPA2
+        type: opa
+      - name: OPA3
+        type: opa
       - name: CMP1
         type: cmp
     version: 5.8.4
