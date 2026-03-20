@@ -51,14 +51,14 @@ def plot_step_response(
                     label="Reference", alpha=0.8)
     ax_current.plot(time_ms, response.measured, "b-", linewidth=1.0,
                     label="Measured")
-    ax_current.set_ylabel(f"I{response.axis} (counts)")
+    ax_current.set_ylabel(f"I{response.axis} ({response.current_units})")
     ax_current.legend(loc="upper right", fontsize=8)
     ax_current.grid(True, alpha=0.3)
 
     # Voltage subplot
     ax_voltage.plot(time_ms, response.voltage, "g-", linewidth=1.0,
                     label="Voltage")
-    ax_voltage.set_ylabel(f"V{response.axis} (counts)")
+    ax_voltage.set_ylabel(f"V{response.axis} ({response.voltage_units})")
     ax_voltage.set_xlabel("Time (ms)")
     ax_voltage.legend(loc="upper right", fontsize=8)
     ax_voltage.grid(True, alpha=0.3)

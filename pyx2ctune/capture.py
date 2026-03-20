@@ -18,6 +18,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_PARAM_FULLSCALE_CURRENT = "mcapi.fullscale.current"
+_PARAM_FULLSCALE_VOLTAGE = "mcapi.fullscale.voltage"
+
 # Default scope variables for current loop analysis
 _CURRENT_LOOP_VARS = {
     "q": {
@@ -57,6 +60,8 @@ class StepResponse:
     gains: dict = field(default_factory=dict)
     sample_time: int = 1
     control_period_us: float = 50.0
+    current_units: str = "counts"
+    voltage_units: str = "counts"
     metadata: dict = field(default_factory=dict)
 
 
@@ -161,13 +166,37 @@ class ScopeCapture:
         channel_data = x2c.get_scope_channel_data(valid_data=True)
 
         var_names = self._configured_vars
-        measured_data = channel_data.get(var_names["measured"], [])
-        reference_data = channel_data.get(var_names["reference"], [])
-        voltage_data = channel_data.get(var_names["voltage"], [])
+        measured_data = np.array(
+            channel_data.get(var_names["measured"], []), dtype=np.float64
+        )
+        reference_data = np.array(
+            channel_data.get(var_names["reference"], []), dtype=np.float64
+        )
+        voltage_data = np.array(
+            channel_data.get(var_names["voltage"], []), dtype=np.float64
+        )
 
         n_samples = len(measured_data)
         dt_us = self._control_period_us * self._sample_time
         time_us = np.arange(n_samples) * dt_us
+
+        current_units = "counts"
+        voltage_units = "counts"
+        params = self._session.params
+        if params is not None:
+            try:
+                ifs = params.get_info(_PARAM_FULLSCALE_CURRENT).intended_value
+                measured_data = (measured_data / 32768.0) * ifs
+                reference_data = (reference_data / 32768.0) * ifs
+                current_units = "A"
+            except KeyError:
+                pass
+            try:
+                vfs = params.get_info(_PARAM_FULLSCALE_VOLTAGE).intended_value
+                voltage_data = (voltage_data / 32768.0) * vfs
+                voltage_units = "V"
+            except KeyError:
+                pass
 
         gains = {}
         try:
@@ -191,13 +220,15 @@ class ScopeCapture:
 
         return StepResponse(
             time_us=time_us,
-            reference=np.array(reference_data, dtype=np.float64),
-            measured=np.array(measured_data, dtype=np.float64),
-            voltage=np.array(voltage_data, dtype=np.float64),
+            reference=reference_data,
+            measured=measured_data,
+            voltage=voltage_data,
             axis=self._configured_axis,
             gains=gains,
             sample_time=self._sample_time,
             control_period_us=self._control_period_us,
+            current_units=current_units,
+            voltage_units=voltage_units,
             metadata={
                 "var_measured": var_names["measured"],
                 "var_reference": var_names["reference"],

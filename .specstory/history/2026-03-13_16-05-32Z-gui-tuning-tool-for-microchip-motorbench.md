@@ -22102,3 +22102,72 @@ That means:
 **Perturbation amplitude:** The doc doesn't specify an explicit amplitude recommendation, but the examples all use step responses that go between negative and positive current values (e.g., -1 A to +1 A). The amplitude is the half-swing, so a 0.5 A amplitude gives a ±0.5 A (1 A total) step, which is very reasonable relative to the 2.2 A max current command.
 
 So our defaults (0.55 A from 25% of max command, 5.0 ms halfperiod) are well within the recommended range. No changes needed -- the current implementation is solid.
+
+---
+
+_**User**_
+
+update graphs to show real world current, voltage, time units
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/plotting.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/capture.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+Currently the plotting shows raw counts for current and voltage. I need to convert these to real-world units:
+
+1. **Current** (I): The values from `motor.idq.q` and `motor.idqCmd.q` are in Q15 format. To convert to Amps: `amps = (counts / 32768) * fullscale_current`. The fullscale current is `mcapi.fullscale.current = 44.08 A`.
+
+2. **Voltage** (V): The values from `motor.vdq.q` are in Q15 format. To convert to Volts: `volts = (counts / 32768) * fullscale_voltage`. 
+
+The fullscale voltage is `mcapi.fullscale.voltage = 75.9 V`. Time is already in the right units, so that doesn't need conversion.
+
+I'm deciding between storing the scaling factors in the metadata for the plotting code to use, or converting to engineering units during capture. Converting during capture would be cleaner since the data would already be in real units, but I need to check if that would break the analysis module first.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+I need to understand the full pipeline. Let me check how the analysis module uses the data, and what fullscale values are available.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/analysis.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+The analysis module works with the raw data (whatever units it's in). The overshoot, rise</details></think>

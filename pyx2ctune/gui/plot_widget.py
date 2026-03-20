@@ -37,8 +37,8 @@ class PlotWidget(QWidget):
             ax.set_facecolor("#fafafa")
             ax.grid(True, alpha=0.3)
 
-        self._ax_current.set_ylabel("Current (counts)")
-        self._ax_voltage.set_ylabel("Voltage (counts)")
+        self._ax_current.set_ylabel("Current")
+        self._ax_voltage.set_ylabel("Voltage")
         self._ax_voltage.set_xlabel("Time (ms)")
         self._figure.suptitle("No data captured yet", fontsize=10, color="gray")
 
@@ -56,13 +56,13 @@ class PlotWidget(QWidget):
                   label="Reference", alpha=0.8)
         ax_c.plot(time_ms, response.measured, "b-", linewidth=1.0,
                   label="Measured")
-        ax_c.set_ylabel(f"I{response.axis} (counts)")
+        ax_c.set_ylabel(f"I{response.axis} ({response.current_units})")
         ax_c.legend(loc="upper right", fontsize=8)
         ax_c.grid(True, alpha=0.3)
 
         ax_v.plot(time_ms, response.voltage, "g-", linewidth=1.0,
                   label="Voltage")
-        ax_v.set_ylabel(f"V{response.axis} (counts)")
+        ax_v.set_ylabel(f"V{response.axis} ({response.voltage_units})")
         ax_v.set_xlabel("Time (ms)")
         ax_v.legend(loc="upper right", fontsize=8)
         ax_v.grid(True, alpha=0.3)
