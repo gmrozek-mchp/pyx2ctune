@@ -112,3 +112,439 @@ _**Agent (composer-2)**_
 <summary>Tool use: **read_file_v2**</summary>
 
 </details></tool-use>
+
+_**Agent (composer-2)**_
+
+
+Checking `plot_widget.py` for loop-type handling and searching for `CONFIGURE_SCOPE` / `CONFIGURE_VELOCITY_SCOPE` usages.
+
+
+
+_**Agent (composer-2)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/plot_widget.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (composer-2)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "path": "/Users/greg/projects/microchip/pyx2ctune",
+  "pattern": "CONFIGURE_SCOPE|CONFIGURE_VELOCITY_SCOPE"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune",
+  "pattern": "CONFIGURE_SCOPE|CONFIGURE_VELOCITY_SCOPE",
+  "topFiles": [
+    {
+      "matchCount": 10,
+      "uri": ".specstory/history/2026-03-13_16-05-32Z-gui-tuning-tool-for-microchip-motorbench.md"
+    },
+    {
+      "matchCount": 6,
+      "uri": "pyx2ctune/gui/main_window.py"
+    },
+    {
+      "matchCount": 2,
+      "uri": ".specstory/history/2026-03-20_13-07-27Z-file-structure-examination-for-pyx2ctune.md"
+    },
+    {
+      "matchCount": 4,
+      "uri": ".specstory/history/2026-03-20_01-53-44Z-test-harness-documentation-review.md"
+    },
+    {
+      "matchCount": 4,
+      "uri": "pyx2ctune/gui/workers.py"
+    }
+  ],
+  "totalFiles": 5,
+  "totalMatches": 26
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (composer-2)**_
+
+<think><details><summary>Thought Process</summary>
+**Refactoring scope panel**
+
+I'm adding a ScopePanel with View combo and trigger controls above the plot widget. I'm implementing new open loop view configuration with voltage/current mode dispatch. </details></think>
+
+_**Agent (composer-2)**_
+
+
+Here is a concrete plan grounded in your current code paths.
+
+---
+
+## Goals
+
+- One **Scope** region on the right (above the plot) owns: **View** preset, **trigger** UI, and **Single / Start continuous / Stop / Cancel**.
+- **Current** and **Velocity** tabs lose capture UI and related signals; **Open Loop** gains scope without duplicating widgets.
+- **Worker** exposes a **single** scope-configuration entry point (or one command with a discriminant), so `MainWindow` does not branch on “which tab” for capture.
+- **Perturbation** still needs a scope configure before `START_*_PERTURBATION`; decide whether channel set comes from the **View** or from **tab context** (see §6).
+
+---
+
+## Architecture after refactor
+
+```mermaid
+flowchart LR
+  subgraph left [Left splitter pane]
+    Tabs[QTabWidget]
+  end
+  subgraph right [Right splitter pane]
+    Scope[ScopePanel]
+    Plot[PlotWidget]
+    Metrics[MetricsPanel]
+  end
+  Tabs --> MW[MainWindow]
+  Scope --> MW
+  MW --> W[SessionWorker]
+  W --> Cap[ScopeCapture in capture.py]
+  Cap --> X2C[pyX2Cscope]
+  W --> PlotDone[capture_done]
+  PlotDone --> Plot
+```
+
+**Layout change** in `MainWindow._build_ui`: `right_layout` becomes **ScopePanel** (fixed or `stretch=0`) → **PlotWidget** (`stretch=3`) → **Metrics** (`stretch=0`), matching your target.
+
+---
+
+## 1. New file: `pyx2ctune/gui/scope_panel.py`
+
+### 1.1 Data model (module-level)
+
+Define a small **preset** structure (dataclass or `TypedDict`) used by both UI and worker kwargs, e.g.:
+
+| View id | Channels (order: ch0, ch1, ch2) | Trigger variable | Trigger label text | Level spin unit | `loop_type` / plot profile |
+|--------|-----------------------------------|--------------------|--------------------|-----------------|---------------------------|
+| `current_q` | `idq.q`, `idqCmd.q`, `vdq.q` | `idqCmd.q` | e.g. `on Iq ref` | A | `current`, axis `q` |
+| `current_d` | `idq.d`, `idqCmd.d`, `vdq.d` | `idqCmd.d` | `on Id ref` | A | `current`, axis `d` |
+| `velocity` | `omegaElectrical`, `omegaCmd`, `idqCmd.q` | `omegaCmd` | `on velocity cmd` | RPM | `velocity` |
+| `open_voltage` | `vdq.d`, `vdq.q`, `idq.q` | `vdq.q` | `on Vq` | V | new, e.g. `open_voltage` |
+| `open_current` | `idq.d`, `idq.q`, `omegaElectrical` | `idq.q` | `on Iq` | A | new, e.g. `open_current` |
+
+Use full ELF names (`motor.*`) in the preset table to match `capture.py` today.
+
+### 1.2 Widget structure
+
+- `QGroupBox("Scope")` (or “Capture”).
+- **View**: `QComboBox` with user-facing strings exactly as you listed; `setItemData(index, view_id)` for stable machine ids.
+- **Trigger row**: `QCheckBox("Trigger")`, `QLabel` for channel (updated from preset), `QLabel("Level:")`, `QDoubleSpinBox` (range/decimals/suffix updated when view changes).
+- **Buttons**: same as today — Single; Start (bold) for continuous; Stop; Cancel — same minimum heights as `current_tab.py` for visual consistency.
+
+### 1.3 Signals (emit to `MainWindow`)
+
+- `capture_single_requested = pyqtSignal()`
+- `continuous_start_requested = pyqtSignal()`
+- `continuous_stop_requested = pyqtSignal()`
+- `cancel_capture_requested = pyqtSignal()`
+
+Optional: `view_changed = pyqtSignal(str)` for status/debug; not required if `MainWindow` reads state when handling capture.
+
+### 1.4 Public API for `MainWindow` / session
+
+- `set_connected(bool)` — enable/disable scope controls (mirror tab behavior: when disconnected, disable capture buttons; continuous stop disabled until started; cancel disabled until capture started).
+- `on_connected(session)` — stash `session.current.fullscale_current`, `session.velocity.fullscale_velocity_rpm`, and **voltage** fullscale if you expose it (from `parameters.json` / session — same source as `capture.py` uses: `mcapi.fullscale.voltage`).
+- `on_disconnected()` — clear fullscales; reset spin defaults if desired.
+- `current_view_id() -> str` — from combo `currentData()`.
+- `trigger_enabled() -> bool`
+- `trigger_level_engineering() -> float` — raw value from spin (A, RPM, or V).
+- `trigger_level_counts() -> float` — **single place** for Q15 conversion:
+  - **A**: same formula as today in `CurrentLoopTab.trigger_level()` (amps / fullscale * 32768).
+  - **RPM**: same as `VelocityLoopTab.trigger_level()`.
+  - **V**: volts / `fullscale_voltage` * 32768 (add `fullscale_voltage` on session or read from params in panel when connected).
+
+### 1.5 Capture lifecycle callbacks (moved from tabs)
+
+Move the button state logic from `on_capture_started`, `on_capture_done`, `on_capture_cancelled`, `on_continuous_started`, `on_continuous_stopped` **into `ScopePanel`** methods with the same semantics:
+
+- During single capture: disable Single, enable Cancel.
+- During continuous: disable Single, enable Stop; on stop: reverse.
+- On done/cancel: re-enable Single when not in continuous mode.
+
+`MainWindow` then connects worker signals **only** to `ScopePanel`, not to both tabs.
+
+---
+
+## 2. `pyx2ctune/gui/tabs/current_tab.py`
+
+**Remove**
+
+- `_build_capture_panel()` and its `layout.addWidget(...)` in `__init__`.
+- Signals: `capture_requested`, `cancel_capture_requested`, `continuous_start_requested`, `continuous_stop_requested`.
+- `_connect_internal` connections for capture / continuous / cancel buttons.
+- `_update_trigger_channel_label` and `self._axis_combo.currentTextChanged` connection **if** it only served the capture label (it does today); **keep** `_axis_combo` for perturbation axis.
+- Methods: `on_capture_started`, `on_capture_done`, `on_capture_cancelled`, `on_continuous_started`, `on_continuous_stopped`.
+- `trigger_enabled()`, `trigger_level()`, and all `set_connected` / `on_disconnected` lines that referenced capture widgets.
+- `on_disconnected` line resetting `_trigger_level_spin`.
+
+**Keep**
+
+- `current_axis()`, perturbation panel, test harness, gains — unchanged for tuning workflow.
+- `start_perturbation_requested` still carries `axis` for the worker.
+
+---
+
+## 3. `pyx2ctune/gui/tabs/velocity_tab.py`
+
+Same removals as current tab for capture-related pieces (signals, `_build_capture_panel`, internal wiring, lifecycle callbacks, `trigger_*`, `set_connected` bits for capture buttons, `on_disconnected` trigger reset).
+
+**Keep** velocity command, gains, perturbation, test harness.
+
+---
+
+## 4. `pyx2ctune/gui/main_window.py`
+
+### 4.1 Imports and `_build_ui`
+
+- `from pyx2ctune.gui.scope_panel import ScopePanel`
+- Instantiate `self._scope_panel = ScopePanel()` and insert in `right_layout` **above** `self._plot` (order: scope → plot → metrics).
+
+### 4.2 `_connect_signals` — disconnect tab capture wiring
+
+Remove connections from `ct` / `vt` for:
+
+- `capture_requested`, `cancel_capture_requested`, `continuous_start_requested`, `continuous_stop_requested`
+
+Add connections from `self._scope_panel` to new unified slots (or inline lambdas):
+
+- `capture_single_requested` → `_on_scope_capture_single`
+- `continuous_start_requested` → `_on_scope_continuous_start`
+- `continuous_stop_requested` → `_on_stop_continuous` (reuse existing worker `request_stop_continuous` path)
+- `cancel_capture_requested` → `_on_cancel_capture`
+
+### 4.3 Worker → UI for capture lifecycle
+
+**Replace** the dual routing in `_on_capture_started` / `_on_capture_cancelled` / `_on_capture_done`:
+
+```504:518:pyx2ctune/gui/main_window.py
+    def _on_capture_started(self) -> None:
+        self._current_tab.on_capture_started()
+        self._velocity_tab.on_capture_started()
+        self._plot.show_waiting()
+    ...
+    def _on_capture_done(self, response, metrics) -> None:
+        ...
+        self._current_tab.on_capture_done()
+        self._velocity_tab.on_capture_done()
+```
+
+with calls **only** to `self._scope_panel.on_capture_started()` / `on_capture_done()` / `on_capture_cancelled()` (names aligned with what you implement on `ScopePanel`).
+
+**Keep** `_plot.show_waiting()` / `hide_waiting()` / `update_plot()` in `MainWindow`.
+
+### 4.4 `_set_ui_state` / `_on_connected` / `_on_disconnected`
+
+- Call `self._scope_panel.set_connected(connected)` alongside tabs.
+- On `_on_connected`, call `self._scope_panel.on_connected(session)` after session exists.
+- On `_on_disconnected`, call `self._scope_panel.on_disconnected()`.
+
+### 4.5 Replace `_on_capture`, `_on_vel_capture`, `_on_start_continuous`, `_on_vel_start_continuous`
+
+Implement **two** handlers (or one with a branch only on continuous vs single):
+
+**Single capture**
+
+1. `self._worker.submit(Command.CONFIGURE_SCOPE, view=..., sample_time=1, trigger=scope.trigger_enabled(), trigger_level=scope.trigger_level_counts())`
+2. `self._worker.submit(Command.CAPTURE, timeout=10.0)`
+
+**Continuous start**
+
+1. `self._plot.clear()`
+2. Same `CONFIGURE_SCOPE` as above
+3. `self._worker.submit(Command.CAPTURE_CONTINUOUS_START, timeout=10.0)`
+
+`CONFIGURE_SCOPE` kwargs must carry enough for `capture.py` to configure channels + trigger (see §5–6).
+
+### 4.6 Perturbation + scope configure
+
+Today:
+
+```385:396:pyx2ctune/gui/main_window.py
+    def _on_start_perturbation(self, axis: str, amplitude: float,
+                               halfperiod: float) -> None:
+        ct = self._current_tab
+        self._worker.submit(
+            Command.CONFIGURE_SCOPE, axis=axis, sample_time=1,
+            trigger=ct.trigger_enabled(),
+            trigger_level=ct.trigger_level(),
+        )
+```
+
+**Change** to use **ScopePanel** for trigger only:
+
+- `trigger=self._scope_panel.trigger_enabled()`
+- `trigger_level=self._scope_panel.trigger_level_counts()`  
+- **Channels**: either pass `axis=axis` (current loop configure) **or** pass `view="current_q"|"current_d"` derived from `axis` so it stays consistent with presets. Recommended: **`axis` from tab** (minimal behavior change) and map to `configure_current_loop(axis=...)` inside worker.
+
+Similarly `_on_vel_start_perturbation`: keep `configure_velocity_loop` behavior; pass trigger from `ScopePanel` only.
+
+### 4.7 `continuous_started` / `continuous_stopped`
+
+Today both tabs subscribe. **Remove** tab connections; connect **only** to `ScopePanel`:
+
+```238:248:pyx2ctune/gui/main_window.py
+        self._worker.continuous_started.connect(ct.on_continuous_started)
+        self._worker.continuous_stopped.connect(ct.on_continuous_stopped)
+        ...
+        self._worker.continuous_started.connect(vt.on_continuous_started)
+        self._worker.continuous_stopped.connect(vt.on_continuous_stopped)
+```
+
+→ `self._worker.continuous_started.connect(self._scope_panel.on_continuous_started)` (etc.).
+
+### 4.8 Settings
+
+In `_save_settings` / `_restore_settings`, add keys e.g. `scope/view`, `scope/trigger_enabled`, `scope/trigger_level` (type-aware: you may store one float and restore per-view, or store per-view dict — simplest is one global level and restore when combo matches).
+
+Call `self._scope_panel.save_settings(s)` / `restore_settings(s)` from `MainWindow`.
+
+---
+
+## 5. `pyx2ctune/capture.py`
+
+### 5.1 Configuration API
+
+**Preferred:** one entry point, e.g. `configure_view(view_id: str, *, sample_time, trigger, trigger_level, axis: str | None = None)` where:
+
+- `current_q` / `current_d` → same bodies as today’s `configure_current_loop("q"|"d")`.
+- `velocity` → same as `configure_velocity_loop()`.
+- `open_*` → new channel maps; `clear_all_scope_channel`, `add_scope_channel` in fixed order; `TriggerConfig` on the preset’s trigger variable.
+
+You can keep `configure_current_loop` / `configure_velocity_loop` as thin wrappers that call `configure_view` to limit diff size.
+
+**Internal state** to extend:
+
+- `_loop_type: str` — today `"current"` | `"velocity"`; add `"open_voltage"` | `"open_current"` (or one `"open_loop"` plus `metadata["open_mode"]`).
+- `_configured_vars`: keep dict with keys `measured`, `reference`, `output` (third channel) mapping to ELF names — **same keys** `capture_frame` already uses for velocity vs current branching.
+
+For open-loop presets, **assign roles** so `capture_frame` stays mechanical:
+
+- **open_voltage**: `measured="motor.vdq.d"`, `reference="motor.vdq.q"` (trigger on ref), `output="motor.idq.q"`.
+- **open_current**: `measured="motor.idq.d"`, `reference="motor.idq.q"` (trigger), `output="motor.omegaElectrical"`.
+
+### 5.2 `capture_frame` and unit conversion
+
+Extend the block that sets `is_velocity` and conversion (today ~287–358) to a small dispatch:
+
+- **current** — existing A + V on third channel.
+- **velocity** — existing RPM + A on output.
+- **open_voltage** — convert d/q voltage using `_PARAM_FULLSCALE_VOLTAGE`; `idq.q` using `_PARAM_FULLSCALE_CURRENT` for the third trace.
+- **open_current** — convert d/q current with fullscale current; `omegaElectrical` with fullscale velocity (same as velocity measured path).
+
+Set `StepResponse` fields consistently:
+
+- `reference_units`, `measured_units`, `output_units` / `voltage_units` so `PlotWidget` can label axes.
+
+### 5.3 `gains` dict in `StepResponse`
+
+Today gains come from current or velocity PI. For open-loop views, `try/except` can leave `gains={}` or optionally attach harness metadata — not required for plotting.
+
+---
+
+## 6. `pyx2ctune/gui/workers.py`
+
+### 6.1 Command enum
+
+- **Option A (clean):** Remove `CONFIGURE_VELOCITY_SCOPE`; use only `CONFIGURE_SCOPE` with `view: str` (or enum).
+- **Option B (transitional):** Keep both; implement `_do_configure_velocity_scope` as `self._do_configure_scope(view="velocity", ...)`.
+
+Update `_dispatch` accordingly.
+
+### 6.2 `_do_configure_scope`
+
+Signature like:
+
+`def _do_configure_scope(self, view: str, sample_time: int = 1, trigger: bool = True, trigger_level: float = 0, axis: str | None = None) -> None`
+
+- If you keep perturbation-only `axis` without view: when `view` is omitted and `axis` is set, treat as current loop (backward compatible with today’s `CONFIGURE_SCOPE`).
+
+Implementation: `self._session.capture.configure_view(view, sample_time=..., trigger=..., trigger_level=...)` (or map view string to existing methods).
+
+Status string should mention view name for the status bar.
+
+---
+
+## 7. `pyx2ctune/gui/plot_widget.py`
+
+Today only `loop_type == "velocity"` vs else (`current`) drives labels:
+
+```114:128:pyx2ctune/gui/plot_widget.py
+        is_velocity = response.loop_type == "velocity"
+        if is_velocity:
+            ax_c.set_ylabel(...)
+            ax_v.set_ylabel(...)
+        else:
+            ax_c.set_ylabel(
+                f"I{response.axis} ({response.current_units})",
+            )
+            ax_v.set_ylabel(
+                f"V{response.axis} ({response.voltage_units})",
+            )
+```
+
+Add branches (or a small table keyed by `loop_type` / `metadata["plot_profile"]`) for:
+
+- **open_voltage**: top subplot = Vd/Vq (or “DQ voltage”), bottom = Iq.
+- **open_current**: top = Id/Iq, bottom = electrical speed.
+
+Adjust `title` construction similarly (don’t show “Kp/Ki” if `gains` empty, or keep if present).
+
+---
+
+## 8. Testing and manual checklist
+
+- Connect → each View → Single capture with trigger on/off and level sanity.
+- Continuous start/stop; Cancel during single wait.
+- Current tab: perturbation still starts and triggers align with ScopePanel level.
+- Velocity tab: same.
+- Open loop tab: force voltage/current modes as today; capture with open-loop views.
+- Disconnect mid-capture: buttons reset; worker cancel still works.
+- QSettings: view and trigger persist across restart.
+
+---
+
+## 9. Risk / design decision (short)
+
+| Issue | Recommendation |
+|--------|----------------|
+| Perturbation axis vs View “Current Loop (d-axis)” mismatch | Keep **perturbation** scope configure driven by **tab axis** (and velocity preset for vel perturbation); Scope **View** drives **only** explicit Single/Continuous from `ScopePanel`. Optionally later: auto-select combo when perturbation axis changes. |
+| Two `CONFIGURE_SCOPE` meanings | Unify on `view` + optional `axis` for backward compat inside worker one week, then drop `axis`-only path. |
+| `StepResponse.axis` for open loop | Set to a sentinel like `"open"` or use `metadata` only; ensure `plot_widget` does not assume `q`/`d` for open profiles. |
+
+---
+
+This plan maps directly onto your listed files: **new** `scope_panel.py`; **strip** capture from `current_tab.py` / `velocity_tab.py`; **rewire** `main_window.py`; **extend** `capture.py` + `plot_widget.py`; **consolidate** configure in `workers.py`. If you want Agent mode next, the implementation can follow this order: `capture.py` (configure + units) → `workers.py` → `scope_panel.py` → tab surgery → `main_window.py` → `plot_widget.py` → settings polish.

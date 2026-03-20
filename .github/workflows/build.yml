@@ -59,11 +59,47 @@ jobs:
           hdiutil create -volname pyx2ctune -srcfolder dist/dmg \
             -ov -format UDZO dist/${{ matrix.artifact }}.dmg
 
-      - name: Package (Linux)
+      - name: Package (Linux tar.gz)
         if: runner.os == 'Linux'
         run: |
           cd dist
           tar czf ${{ matrix.artifact }}.tar.gz pyx2ctune/
+
+      - name: Package (Linux .deb)
+        if: runner.os == 'Linux'
+        run: |
+          PKG=dist/deb-staging
+          VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          mkdir -p $PKG/opt/pyx2ctune
+          cp -R dist/pyx2ctune/* $PKG/opt/pyx2ctune/
+          mkdir -p $PKG/usr/local/bin
+          ln -s /opt/pyx2ctune/pyx2ctune $PKG/usr/local/bin/pyx2ctune
+          mkdir -p $PKG/usr/share/applications
+          cat > $PKG/usr/share/applications/pyx2ctune.desktop <<'DESKTOP'
+          [Desktop Entry]
+          Name=pyX2Ctune
+          Comment=MCAF motor control tuning tool
+          Exec=/opt/pyx2ctune/pyx2ctune
+          Terminal=false
+          Type=Application
+          Categories=Development;Engineering;
+          DESKTOP
+          sed -i 's/^          //' $PKG/usr/share/applications/pyx2ctune.desktop
+          mkdir -p $PKG/DEBIAN
+          cat > $PKG/DEBIAN/control <<EOF
+          Package: pyx2ctune
+          Version: ${VERSION}
+          Section: electronics
+          Priority: optional
+          Architecture: amd64
+          Depends: libxcb-xinerama0, libxcb-cursor0, libxkbcommon-x11-0, libegl1
+          Maintainer: Microchip Technology <support@microchip.com>
+          Description: MCAF motor control tuning tool
+           GUI application for PI gain tuning of Microchip MCAF
+           motor control firmware using pyX2Cscope.
+          EOF
+          sed -i 's/^          //' $PKG/DEBIAN/control
+          dpkg-deb --build $PKG dist/${{ matrix.artifact }}.deb
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
@@ -80,6 +116,7 @@ jobs:
             dist/${{ matrix.artifact }}.tar.gz
             dist/${{ matrix.artifact }}.zip
             dist/${{ matrix.artifact }}.dmg
+            dist/${{ matrix.artifact }}.deb
 
   release:
     needs: build
@@ -102,3 +139,4 @@ jobs:
             artifacts/**/*.zip
             artifacts/**/*.tar.gz
             artifacts/**/*.dmg
+            artifacts/**/*.deb
