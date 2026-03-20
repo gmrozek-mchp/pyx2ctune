@@ -78,9 +78,11 @@ class TuningSession:
         from pyx2ctune.capture import ScopeCapture
         from pyx2ctune.current_tuning import CurrentTuning
         from pyx2ctune.test_harness import TestHarness
+        from pyx2ctune.velocity_tuning import VelocityTuning
 
         self.test_harness = TestHarness(self)
         self.current = CurrentTuning(self)
+        self.velocity = VelocityTuning(self)
         self.capture = ScopeCapture(self)
 
     @property

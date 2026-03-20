@@ -46,33 +46,48 @@ def plot_step_response(
         gridspec_kw={"height_ratios": [2, 1]},
     )
 
-    # Current subplot
+    is_velocity = response.loop_type == "velocity"
+
     ax_current.plot(time_ms, response.reference, "r-", linewidth=1.0,
                     label="Reference", alpha=0.8)
     ax_current.plot(time_ms, response.measured, "b-", linewidth=1.0,
                     label="Measured")
-    ax_current.set_ylabel(f"I{response.axis} ({response.current_units})")
+    if is_velocity:
+        ax_current.set_ylabel(
+            f"Velocity ({response.measured_units or 'counts'})",
+        )
+    else:
+        ax_current.set_ylabel(
+            f"I{response.axis} ({response.current_units})",
+        )
     ax_current.legend(loc="upper right", fontsize=8)
     ax_current.grid(True, alpha=0.3)
 
-    # Voltage subplot
     ax_voltage.plot(time_ms, response.voltage, "g-", linewidth=1.0,
-                    label="Voltage")
-    ax_voltage.set_ylabel(f"V{response.axis} ({response.voltage_units})")
+                    label="Output")
+    if is_velocity:
+        ax_voltage.set_ylabel(
+            f"Iq output ({response.output_units or 'counts'})",
+        )
+    else:
+        ax_voltage.set_ylabel(
+            f"V{response.axis} ({response.voltage_units})",
+        )
     ax_voltage.set_xlabel("Time (ms)")
     ax_voltage.legend(loc="upper right", fontsize=8)
     ax_voltage.grid(True, alpha=0.3)
 
-    # Title
     if title is None:
         gains = response.gains
-        if gains:
-            title = (
-                f"{response.axis.upper()}-axis step response  |  "
-                f"Kp={gains.get('kp', '?'):.4g}  Ki={gains.get('ki', '?'):.4g}"
-            )
+        if is_velocity:
+            title = "Velocity loop step response"
         else:
             title = f"{response.axis.upper()}-axis step response"
+        if gains:
+            title += (
+                f"  |  Kp={gains.get('kp', '?'):.4g}  "
+                f"Ki={gains.get('ki', '?'):.4g}"
+            )
 
     if metrics is not None and metrics.n_steps > 0:
         metrics_text = (

@@ -12,7 +12,8 @@ from matplotlib.backends.backend_qt5agg import (
     NavigationToolbar2QT as NavigationToolbar,
 )
 from matplotlib.figure import Figure
-from PyQt5.QtWidgets import QVBoxLayout, QWidget
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from pyx2ctune.analysis import StepMetrics
 from pyx2ctune.capture import StepResponse
@@ -46,6 +47,20 @@ class PlotWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._toolbar)
         layout.addWidget(self._canvas)
+
+        self._overlay = QLabel("Waiting for trigger\u2026", self)
+        self._overlay.setAlignment(Qt.AlignCenter)
+        self._overlay.setStyleSheet(
+            "QLabel {"
+            "  background-color: rgba(0, 0, 0, 160);"
+            "  color: #ffffff;"
+            "  font-size: 22px;"
+            "  font-weight: bold;"
+            "  border-radius: 12px;"
+            "  padding: 24px 48px;"
+            "}"
+        )
+        self._overlay.setVisible(False)
 
     def _setup_empty(self) -> None:
         for ax in (self._ax_current, self._ax_voltage):
@@ -96,8 +111,21 @@ class PlotWidget(QWidget):
 
         self._remove_annotations()
 
-        ax_c.set_ylabel(f"I{response.axis} ({response.current_units})")
-        ax_v.set_ylabel(f"V{response.axis} ({response.voltage_units})")
+        is_velocity = response.loop_type == "velocity"
+        if is_velocity:
+            ax_c.set_ylabel(
+                f"Velocity ({response.measured_units or 'counts'})",
+            )
+            ax_v.set_ylabel(
+                f"Iq output ({response.output_units or 'counts'})",
+            )
+        else:
+            ax_c.set_ylabel(
+                f"I{response.axis} ({response.current_units})",
+            )
+            ax_v.set_ylabel(
+                f"V{response.axis} ({response.voltage_units})",
+            )
         ax_v.set_xlabel("Time (ms)")
 
         ax_c.relim()
@@ -106,7 +134,10 @@ class PlotWidget(QWidget):
         ax_v.autoscale_view()
 
         gains = response.gains
-        title = f"{response.axis.upper()}-axis step response"
+        if is_velocity:
+            title = "Velocity loop step response"
+        else:
+            title = f"{response.axis.upper()}-axis step response"
         if gains:
             title += (
                 f"  |  Kp={gains.get('kp', 0):.4g}  "
@@ -172,6 +203,27 @@ class PlotWidget(QWidget):
                 fontsize=7, color="orange",
                 xytext=(5, 5), textcoords="offset points",
             )
+
+    def show_waiting(self, message: str = "Waiting for trigger\u2026") -> None:
+        self._overlay.setText(message)
+        self._overlay.adjustSize()
+        self._center_overlay()
+        self._overlay.setVisible(True)
+        self._overlay.raise_()
+
+    def hide_waiting(self) -> None:
+        self._overlay.setVisible(False)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if self._overlay.isVisible():
+            self._center_overlay()
+
+    def _center_overlay(self) -> None:
+        self._overlay.adjustSize()
+        x = (self.width() - self._overlay.width()) // 2
+        y = (self.height() - self._overlay.height()) // 2
+        self._overlay.move(x, y)
 
     def clear(self) -> None:
         """Reset the plot to its empty state."""

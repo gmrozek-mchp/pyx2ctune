@@ -14,6 +14,20 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, QThread, pyqtSignal, pyqtSlot, QMutex, QWaitCondition
 
+from pyx2ctune.test_harness import ForceState
+
+_MOTOR_STATES = {
+    0: "RESTART",
+    1: "STOPPED",
+    2: "STARTING",
+    3: "RUNNING",
+    4: "STOPPING",
+    5: "FAULT",
+    6: "TEST_DISABLE",
+    7: "TEST_ENABLE",
+    8: "TEST_RESTART",
+}
+
 
 class Command(Enum):
     CONNECT = auto()
@@ -21,11 +35,26 @@ class Command(Enum):
     READ_GAINS = auto()
     SET_GAINS = auto()
     ENTER_TEST_MODE = auto()
+    ENTER_VELOCITY_OVERRIDE_MODE = auto()
     EXIT_TEST_MODE = auto()
     START_PERTURBATION = auto()
     STOP_PERTURBATION = auto()
     CONFIGURE_SCOPE = auto()
     CAPTURE = auto()
+    READ_VELOCITY_GAINS = auto()
+    SET_VELOCITY_GAINS = auto()
+    SET_VELOCITY_COMMAND = auto()
+    START_VELOCITY_PERTURBATION = auto()
+    STOP_VELOCITY_PERTURBATION = auto()
+    CONFIGURE_VELOCITY_SCOPE = auto()
+    ENTER_FORCE_VOLTAGE_MODE = auto()
+    SET_OVERRIDES = auto()
+    SET_COMMUTATION_FREQ = auto()
+    SET_DQ_CURRENT = auto()
+    SET_DQ_VOLTAGE = auto()
+    FORCE_STATE = auto()
+    READ_HARNESS_STATUS = auto()
+    READ_MEASURED_SPEED = auto()
     CAPTURE_CONTINUOUS_START = auto()
     CAPTURE_CONTINUOUS_STOP = auto()
     _CONTINUOUS_FRAME = auto()
@@ -48,6 +77,19 @@ class SessionWorker(QObject):
     disconnected = pyqtSignal()
     gains_read = pyqtSignal(object)         # CurrentGains
     gains_set = pyqtSignal(object)          # CurrentGains
+    velocity_gains_read = pyqtSignal(object)   # VelocityGains
+    velocity_gains_set = pyqtSignal(object)    # VelocityGains
+    velocity_command_set = pyqtSignal()
+    velocity_perturbation_started = pyqtSignal()
+    velocity_perturbation_stopped = pyqtSignal()
+    force_voltage_entered = pyqtSignal(str)   # mode name
+    overrides_applied = pyqtSignal()
+    commutation_freq_set = pyqtSignal()
+    dq_current_set = pyqtSignal()
+    dq_voltage_set = pyqtSignal()
+    state_forced = pyqtSignal()
+    harness_status_read = pyqtSignal(str, int)  # mode_name, overrides
+    measured_speed_read = pyqtSignal(float, str)   # RPM, state_name
     test_mode_entered = pyqtSignal(str)     # operating mode name
     test_mode_exited = pyqtSignal()
     perturbation_started = pyqtSignal()
@@ -60,6 +102,9 @@ class SessionWorker(QObject):
     status = pyqtSignal(str)                # status bar text
     busy_changed = pyqtSignal(bool)         # True when working
 
+    capture_started = pyqtSignal()
+    capture_cancelled = pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._session = None
@@ -71,6 +116,7 @@ class SessionWorker(QObject):
         self._continuous_active = False
         self._continuous_frame_count = 0
         self._continuous_timeout = 10.0
+        self._capture_abort = threading.Event()
 
     @property
     def session(self):
@@ -81,6 +127,10 @@ class SessionWorker(QObject):
         self._queue.append(WorkItem(command, kwargs))
         self._condition.wakeOne()
         self._mutex.unlock()
+
+    def cancel_capture(self) -> None:
+        """Cancel a pending single capture (thread-safe)."""
+        self._capture_abort.set()
 
     def request_stop_continuous(self) -> None:
         """Signal the continuous capture loop to stop (thread-safe)."""
@@ -105,7 +155,10 @@ class SessionWorker(QObject):
             item = self._queue.pop(0)
             self._mutex.unlock()
 
-            is_bg = item.command == Command._CONTINUOUS_FRAME
+            is_bg = item.command in (
+                Command._CONTINUOUS_FRAME, Command.CAPTURE,
+                Command.READ_MEASURED_SPEED,
+            )
             if not is_bg:
                 self.busy_changed.emit(True)
             try:
@@ -134,12 +187,42 @@ class SessionWorker(QObject):
             self._do_set_gains(**kw)
         elif cmd == Command.ENTER_TEST_MODE:
             self._do_enter_test_mode()
+        elif cmd == Command.ENTER_VELOCITY_OVERRIDE_MODE:
+            self._do_enter_velocity_override_mode(**kw)
         elif cmd == Command.EXIT_TEST_MODE:
             self._do_exit_test_mode()
         elif cmd == Command.START_PERTURBATION:
             self._do_start_perturbation(**kw)
         elif cmd == Command.STOP_PERTURBATION:
             self._do_stop_perturbation()
+        elif cmd == Command.READ_VELOCITY_GAINS:
+            self._do_read_velocity_gains()
+        elif cmd == Command.SET_VELOCITY_GAINS:
+            self._do_set_velocity_gains(**kw)
+        elif cmd == Command.SET_VELOCITY_COMMAND:
+            self._do_set_velocity_command(**kw)
+        elif cmd == Command.START_VELOCITY_PERTURBATION:
+            self._do_start_velocity_perturbation(**kw)
+        elif cmd == Command.STOP_VELOCITY_PERTURBATION:
+            self._do_stop_velocity_perturbation()
+        elif cmd == Command.CONFIGURE_VELOCITY_SCOPE:
+            self._do_configure_velocity_scope(**kw)
+        elif cmd == Command.ENTER_FORCE_VOLTAGE_MODE:
+            self._do_enter_force_voltage_mode()
+        elif cmd == Command.SET_OVERRIDES:
+            self._do_set_overrides(**kw)
+        elif cmd == Command.SET_COMMUTATION_FREQ:
+            self._do_set_commutation_freq(**kw)
+        elif cmd == Command.SET_DQ_CURRENT:
+            self._do_set_dq_current(**kw)
+        elif cmd == Command.SET_DQ_VOLTAGE:
+            self._do_set_dq_voltage(**kw)
+        elif cmd == Command.FORCE_STATE:
+            self._do_force_state(**kw)
+        elif cmd == Command.READ_HARNESS_STATUS:
+            self._do_read_harness_status()
+        elif cmd == Command.READ_MEASURED_SPEED:
+            self._do_read_measured_speed()
         elif cmd == Command.CONFIGURE_SCOPE:
             self._do_configure_scope(**kw)
         elif cmd == Command.CAPTURE:
@@ -201,6 +284,19 @@ class SessionWorker(QObject):
         self.status.emit(f"Test mode: {mode.name}")
         self.test_mode_entered.emit(mode.name)
 
+    def _do_enter_velocity_override_mode(self, velocity_rpm: float = 0.0) -> None:
+        self.status.emit(f"Entering velocity override ({velocity_rpm:.0f} RPM)...")
+        th = self._session.test_harness
+        th.enable_guard()
+        th.set_override_flags(velocity_command=True)
+        self._session.velocity.set_velocity_command(velocity_rpm)
+        th.force_state(ForceState.RUN)
+        mode = th.get_operating_mode()
+        self.status.emit(
+            f"Test mode: {mode.name} (vel override, {velocity_rpm:.0f} RPM)"
+        )
+        self.test_mode_entered.emit(f"{mode.name} (vel override)")
+
     def _do_exit_test_mode(self) -> None:
         self.status.emit("Exiting test mode...")
         self._session.test_harness.exit_test_mode()
@@ -227,19 +323,149 @@ class SessionWorker(QObject):
         self.status.emit("Perturbation stopped")
         self.perturbation_stopped.emit()
 
-    def _do_configure_scope(self, axis: str, sample_time: int) -> None:
+    # ── Velocity commands ────────────────────────────────────────────
+
+    def _do_read_velocity_gains(self) -> None:
+        self.status.emit("Reading velocity gains...")
+        gains = self._session.velocity.get_gains()
+        self.status.emit(
+            f"Kwp={gains.kp:.6f} {gains.kp_units} (Q{gains.kp_shift})  "
+            f"Kwi={gains.ki:.4f} {gains.ki_units} (Q{gains.ki_shift})"
+        )
+        self.velocity_gains_read.emit(gains)
+
+    def _do_set_velocity_gains(self, kp: float, ki: float) -> None:
+        self.status.emit("Setting velocity gains...")
+        result = self._session.velocity.set_gains(kp=kp, ki=ki)
+        self.status.emit(
+            f"Set Kwp={result.kp:.6f} (Q{result.kp_shift})  "
+            f"Kwi={result.ki:.4f} (Q{result.ki_shift})"
+        )
+        self.velocity_gains_set.emit(result)
+
+    def _do_set_velocity_command(self, rpm: float) -> None:
+        self.status.emit(f"Setting velocity command: {rpm:.1f} RPM...")
+        self._session.velocity.set_velocity_command(rpm)
+        self.status.emit(f"Velocity command: {rpm:.1f} RPM")
+        self.velocity_command_set.emit()
+
+    def _do_start_velocity_perturbation(self, amplitude_rpm: float,
+                                        halfperiod_ms: float) -> None:
+        self.status.emit("Starting velocity perturbation...")
+        self._session.velocity.setup_velocity_perturbation(
+            amplitude_rpm=amplitude_rpm, halfperiod_ms=halfperiod_ms,
+        )
+        self.status.emit(
+            f"Velocity perturbation: {amplitude_rpm:.1f} RPM, "
+            f"T/2={halfperiod_ms:.1f} ms"
+        )
+        self.velocity_perturbation_started.emit()
+
+    def _do_stop_velocity_perturbation(self) -> None:
+        try:
+            self._session.velocity.stop_perturbation()
+        except Exception:
+            pass
+        self.status.emit("Velocity perturbation stopped")
+        self.velocity_perturbation_stopped.emit()
+
+    def _do_configure_velocity_scope(self, sample_time: int = 1,
+                                     trigger: bool = True,
+                                     trigger_level: float = 0) -> None:
+        self.status.emit("Configuring velocity scope...")
+        self._session.capture.configure_velocity_loop(
+            sample_time=sample_time,
+            trigger=trigger, trigger_level=trigger_level,
+        )
+        trig_str = f"trigger={'on' if trigger else 'off'}"
+        self.status.emit(f"Scope configured: velocity loop ({trig_str})")
+        self.scope_configured.emit()
+
+    # ── Open-loop / harness commands ──────────────────────────────────
+
+    def _do_enter_force_voltage_mode(self) -> None:
+        self.status.emit("Entering force voltage DQ mode...")
+        self._session.test_harness.enter_force_voltage_mode()
+        mode = self._session.test_harness.get_operating_mode()
+        self.status.emit(f"Test mode: {mode.name}")
+        self.force_voltage_entered.emit(mode.name)
+        self.test_mode_entered.emit(mode.name)
+
+    def _do_set_overrides(self, flags: dict) -> None:
+        self.status.emit("Applying override flags...")
+        self._session.test_harness.set_override_flags(**flags)
+        self.status.emit("Override flags applied")
+        self.overrides_applied.emit()
+
+    def _do_set_commutation_freq(self, omega: int) -> None:
+        self.status.emit(f"Setting commutation frequency: {omega}...")
+        self._session.test_harness.set_commutation_frequency(omega)
+        self.status.emit(f"Commutation frequency: {omega} counts")
+        self.commutation_freq_set.emit()
+
+    def _do_set_dq_current(self, d: int, q: int) -> None:
+        self.status.emit(f"Setting dq current: d={d}, q={q}...")
+        self._session.test_harness.set_dq_current(d, q)
+        self.status.emit(f"DQ current: d={d}, q={q}")
+        self.dq_current_set.emit()
+
+    def _do_set_dq_voltage(self, d: int, q: int) -> None:
+        self.status.emit(f"Setting dq voltage: d={d}, q={q}...")
+        self._session.test_harness.set_dq_voltage(d, q)
+        self.status.emit(f"DQ voltage: d={d}, q={q}")
+        self.dq_voltage_set.emit()
+
+    def _do_force_state(self, transition: int) -> None:
+        from pyx2ctune.test_harness import ForceState
+        name = ForceState(transition).name
+        self.status.emit(f"Forcing state: {name}...")
+        self._session.test_harness.force_state(transition)
+        self.status.emit(f"State forced: {name}")
+        self.state_forced.emit()
+
+    def _do_read_harness_status(self) -> None:
+        self.status.emit("Reading harness status...")
+        mode = self._session.test_harness.get_operating_mode()
+        overrides = self._session.test_harness.get_overrides()
+        self.status.emit(
+            f"Mode: {mode.name}, Overrides: 0x{overrides:04X}",
+        )
+        self.harness_status_read.emit(mode.name, overrides)
+
+    def _do_read_measured_speed(self) -> None:
+        rpm = self._session.velocity.get_measured_velocity()
+        state_val = int(self._session.read_variable("motor.state"))
+        state_name = _MOTOR_STATES.get(state_val, f"UNKNOWN({state_val})")
+        self.measured_speed_read.emit(rpm, state_name)
+
+    # ── Scope commands ────────────────────────────────────────────────
+
+    def _do_configure_scope(self, axis: str, sample_time: int,
+                            trigger: bool = True,
+                            trigger_level: float = 0) -> None:
         self.status.emit("Configuring scope...")
         self._session.capture.configure_current_loop(
             axis=axis, sample_time=sample_time,
+            trigger=trigger, trigger_level=trigger_level,
         )
-        self.status.emit(f"Scope configured: {axis}-axis")
+        trig_str = f"trigger={'on' if trigger else 'off'}"
+        self.status.emit(f"Scope configured: {axis}-axis ({trig_str})")
         self.scope_configured.emit()
 
     def _do_capture(self, timeout: float = 10.0) -> None:
         from pyx2ctune.analysis import compute_metrics
 
-        self.status.emit("Capturing scope data...")
-        response = self._session.capture.capture_frame(timeout=timeout)
+        self._capture_abort.clear()
+        self.capture_started.emit()
+        self.status.emit("Waiting for trigger...")
+        try:
+            response = self._session.capture.capture_frame(
+                timeout=timeout, abort_event=self._capture_abort,
+            )
+        except InterruptedError:
+            self.status.emit("Capture cancelled")
+            self.capture_cancelled.emit()
+            return
         metrics = compute_metrics(response)
         self.status.emit(
             f"Captured {len(response.measured)} samples  "

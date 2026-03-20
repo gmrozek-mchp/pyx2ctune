@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import serial.tools.list_ports
-from PyQt5.QtCore import Qt, QSettings, QThread
+from PyQt5.QtCore import Qt, QSettings, QThread, QTimer
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QApplication,
     QComboBox,
-    QDoubleSpinBox,
     QFileDialog,
-    QFormLayout,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -24,11 +20,15 @@ from PyQt5.QtWidgets import (
     QSpinBox,
     QSplitter,
     QStatusBar,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from pyx2ctune.gui.plot_widget import PlotWidget
+from pyx2ctune.gui.tabs.current_tab import CurrentLoopTab
+from pyx2ctune.gui.tabs.openloop_tab import OpenLoopTab
+from pyx2ctune.gui.tabs.velocity_tab import VelocityLoopTab
 from pyx2ctune.gui.workers import Command, SessionWorker
 
 _MONO = QFont()
@@ -39,7 +39,7 @@ _MONO.setPointSize(10)
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("pyx2ctune -- Current Loop Tuning")
+        self.setWindowTitle("pyx2ctune -- Motor Tuning")
         self.setMinimumSize(1100, 700)
 
         self._session = None
@@ -50,6 +50,10 @@ class MainWindow(QMainWindow):
         self._connect_signals()
         self._set_ui_state(connected=False)
         self._restore_settings()
+
+        self._speed_timer = QTimer(self)
+        self._speed_timer.setInterval(500)
+        self._speed_timer.timeout.connect(self._poll_speed)
 
     # ── UI Construction ───────────────────────────────────────────────
 
@@ -65,15 +69,16 @@ class MainWindow(QMainWindow):
         splitter = self._splitter = QSplitter(Qt.Horizontal)
         splitter.setChildrenCollapsible(False)
 
-        left = QWidget()
-        left_layout = QVBoxLayout(left)
-        left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.addWidget(self._build_gains_panel())
-        left_layout.addWidget(self._build_test_harness_panel())
-        left_layout.addWidget(self._build_perturbation_panel())
-        left_layout.addWidget(self._build_capture_panel())
-        left_layout.addStretch()
+        # Left: tabbed control panels
+        self._tabs = QTabWidget()
+        self._current_tab = CurrentLoopTab()
+        self._velocity_tab = VelocityLoopTab()
+        self._openloop_tab = OpenLoopTab()
+        self._tabs.addTab(self._current_tab, "Current Loop")
+        self._tabs.addTab(self._velocity_tab, "Velocity Loop")
+        self._tabs.addTab(self._openloop_tab, "Open Loop")
 
+        # Right: shared plot + metrics
         right = QWidget()
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
@@ -81,11 +86,11 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(self._plot, stretch=3)
         right_layout.addWidget(self._build_metrics_panel(), stretch=0)
 
-        splitter.addWidget(left)
+        splitter.addWidget(self._tabs)
         splitter.addWidget(right)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
-        splitter.setSizes([340, 760])
+        splitter.setSizes([360, 740])
 
         root.addWidget(splitter, stretch=1)
 
@@ -141,135 +146,6 @@ class MainWindow(QMainWindow):
         self._refresh_ports()
         return grp
 
-    def _build_gains_panel(self) -> QGroupBox:
-        grp = QGroupBox("PI Gains")
-        layout = QVBoxLayout(grp)
-
-        # Current gains readback
-        read_layout = QFormLayout()
-        self._cur_kp_label = QLabel("--")
-        self._cur_kp_label.setFont(_MONO)
-        self._cur_ki_label = QLabel("--")
-        self._cur_ki_label.setFont(_MONO)
-        read_layout.addRow("Kp:", self._cur_kp_label)
-        read_layout.addRow("Ki:", self._cur_ki_label)
-        layout.addLayout(read_layout)
-
-        self._read_gains_btn = QPushButton("Read Gains from Board")
-        layout.addWidget(self._read_gains_btn)
-
-        # Separator
-        layout.addSpacing(8)
-
-        # New gains input
-        set_layout = QFormLayout()
-        self._kp_spin = QDoubleSpinBox()
-        self._kp_spin.setRange(0.0, 100.0)
-        self._kp_spin.setDecimals(4)
-        self._kp_spin.setSingleStep(0.1)
-        self._kp_spin.setSuffix("  V/A")
-        self._kp_spin.setValue(0.0)
-
-        self._ki_spin = QDoubleSpinBox()
-        self._ki_spin.setRange(0.0, 100000.0)
-        self._ki_spin.setDecimals(1)
-        self._ki_spin.setSingleStep(100.0)
-        self._ki_spin.setSuffix("  V/A/s")
-        self._ki_spin.setValue(0.0)
-
-        set_layout.addRow("New Kp:", self._kp_spin)
-        set_layout.addRow("New Ki:", self._ki_spin)
-        layout.addLayout(set_layout)
-
-        self._set_gains_btn = QPushButton("Set Gains")
-        layout.addWidget(self._set_gains_btn)
-
-        return grp
-
-    def _build_test_harness_panel(self) -> QGroupBox:
-        grp = QGroupBox("Test Harness")
-        layout = QVBoxLayout(grp)
-
-        status_layout = QHBoxLayout()
-        status_layout.addWidget(QLabel("Mode:"))
-        self._mode_label = QLabel("--")
-        self._mode_label.setFont(_MONO)
-        status_layout.addWidget(self._mode_label)
-        status_layout.addSpacing(16)
-        status_layout.addWidget(QLabel("Guard:"))
-        self._guard_label = QLabel("--")
-        self._guard_label.setFont(_MONO)
-        status_layout.addWidget(self._guard_label)
-        status_layout.addStretch()
-        layout.addLayout(status_layout)
-
-        btn_layout = QHBoxLayout()
-        self._enter_test_btn = QPushButton("Enter Test Mode")
-        self._exit_test_btn = QPushButton("Exit Test Mode")
-        btn_layout.addWidget(self._enter_test_btn)
-        btn_layout.addWidget(self._exit_test_btn)
-        layout.addLayout(btn_layout)
-
-        return grp
-
-    def _build_perturbation_panel(self) -> QGroupBox:
-        grp = QGroupBox("Perturbation")
-        layout = QVBoxLayout(grp)
-
-        form = QFormLayout()
-        self._axis_combo = QComboBox()
-        self._axis_combo.addItems(["q", "d"])
-        form.addRow("Axis:", self._axis_combo)
-
-        self._amplitude_spin = QDoubleSpinBox()
-        self._amplitude_spin.setRange(0.0, 50.0)
-        self._amplitude_spin.setValue(0.0)
-        self._amplitude_spin.setDecimals(3)
-        self._amplitude_spin.setSingleStep(0.1)
-        self._amplitude_spin.setSuffix("  A")
-        form.addRow("Amplitude:", self._amplitude_spin)
-
-        self._halfperiod_spin = QDoubleSpinBox()
-        self._halfperiod_spin.setRange(0.0, 500.0)
-        self._halfperiod_spin.setValue(0.0)
-        self._halfperiod_spin.setDecimals(2)
-        self._halfperiod_spin.setSingleStep(0.5)
-        self._halfperiod_spin.setSuffix("  ms")
-        form.addRow("Half-period:", self._halfperiod_spin)
-
-        layout.addLayout(form)
-
-        btn_layout = QHBoxLayout()
-        self._start_perturb_btn = QPushButton("Start")
-        self._stop_perturb_btn = QPushButton("Stop")
-        btn_layout.addWidget(self._start_perturb_btn)
-        btn_layout.addWidget(self._stop_perturb_btn)
-        layout.addLayout(btn_layout)
-
-        return grp
-
-    def _build_capture_panel(self) -> QGroupBox:
-        grp = QGroupBox("Capture")
-        layout = QHBoxLayout(grp)
-
-        self._capture_btn = QPushButton("Single")
-        self._capture_btn.setMinimumHeight(36)
-        layout.addWidget(self._capture_btn)
-
-        self._continuous_start_btn = QPushButton("Start")
-        self._continuous_start_btn.setMinimumHeight(36)
-        font = self._continuous_start_btn.font()
-        font.setBold(True)
-        self._continuous_start_btn.setFont(font)
-        layout.addWidget(self._continuous_start_btn)
-
-        self._continuous_stop_btn = QPushButton("Stop")
-        self._continuous_stop_btn.setMinimumHeight(36)
-        self._continuous_stop_btn.setEnabled(False)
-        layout.addWidget(self._continuous_stop_btn)
-
-        return grp
-
     def _build_metrics_panel(self) -> QGroupBox:
         grp = QGroupBox("Metrics")
         layout = QGridLayout(grp)
@@ -308,35 +184,82 @@ class MainWindow(QMainWindow):
         self._connect_btn.clicked.connect(self._on_connect)
         self._disconnect_btn.clicked.connect(self._on_disconnect)
 
-        # Gains
-        self._read_gains_btn.clicked.connect(self._on_read_gains)
-        self._set_gains_btn.clicked.connect(self._on_set_gains)
+        # Current loop tab → worker
+        ct = self._current_tab
+        ct.read_gains_requested.connect(self._on_read_gains)
+        ct.set_gains_requested.connect(self._on_set_gains)
+        ct.enter_test_requested.connect(self._on_enter_test)
+        ct.exit_test_requested.connect(self._on_exit_test)
+        ct.start_perturbation_requested.connect(self._on_start_perturbation)
+        ct.stop_perturbation_requested.connect(self._on_stop_perturbation)
+        ct.capture_requested.connect(self._on_capture)
+        ct.cancel_capture_requested.connect(self._on_cancel_capture)
+        ct.continuous_start_requested.connect(self._on_start_continuous)
+        ct.continuous_stop_requested.connect(self._on_stop_continuous)
 
-        # Test harness
-        self._enter_test_btn.clicked.connect(self._on_enter_test)
-        self._exit_test_btn.clicked.connect(self._on_exit_test)
+        # Velocity loop tab → worker
+        vt = self._velocity_tab
+        vt.read_gains_requested.connect(self._on_vel_read_gains)
+        vt.set_gains_requested.connect(self._on_vel_set_gains)
+        vt.set_velocity_requested.connect(self._on_vel_set_command)
+        vt.enter_test_requested.connect(self._on_vel_enter_test)
+        vt.exit_test_requested.connect(self._on_exit_test)
+        vt.start_perturbation_requested.connect(self._on_vel_start_perturbation)
+        vt.stop_perturbation_requested.connect(self._on_vel_stop_perturbation)
+        vt.capture_requested.connect(self._on_vel_capture)
+        vt.cancel_capture_requested.connect(self._on_cancel_capture)
+        vt.continuous_start_requested.connect(self._on_vel_start_continuous)
+        vt.continuous_stop_requested.connect(self._on_stop_continuous)
 
-        # Perturbation
-        self._start_perturb_btn.clicked.connect(self._on_start_perturbation)
-        self._stop_perturb_btn.clicked.connect(self._on_stop_perturbation)
+        # Open loop tab → worker
+        ol = self._openloop_tab
+        ol.enter_force_voltage_requested.connect(self._on_ol_enter_voltage)
+        ol.enter_force_current_requested.connect(
+            lambda: self._on_enter_test("force_current", 0.0),
+        )
+        ol.exit_test_requested.connect(self._on_exit_test)
+        ol.set_overrides_requested.connect(self._on_ol_set_overrides)
+        ol.set_commutation_freq_requested.connect(self._on_ol_set_omega)
+        ol.set_dq_current_requested.connect(self._on_ol_set_dq_current)
+        ol.set_dq_voltage_requested.connect(self._on_ol_set_dq_voltage)
+        ol.force_state_requested.connect(self._on_ol_force_state)
+        ol.read_status_requested.connect(self._on_ol_read_status)
 
-        # Capture
-        self._capture_btn.clicked.connect(self._on_capture)
-        self._continuous_start_btn.clicked.connect(self._on_start_continuous)
-        self._continuous_stop_btn.clicked.connect(self._on_stop_continuous)
-
-        # Worker results
+        # Worker results → tabs
         self._worker.connected.connect(self._on_connected)
         self._worker.disconnected.connect(self._on_disconnected)
-        self._worker.gains_read.connect(self._on_gains_read)
-        self._worker.gains_set.connect(self._on_gains_set)
-        self._worker.test_mode_entered.connect(self._on_test_mode_entered)
-        self._worker.test_mode_exited.connect(self._on_test_mode_exited)
-        self._worker.perturbation_started.connect(self._on_perturbation_started)
-        self._worker.perturbation_stopped.connect(self._on_perturbation_stopped)
+        self._worker.gains_read.connect(ct.on_gains_read)
+        self._worker.gains_set.connect(ct.on_gains_set)
+        self._worker.test_mode_entered.connect(ct.on_test_mode_entered)
+        self._worker.test_mode_exited.connect(ct.on_test_mode_exited)
+        self._worker.perturbation_started.connect(ct.on_perturbation_started)
+        self._worker.perturbation_stopped.connect(ct.on_perturbation_stopped)
         self._worker.capture_done.connect(self._on_capture_done)
-        self._worker.continuous_started.connect(self._on_continuous_started)
-        self._worker.continuous_stopped.connect(self._on_continuous_stopped)
+        self._worker.continuous_started.connect(ct.on_continuous_started)
+        self._worker.continuous_stopped.connect(ct.on_continuous_stopped)
+        # Worker results → velocity tab
+        self._worker.velocity_gains_read.connect(vt.on_gains_read)
+        self._worker.velocity_gains_set.connect(vt.on_gains_set)
+        self._worker.test_mode_entered.connect(vt.on_test_mode_entered)
+        self._worker.test_mode_exited.connect(vt.on_test_mode_exited)
+        self._worker.velocity_perturbation_started.connect(vt.on_perturbation_started)
+        self._worker.velocity_perturbation_stopped.connect(vt.on_perturbation_stopped)
+        self._worker.continuous_started.connect(vt.on_continuous_started)
+        self._worker.continuous_stopped.connect(vt.on_continuous_stopped)
+
+        # Worker results → open loop tab
+        self._worker.test_mode_entered.connect(ol.on_test_mode_entered)
+        self._worker.test_mode_exited.connect(ol.on_test_mode_exited)
+        self._worker.force_voltage_entered.connect(ol.on_test_mode_entered)
+        self._worker.harness_status_read.connect(ol.on_status_read)
+
+        # Speed readback
+        self._worker.measured_speed_read.connect(ct.on_speed_read)
+
+        # Worker capture lifecycle
+        self._worker.capture_started.connect(self._on_capture_started)
+        self._worker.capture_cancelled.connect(self._on_capture_cancelled)
+
         self._worker.error.connect(self._on_error)
         self._worker.status.connect(self._status_bar.showMessage)
         self._worker.busy_changed.connect(self._on_busy_changed)
@@ -353,15 +276,9 @@ class MainWindow(QMainWindow):
         self._connect_btn.setEnabled(not connected)
         self._disconnect_btn.setEnabled(connected)
 
-        self._read_gains_btn.setEnabled(connected)
-        self._set_gains_btn.setEnabled(connected)
-        self._enter_test_btn.setEnabled(connected)
-        self._exit_test_btn.setEnabled(connected)
-        self._start_perturb_btn.setEnabled(connected)
-        self._stop_perturb_btn.setEnabled(connected)
-        self._capture_btn.setEnabled(connected)
-        self._continuous_start_btn.setEnabled(connected)
-        self._continuous_stop_btn.setEnabled(False)
+        self._current_tab.set_connected(connected)
+        self._velocity_tab.set_connected(connected)
+        self._openloop_tab.set_connected(connected)
 
     # ── Slots: Connection ─────────────────────────────────────────────
 
@@ -369,8 +286,11 @@ class MainWindow(QMainWindow):
         self._port_combo.clear()
         ports = serial.tools.list_ports.comports()
         for p in sorted(ports, key=lambda x: x.device):
-            desc = f"{p.device}" if not p.description or p.description == "n/a" \
+            desc = (
+                f"{p.device}"
+                if not p.description or p.description == "n/a"
                 else f"{p.device} - {p.description}"
+            )
             self._port_combo.addItem(desc, p.device)
 
     def _browse_elf(self) -> None:
@@ -393,8 +313,9 @@ class MainWindow(QMainWindow):
         port = self._port_combo.currentData() or self._port_combo.currentText()
         elf = self._elf_edit.text().strip()
         if not port or not elf:
-            QMessageBox.warning(self, "Missing fields",
-                                "Port and ELF file are required.")
+            QMessageBox.warning(
+                self, "Missing fields", "Port and ELF file are required.",
+            )
             return
         params = self._params_edit.text().strip() or None
         self._connect_btn.setEnabled(False)
@@ -411,134 +332,181 @@ class MainWindow(QMainWindow):
     def _on_connected(self, session) -> None:
         self._session = session
         self._set_ui_state(connected=True)
-        self._mode_label.setText("--")
-        self._guard_label.setText("Inactive")
-
-        defaults = session.current.get_default_perturbation()
-        self._amplitude_spin.setValue(defaults["amplitude_a"])
-        self._halfperiod_spin.setValue(defaults["halfperiod_ms"])
+        self._current_tab.on_connected(session)
+        self._velocity_tab.on_connected(session)
+        self._openloop_tab.on_connected(session)
 
         self._worker.submit(Command.STOP_PERTURBATION)
         self._worker.submit(Command.EXIT_TEST_MODE)
         self._worker.submit(
-            Command.READ_GAINS, axis=self._axis_combo.currentText(),
+            Command.READ_GAINS,
+            axis=self._current_tab.current_axis(),
         )
+        self._speed_timer.start()
 
     def _on_disconnected(self) -> None:
+        self._speed_timer.stop()
         self._session = None
         self._set_ui_state(connected=False)
-        self._mode_label.setText("--")
-        self._guard_label.setText("--")
-        self._cur_kp_label.setText("--")
-        self._cur_ki_label.setText("--")
-        self._kp_spin.setValue(0.0)
-        self._ki_spin.setValue(0.0)
-        self._amplitude_spin.setValue(0.0)
-        self._halfperiod_spin.setValue(0.0)
+        self._current_tab.on_disconnected()
+        self._velocity_tab.on_disconnected()
+        self._openloop_tab.on_disconnected()
 
-    # ── Slots: Gains ──────────────────────────────────────────────────
+    def _poll_speed(self) -> None:
+        if self._session is not None:
+            self._worker.submit(Command.READ_MEASURED_SPEED)
 
-    def _on_read_gains(self) -> None:
-        axis = self._axis_combo.currentText()
+    # ── Slots: routed from CurrentLoopTab ─────────────────────────────
+
+    def _on_read_gains(self, axis: str) -> None:
         self._worker.submit(Command.READ_GAINS, axis=axis)
 
-    def _on_set_gains(self) -> None:
-        self._worker.submit(
-            Command.SET_GAINS,
-            kp=self._kp_spin.value(),
-            ki=self._ki_spin.value(),
-        )
+    def _on_set_gains(self, kp: float, ki: float) -> None:
+        self._worker.submit(Command.SET_GAINS, kp=kp, ki=ki)
 
-    def _on_gains_read(self, gains) -> None:
-        self._cur_kp_label.setText(
-            f"{gains.kp:.4f} {gains.kp_units}  (counts={gains.kp_counts}, Q{gains.kp_shift})"
-        )
-        self._cur_ki_label.setText(
-            f"{gains.ki:.2f} {gains.ki_units}  (counts={gains.ki_counts}, Q{gains.ki_shift})"
-        )
-        self._kp_spin.setValue(gains.kp)
-        self._ki_spin.setValue(gains.ki)
-
-    def _on_gains_set(self, result) -> None:
-        self._cur_kp_label.setText(
-            f"{result.kp:.4f} {result.kp_units}  (counts={result.kp_counts}, Q{result.kp_shift})"
-        )
-        self._cur_ki_label.setText(
-            f"{result.ki:.2f} {result.ki_units}  (counts={result.ki_counts}, Q{result.ki_shift})"
-        )
-
-    # ── Slots: Test Harness ───────────────────────────────────────────
-
-    def _on_enter_test(self) -> None:
-        self._worker.submit(Command.ENTER_TEST_MODE)
+    def _on_enter_test(self, mode: str, velocity_rpm: float) -> None:
+        if mode == "velocity_override":
+            self._worker.submit(
+                Command.ENTER_VELOCITY_OVERRIDE_MODE,
+                velocity_rpm=velocity_rpm,
+            )
+        else:
+            self._worker.submit(Command.ENTER_TEST_MODE)
 
     def _on_exit_test(self) -> None:
         self._worker.submit(Command.EXIT_TEST_MODE)
 
-    def _on_test_mode_entered(self, mode_name: str) -> None:
-        self._mode_label.setText(mode_name)
-        self._guard_label.setText("Active")
-
-    def _on_test_mode_exited(self) -> None:
-        self._mode_label.setText("NORMAL")
-        self._guard_label.setText("Inactive")
-
-    # ── Slots: Perturbation ───────────────────────────────────────────
-
-    def _on_start_perturbation(self) -> None:
-        axis = self._axis_combo.currentText()
-        self._worker.submit(Command.CONFIGURE_SCOPE,
-                            axis=axis, sample_time=1)
+    def _on_start_perturbation(self, axis: str, amplitude: float,
+                               halfperiod: float) -> None:
+        ct = self._current_tab
+        self._worker.submit(
+            Command.CONFIGURE_SCOPE, axis=axis, sample_time=1,
+            trigger=ct.trigger_enabled(),
+            trigger_level=ct.trigger_level(),
+        )
         self._worker.submit(
             Command.START_PERTURBATION,
-            axis=axis,
-            amplitude=self._amplitude_spin.value(),
-            halfperiod=self._halfperiod_spin.value(),
+            axis=axis, amplitude=amplitude, halfperiod=halfperiod,
         )
 
     def _on_stop_perturbation(self) -> None:
         self._worker.submit(Command.STOP_PERTURBATION)
 
-    def _on_perturbation_started(self) -> None:
-        self._start_perturb_btn.setEnabled(False)
-        self._stop_perturb_btn.setEnabled(True)
-
-    def _on_perturbation_stopped(self) -> None:
-        self._start_perturb_btn.setEnabled(True)
-
-    # ── Slots: Capture ────────────────────────────────────────────────
-
     def _on_capture(self) -> None:
-        self._capture_btn.setEnabled(False)
+        ct = self._current_tab
+        self._worker.submit(
+            Command.CONFIGURE_SCOPE,
+            axis=ct.current_axis(), sample_time=1,
+            trigger=ct.trigger_enabled(),
+            trigger_level=ct.trigger_level(),
+        )
         self._worker.submit(Command.CAPTURE, timeout=10.0)
 
-    def _on_start_continuous(self) -> None:
+    def _on_cancel_capture(self) -> None:
+        self._worker.cancel_capture()
+
+    def _on_start_continuous(self, axis: str) -> None:
         self._plot.clear()
-        axis = self._axis_combo.currentText()
-        self._worker.submit(Command.CONFIGURE_SCOPE,
-                            axis=axis, sample_time=1)
+        ct = self._current_tab
+        self._worker.submit(
+            Command.CONFIGURE_SCOPE, axis=axis, sample_time=1,
+            trigger=ct.trigger_enabled(),
+            trigger_level=ct.trigger_level(),
+        )
         self._worker.submit(Command.CAPTURE_CONTINUOUS_START, timeout=10.0)
 
     def _on_stop_continuous(self) -> None:
         self._worker.request_stop_continuous()
 
-    def _on_continuous_started(self) -> None:
-        self._continuous_start_btn.setEnabled(False)
-        self._continuous_stop_btn.setEnabled(True)
-        self._capture_btn.setEnabled(False)
-        self._set_gains_btn.setEnabled(True)
-        self._read_gains_btn.setEnabled(True)
+    # ── Slots: routed from VelocityLoopTab ──────────────────────────
 
-    def _on_continuous_stopped(self) -> None:
-        self._continuous_start_btn.setEnabled(True)
-        self._continuous_stop_btn.setEnabled(False)
-        self._capture_btn.setEnabled(True)
+    def _on_vel_read_gains(self) -> None:
+        self._worker.submit(Command.READ_VELOCITY_GAINS)
+
+    def _on_vel_set_gains(self, kp: float, ki: float) -> None:
+        self._worker.submit(Command.SET_VELOCITY_GAINS, kp=kp, ki=ki)
+
+    def _on_vel_set_command(self, rpm: float) -> None:
+        self._worker.submit(Command.SET_VELOCITY_COMMAND, rpm=rpm)
+
+    def _on_vel_enter_test(self) -> None:
+        self._worker.submit(Command.ENTER_VELOCITY_OVERRIDE_MODE)
+
+    def _on_vel_start_perturbation(self, amplitude_rpm: float,
+                                   halfperiod_ms: float) -> None:
+        vt = self._velocity_tab
+        self._worker.submit(
+            Command.CONFIGURE_VELOCITY_SCOPE, sample_time=1,
+            trigger=vt.trigger_enabled(),
+            trigger_level=vt.trigger_level(),
+        )
+        self._worker.submit(
+            Command.START_VELOCITY_PERTURBATION,
+            amplitude_rpm=amplitude_rpm, halfperiod_ms=halfperiod_ms,
+        )
+
+    def _on_vel_stop_perturbation(self) -> None:
+        self._worker.submit(Command.STOP_VELOCITY_PERTURBATION)
+
+    def _on_vel_capture(self) -> None:
+        vt = self._velocity_tab
+        self._worker.submit(
+            Command.CONFIGURE_VELOCITY_SCOPE, sample_time=1,
+            trigger=vt.trigger_enabled(),
+            trigger_level=vt.trigger_level(),
+        )
+        self._worker.submit(Command.CAPTURE, timeout=10.0)
+
+    def _on_vel_start_continuous(self) -> None:
+        self._plot.clear()
+        vt = self._velocity_tab
+        self._worker.submit(
+            Command.CONFIGURE_VELOCITY_SCOPE, sample_time=1,
+            trigger=vt.trigger_enabled(),
+            trigger_level=vt.trigger_level(),
+        )
+        self._worker.submit(Command.CAPTURE_CONTINUOUS_START, timeout=10.0)
+
+    # ── Slots: routed from OpenLoopTab ──────────────────────────────
+
+    def _on_ol_enter_voltage(self) -> None:
+        self._worker.submit(Command.ENTER_FORCE_VOLTAGE_MODE)
+
+    def _on_ol_set_overrides(self, flags: dict) -> None:
+        self._worker.submit(Command.SET_OVERRIDES, flags=flags)
+
+    def _on_ol_set_omega(self, omega: int) -> None:
+        self._worker.submit(Command.SET_COMMUTATION_FREQ, omega=omega)
+
+    def _on_ol_set_dq_current(self, d: int, q: int) -> None:
+        self._worker.submit(Command.SET_DQ_CURRENT, d=d, q=q)
+
+    def _on_ol_set_dq_voltage(self, d: int, q: int) -> None:
+        self._worker.submit(Command.SET_DQ_VOLTAGE, d=d, q=q)
+
+    def _on_ol_force_state(self, transition: int) -> None:
+        self._worker.submit(Command.FORCE_STATE, transition=transition)
+
+    def _on_ol_read_status(self) -> None:
+        self._worker.submit(Command.READ_HARNESS_STATUS)
+
+    # ── Slots: capture lifecycle (shared across tabs) ──────────────────
+
+    def _on_capture_started(self) -> None:
+        self._current_tab.on_capture_started()
+        self._velocity_tab.on_capture_started()
+        self._plot.show_waiting()
+
+    def _on_capture_cancelled(self) -> None:
+        self._current_tab.on_capture_cancelled()
+        self._velocity_tab.on_capture_cancelled()
+        self._plot.hide_waiting()
 
     def _on_capture_done(self, response, metrics) -> None:
+        self._plot.hide_waiting()
         self._plot.update_plot(response, metrics)
-
-        if not self._capture_btn.isEnabled() and not self._continuous_stop_btn.isEnabled():
-            self._capture_btn.setEnabled(True)
+        self._current_tab.on_capture_done()
+        self._velocity_tab.on_capture_done()
 
         if metrics.n_steps > 0:
             self._os_label.setText(f"{metrics.overshoot:.1%}")
@@ -547,8 +515,10 @@ class MainWindow(QMainWindow):
             self._sse_label.setText(f"{metrics.steady_state_error:.3f}")
             self._steps_label.setText(str(metrics.n_steps))
         else:
-            for lbl in (self._os_label, self._tr_label, self._ts_label,
-                        self._sse_label):
+            for lbl in (
+                self._os_label, self._tr_label, self._ts_label,
+                self._sse_label,
+            ):
                 lbl.setText("--")
             self._steps_label.setText("0 (no steps detected)")
 
@@ -557,9 +527,6 @@ class MainWindow(QMainWindow):
     def _on_error(self, cmd_name: str, message: str) -> None:
         self._status_bar.showMessage(f"Error: {cmd_name}")
         self._set_ui_state(connected=self._session is not None)
-        self._capture_btn.setEnabled(self._session is not None)
-        self._continuous_start_btn.setEnabled(self._session is not None)
-        self._continuous_stop_btn.setEnabled(False)
         QMessageBox.critical(
             self, f"Error: {cmd_name}",
             f"Command {cmd_name} failed:\n\n{message}",
@@ -579,11 +546,10 @@ class MainWindow(QMainWindow):
         s.setValue("elf_file", self._elf_edit.text())
         s.setValue("params_json", self._params_edit.text())
         s.setValue("baud_rate", self._baud_spin.value())
-        s.setValue("axis", self._axis_combo.currentText())
-        s.setValue("amplitude", self._amplitude_spin.value())
-        s.setValue("halfperiod", self._halfperiod_spin.value())
         s.setValue("geometry", self.saveGeometry())
         s.setValue("splitter", self._splitter.saveState() if hasattr(self, "_splitter") else None)
+        self._current_tab.save_settings(s)
+        self._velocity_tab.save_settings(s)
 
     def _restore_settings(self) -> None:
         s = self._settings
@@ -608,19 +574,19 @@ class MainWindow(QMainWindow):
         if baud:
             self._baud_spin.setValue(baud)
 
+        # Legacy settings migration (pre-tab era)
         axis = s.value("axis", "")
-        if axis:
-            idx = self._axis_combo.findText(axis)
-            if idx >= 0:
-                self._axis_combo.setCurrentIndex(idx)
-
+        if axis and not s.value("current/axis", ""):
+            s.setValue("current/axis", axis)
         amp = s.value("amplitude", type=float)
-        if amp:
-            self._amplitude_spin.setValue(amp)
-
+        if amp and not s.value("current/amplitude", type=float):
+            s.setValue("current/amplitude", amp)
         hp = s.value("halfperiod", type=float)
-        if hp:
-            self._halfperiod_spin.setValue(hp)
+        if hp and not s.value("current/halfperiod", type=float):
+            s.setValue("current/halfperiod", hp)
+
+        self._current_tab.restore_settings(s)
+        self._velocity_tab.restore_settings(s)
 
         geom = s.value("geometry")
         if geom:

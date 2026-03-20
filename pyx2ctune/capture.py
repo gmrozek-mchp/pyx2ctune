@@ -23,8 +23,9 @@ logger = logging.getLogger(__name__)
 
 _PARAM_FULLSCALE_CURRENT = "mcapi.fullscale.current"
 _PARAM_FULLSCALE_VOLTAGE = "mcapi.fullscale.voltage"
+_PARAM_FULLSCALE_VELOCITY = "mcapi.fullscale.velocity"
 
-# Default scope variables for current loop analysis
+# Scope variables for current loop analysis
 _CURRENT_LOOP_VARS = {
     "q": {
         "measured": "motor.idq.q",
@@ -36,6 +37,13 @@ _CURRENT_LOOP_VARS = {
         "reference": "motor.idqCmd.d",
         "voltage": "motor.vdq.d",
     },
+}
+
+# Scope variables for velocity loop analysis
+_VELOCITY_LOOP_VARS = {
+    "measured": "motor.omegaElectrical",
+    "reference": "motor.omegaCmd",
+    "output": "motor.idqCmd.q",
 }
 
 
@@ -60,11 +68,15 @@ class StepResponse:
     measured: np.ndarray
     voltage: np.ndarray
     axis: str
+    loop_type: str = "current"
     gains: dict = field(default_factory=dict)
     sample_time: int = 1
     control_period_us: float = 50.0
     current_units: str = "counts"
     voltage_units: str = "counts"
+    reference_units: str = ""
+    measured_units: str = ""
+    output_units: str = ""
     metadata: dict = field(default_factory=dict)
 
 
@@ -86,6 +98,7 @@ class ScopeCapture:
         self._control_period_us = 1e6 / control_freq_hz
         self._configured_axis: str | None = None
         self._configured_vars: dict[str, str] = {}
+        self._loop_type: str = "current"
 
     def configure_current_loop(
         self,
@@ -154,10 +167,66 @@ class ScopeCapture:
         self._configured_axis = axis
         self._configured_vars = var_names
         self._sample_time = sample_time
+        self._loop_type = "current"
 
         logger.info(
             "Scope configured for %s-axis current loop (sample_time=%d, trigger=%s)",
             axis, sample_time, trigger,
+        )
+
+    def configure_velocity_loop(
+        self,
+        sample_time: int = 1,
+        trigger: bool = True,
+        trigger_level: float = 0,
+        trigger_edge: int = 0,
+        trigger_delay: int = 0,
+    ) -> None:
+        """Set up scope channels for velocity loop step response capture.
+
+        Configures three channels: measured velocity (omegaElectrical),
+        velocity command (omegaCmd), and q-axis current command (PI output).
+
+        Args:
+            sample_time: Scope prescaler (1 = every ISR sample).
+            trigger: If True, trigger on the velocity command signal.
+            trigger_level: Trigger threshold in raw counts.
+            trigger_edge: 0 = rising (default), 1 = falling.
+            trigger_delay: Pre/post-trigger delay percentage.
+        """
+        x2c = self._session.x2c
+        x2c.clear_all_scope_channel()
+
+        var_names = _VELOCITY_LOOP_VARS
+        for role, var_name in var_names.items():
+            var = self._session.get_variable(var_name)
+            x2c.add_scope_channel(var)
+            logger.debug("Added scope channel: %s (%s)", var_name, role)
+
+        if trigger:
+            from pyx2cscope.x2cscope import TriggerConfig
+
+            ref_var = self._session.get_variable(var_names["reference"])
+            config = TriggerConfig(
+                variable=ref_var,
+                trigger_level=trigger_level,
+                trigger_mode=1,
+                trigger_delay=trigger_delay,
+                trigger_edge=trigger_edge,
+            )
+            x2c.set_scope_trigger(config)
+        else:
+            x2c.reset_scope_trigger()
+
+        x2c.set_sample_time(sample_time)
+        self._configured_axis = "velocity"
+        self._configured_vars = var_names
+        self._sample_time = sample_time
+        self._loop_type = "velocity"
+
+        logger.info(
+            "Scope configured for velocity loop (sample_time=%d, trigger=%s)",
+            sample_time, trigger,
         )
 
     def capture_frame(
@@ -186,7 +255,8 @@ class ScopeCapture:
         """
         if self._configured_axis is None:
             raise RuntimeError(
-                "Scope not configured. Call configure_current_loop() first."
+                "Scope not configured. Call configure_current_loop() "
+                "or configure_velocity_loop() first."
             )
 
         logger.info("Capture requested (%s-axis, timeout=%.1fs)", self._configured_axis, timeout)
@@ -213,14 +283,25 @@ class ScopeCapture:
         channel_data = x2c.get_scope_channel_data(valid_data=True)
 
         var_names = self._configured_vars
+        is_velocity = self._loop_type == "velocity"
+
+        if is_velocity:
+            measured_key, reference_key, output_key = (
+                "measured", "reference", "output",
+            )
+        else:
+            measured_key, reference_key, output_key = (
+                "measured", "reference", "voltage",
+            )
+
         measured_data = np.array(
-            channel_data.get(var_names["measured"], []), dtype=np.float64
+            channel_data.get(var_names[measured_key], []), dtype=np.float64,
         )
         reference_data = np.array(
-            channel_data.get(var_names["reference"], []), dtype=np.float64
+            channel_data.get(var_names[reference_key], []), dtype=np.float64,
         )
-        voltage_data = np.array(
-            channel_data.get(var_names["voltage"], []), dtype=np.float64
+        output_data = np.array(
+            channel_data.get(var_names[output_key], []), dtype=np.float64,
         )
 
         n_samples = len(measured_data)
@@ -229,39 +310,83 @@ class ScopeCapture:
 
         current_units = "counts"
         voltage_units = "counts"
+        ref_units = "counts"
+        meas_units = "counts"
+        out_units = "counts"
         params = self._session.params
-        if params is not None:
-            try:
-                ifs = params.get_info(_PARAM_FULLSCALE_CURRENT).intended_value
-                measured_data = (measured_data / 32768.0) * ifs
-                reference_data = (reference_data / 32768.0) * ifs
-                current_units = "A"
-            except KeyError:
-                pass
-            try:
-                vfs = params.get_info(_PARAM_FULLSCALE_VOLTAGE).intended_value
-                voltage_data = (voltage_data / 32768.0) * vfs
-                voltage_units = "V"
-            except KeyError:
-                pass
+
+        if is_velocity:
+            if params is not None:
+                try:
+                    vfs = params.get_info(
+                        _PARAM_FULLSCALE_VELOCITY,
+                    ).intended_value
+                    measured_data = (measured_data / 32768.0) * vfs
+                    reference_data = (reference_data / 32768.0) * vfs
+                    ref_units = meas_units = "RPM"
+                except KeyError:
+                    pass
+                try:
+                    ifs = params.get_info(
+                        _PARAM_FULLSCALE_CURRENT,
+                    ).intended_value
+                    output_data = (output_data / 32768.0) * ifs
+                    out_units = "A"
+                    current_units = "A"
+                except KeyError:
+                    pass
+        else:
+            if params is not None:
+                try:
+                    ifs = params.get_info(
+                        _PARAM_FULLSCALE_CURRENT,
+                    ).intended_value
+                    measured_data = (measured_data / 32768.0) * ifs
+                    reference_data = (reference_data / 32768.0) * ifs
+                    current_units = "A"
+                    ref_units = meas_units = "A"
+                except KeyError:
+                    pass
+                try:
+                    vfs = params.get_info(
+                        _PARAM_FULLSCALE_VOLTAGE,
+                    ).intended_value
+                    output_data = (output_data / 32768.0) * vfs
+                    voltage_units = "V"
+                    out_units = "V"
+                except KeyError:
+                    pass
 
         gains = {}
         try:
-            gains_obj = self._session.current.get_gains(self._configured_axis)
-            gains = {
-                "kp": gains_obj.kp,
-                "ki": gains_obj.ki,
-                "kp_counts": gains_obj.kp_counts,
-                "ki_counts": gains_obj.ki_counts,
-                "kp_shift": gains_obj.kp_shift,
-                "ki_shift": gains_obj.ki_shift,
-            }
+            if is_velocity:
+                gains_obj = self._session.velocity.get_gains()
+                gains = {
+                    "kp": gains_obj.kp,
+                    "ki": gains_obj.ki,
+                    "kp_counts": gains_obj.kp_counts,
+                    "ki_counts": gains_obj.ki_counts,
+                    "kp_shift": gains_obj.kp_shift,
+                    "ki_shift": gains_obj.ki_shift,
+                }
+            else:
+                gains_obj = self._session.current.get_gains(
+                    self._configured_axis,
+                )
+                gains = {
+                    "kp": gains_obj.kp,
+                    "ki": gains_obj.ki,
+                    "kp_counts": gains_obj.kp_counts,
+                    "ki_counts": gains_obj.ki_counts,
+                    "kp_shift": gains_obj.kp_shift,
+                    "ki_shift": gains_obj.ki_shift,
+                }
         except Exception:
             logger.debug("Could not read gains during capture", exc_info=True)
 
         capture_duration_ms = n_samples * dt_us / 1000
         logger.info(
-            "Captured %d samples (%.1f ms) on %s-axis",
+            "Captured %d samples (%.1f ms) on %s",
             n_samples, capture_duration_ms, self._configured_axis,
         )
 
@@ -269,17 +394,22 @@ class ScopeCapture:
             time_us=time_us,
             reference=reference_data,
             measured=measured_data,
-            voltage=voltage_data,
+            voltage=output_data,
             axis=self._configured_axis,
+            loop_type=self._loop_type,
             gains=gains,
             sample_time=self._sample_time,
             control_period_us=self._control_period_us,
             current_units=current_units,
             voltage_units=voltage_units,
+            reference_units=ref_units,
+            measured_units=meas_units,
+            output_units=out_units,
             metadata={
-                "var_measured": var_names["measured"],
-                "var_reference": var_names["reference"],
-                "var_voltage": var_names["voltage"],
+                "var_measured": var_names[measured_key],
+                "var_reference": var_names[reference_key],
+                "var_output": var_names[output_key],
                 "capture_duration_ms": capture_duration_ms,
+                "loop_type": self._loop_type,
             },
         )

@@ -1,0 +1,395 @@
+"""Velocity Loop Tuning tab.
+
+PI gain read/write for the velocity controller, velocity command setting,
+square-wave velocity perturbation, and scope capture for step response
+analysis. Covers use cases 4.5.15.3 and 4.5.15.4.
+"""
+
+from __future__ import annotations
+
+from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import (
+    QCheckBox,
+    QDoubleSpinBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+_MONO = QFont()
+_MONO.setStyleHint(QFont.Monospace)
+_MONO.setPointSize(10)
+
+
+class VelocityLoopTab(QWidget):
+    """Tab for velocity loop PI tuning with step response capture."""
+
+    read_gains_requested = pyqtSignal()
+    set_gains_requested = pyqtSignal(float, float)     # kwp, kwi
+    set_velocity_requested = pyqtSignal(float)         # rpm
+    enter_test_requested = pyqtSignal()
+    exit_test_requested = pyqtSignal()
+    start_perturbation_requested = pyqtSignal(float, float)  # amplitude_rpm, halfperiod_ms
+    stop_perturbation_requested = pyqtSignal()
+    capture_requested = pyqtSignal()
+    cancel_capture_requested = pyqtSignal()
+    continuous_start_requested = pyqtSignal()
+    continuous_stop_requested = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._fullscale_velocity: float | None = None
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self._build_gains_panel())
+        layout.addWidget(self._build_command_panel())
+        layout.addWidget(self._build_test_harness_panel())
+        layout.addWidget(self._build_perturbation_panel())
+        layout.addWidget(self._build_capture_panel())
+        layout.addStretch()
+
+        self._connect_internal()
+
+    # ── UI Construction ───────────────────────────────────────────────
+
+    def _build_gains_panel(self) -> QGroupBox:
+        grp = QGroupBox("Velocity PI Gains")
+        layout = QVBoxLayout(grp)
+
+        read_layout = QFormLayout()
+        self._cur_kwp_label = QLabel("--")
+        self._cur_kwp_label.setFont(_MONO)
+        self._cur_kwi_label = QLabel("--")
+        self._cur_kwi_label.setFont(_MONO)
+        read_layout.addRow("Kwp:", self._cur_kwp_label)
+        read_layout.addRow("Kwi:", self._cur_kwi_label)
+        layout.addLayout(read_layout)
+
+        self._read_gains_btn = QPushButton("Read Gains from Board")
+        layout.addWidget(self._read_gains_btn)
+
+        layout.addSpacing(8)
+
+        set_layout = QFormLayout()
+        self._kwp_spin = QDoubleSpinBox()
+        self._kwp_spin.setRange(0.0, 10.0)
+        self._kwp_spin.setDecimals(6)
+        self._kwp_spin.setSingleStep(0.001)
+        self._kwp_spin.setSuffix("  A/(rad/s)")
+        self._kwp_spin.setValue(0.0)
+
+        self._kwi_spin = QDoubleSpinBox()
+        self._kwi_spin.setRange(0.0, 1000.0)
+        self._kwi_spin.setDecimals(4)
+        self._kwi_spin.setSingleStep(0.01)
+        self._kwi_spin.setSuffix("  A/rad")
+        self._kwi_spin.setValue(0.0)
+
+        set_layout.addRow("New Kwp:", self._kwp_spin)
+        set_layout.addRow("New Kwi:", self._kwi_spin)
+        layout.addLayout(set_layout)
+
+        self._set_gains_btn = QPushButton("Set Gains")
+        layout.addWidget(self._set_gains_btn)
+
+        return grp
+
+    def _build_command_panel(self) -> QGroupBox:
+        grp = QGroupBox("Velocity Command")
+        layout = QVBoxLayout(grp)
+
+        form = QFormLayout()
+        self._velocity_spin = QDoubleSpinBox()
+        self._velocity_spin.setRange(-6000.0, 6000.0)
+        self._velocity_spin.setValue(0.0)
+        self._velocity_spin.setDecimals(1)
+        self._velocity_spin.setSingleStep(100.0)
+        self._velocity_spin.setSuffix("  RPM")
+        form.addRow("Velocity:", self._velocity_spin)
+        layout.addLayout(form)
+
+        self._set_velocity_btn = QPushButton("Set Velocity Command")
+        layout.addWidget(self._set_velocity_btn)
+
+        return grp
+
+    def _build_test_harness_panel(self) -> QGroupBox:
+        grp = QGroupBox("Test Harness")
+        layout = QVBoxLayout(grp)
+
+        status_layout = QHBoxLayout()
+        status_layout.addWidget(QLabel("Mode:"))
+        self._mode_label = QLabel("--")
+        self._mode_label.setFont(_MONO)
+        status_layout.addWidget(self._mode_label)
+        status_layout.addSpacing(16)
+        status_layout.addWidget(QLabel("Guard:"))
+        self._guard_label = QLabel("--")
+        self._guard_label.setFont(_MONO)
+        status_layout.addWidget(self._guard_label)
+        status_layout.addStretch()
+        layout.addLayout(status_layout)
+
+        btn_layout = QHBoxLayout()
+        self._enter_test_btn = QPushButton("Enable Velocity Override")
+        self._exit_test_btn = QPushButton("Exit Test Mode")
+        btn_layout.addWidget(self._enter_test_btn)
+        btn_layout.addWidget(self._exit_test_btn)
+        layout.addLayout(btn_layout)
+
+        return grp
+
+    def _build_perturbation_panel(self) -> QGroupBox:
+        grp = QGroupBox("Velocity Perturbation")
+        layout = QVBoxLayout(grp)
+
+        form = QFormLayout()
+        self._amplitude_spin = QDoubleSpinBox()
+        self._amplitude_spin.setRange(0.0, 3000.0)
+        self._amplitude_spin.setValue(0.0)
+        self._amplitude_spin.setDecimals(1)
+        self._amplitude_spin.setSingleStep(10.0)
+        self._amplitude_spin.setSuffix("  RPM")
+        form.addRow("Amplitude:", self._amplitude_spin)
+
+        self._halfperiod_spin = QDoubleSpinBox()
+        self._halfperiod_spin.setRange(0.0, 5000.0)
+        self._halfperiod_spin.setValue(0.0)
+        self._halfperiod_spin.setDecimals(1)
+        self._halfperiod_spin.setSingleStep(10.0)
+        self._halfperiod_spin.setSuffix("  ms")
+        form.addRow("Half-period:", self._halfperiod_spin)
+
+        layout.addLayout(form)
+
+        btn_layout = QHBoxLayout()
+        self._start_perturb_btn = QPushButton("Start")
+        self._stop_perturb_btn = QPushButton("Stop")
+        btn_layout.addWidget(self._start_perturb_btn)
+        btn_layout.addWidget(self._stop_perturb_btn)
+        layout.addLayout(btn_layout)
+
+        return grp
+
+    def _build_capture_panel(self) -> QGroupBox:
+        grp = QGroupBox("Capture")
+        layout = QVBoxLayout(grp)
+
+        trigger_row = QHBoxLayout()
+        self._trigger_check = QCheckBox("Trigger")
+        self._trigger_check.setChecked(True)
+        trigger_row.addWidget(self._trigger_check)
+        self._trigger_channel_label = QLabel("on velocity cmd")
+        trigger_row.addWidget(self._trigger_channel_label)
+        trigger_row.addWidget(QLabel("Level:"))
+        self._trigger_level_spin = QDoubleSpinBox()
+        self._trigger_level_spin.setRange(-6000.0, 6000.0)
+        self._trigger_level_spin.setDecimals(1)
+        self._trigger_level_spin.setValue(0.0)
+        self._trigger_level_spin.setSuffix(" RPM")
+        trigger_row.addWidget(self._trigger_level_spin)
+        trigger_row.addStretch()
+        layout.addLayout(trigger_row)
+
+        btn_layout = QHBoxLayout()
+        self._capture_btn = QPushButton("Single")
+        self._capture_btn.setMinimumHeight(36)
+        btn_layout.addWidget(self._capture_btn)
+
+        self._continuous_start_btn = QPushButton("Start")
+        self._continuous_start_btn.setMinimumHeight(36)
+        font = self._continuous_start_btn.font()
+        font.setBold(True)
+        self._continuous_start_btn.setFont(font)
+        btn_layout.addWidget(self._continuous_start_btn)
+
+        self._continuous_stop_btn = QPushButton("Stop")
+        self._continuous_stop_btn.setMinimumHeight(36)
+        self._continuous_stop_btn.setEnabled(False)
+        btn_layout.addWidget(self._continuous_stop_btn)
+
+        self._cancel_capture_btn = QPushButton("Cancel")
+        self._cancel_capture_btn.setMinimumHeight(36)
+        self._cancel_capture_btn.setEnabled(False)
+        btn_layout.addWidget(self._cancel_capture_btn)
+
+        layout.addLayout(btn_layout)
+        return grp
+
+    # ── Internal signal wiring ────────────────────────────────────────
+
+    def _connect_internal(self) -> None:
+        self._read_gains_btn.clicked.connect(
+            lambda: self.read_gains_requested.emit(),
+        )
+        self._set_gains_btn.clicked.connect(self._on_set_gains)
+        self._set_velocity_btn.clicked.connect(
+            lambda: self.set_velocity_requested.emit(
+                self._velocity_spin.value(),
+            ),
+        )
+        self._enter_test_btn.clicked.connect(
+            lambda: self.enter_test_requested.emit(),
+        )
+        self._exit_test_btn.clicked.connect(
+            lambda: self.exit_test_requested.emit(),
+        )
+        self._start_perturb_btn.clicked.connect(self._on_start_perturbation)
+        self._stop_perturb_btn.clicked.connect(
+            lambda: self.stop_perturbation_requested.emit(),
+        )
+        self._capture_btn.clicked.connect(
+            lambda: self.capture_requested.emit(),
+        )
+        self._cancel_capture_btn.clicked.connect(
+            lambda: self.cancel_capture_requested.emit(),
+        )
+        self._continuous_start_btn.clicked.connect(
+            lambda: self.continuous_start_requested.emit(),
+        )
+        self._continuous_stop_btn.clicked.connect(
+            lambda: self.continuous_stop_requested.emit(),
+        )
+
+    def _on_set_gains(self) -> None:
+        self.set_gains_requested.emit(
+            self._kwp_spin.value(), self._kwi_spin.value(),
+        )
+
+    def _on_start_perturbation(self) -> None:
+        self.start_perturbation_requested.emit(
+            self._amplitude_spin.value(),
+            self._halfperiod_spin.value(),
+        )
+
+    # ── Public interface for MainWindow ───────────────────────────────
+
+    def set_connected(self, connected: bool) -> None:
+        self._read_gains_btn.setEnabled(connected)
+        self._set_gains_btn.setEnabled(connected)
+        self._set_velocity_btn.setEnabled(connected)
+        self._enter_test_btn.setEnabled(connected)
+        self._exit_test_btn.setEnabled(connected)
+        self._start_perturb_btn.setEnabled(connected)
+        self._stop_perturb_btn.setEnabled(connected)
+        self._capture_btn.setEnabled(connected)
+        self._continuous_start_btn.setEnabled(connected)
+        self._continuous_stop_btn.setEnabled(False)
+        self._cancel_capture_btn.setEnabled(False)
+
+    def on_connected(self, session) -> None:
+        self._mode_label.setText("--")
+        self._guard_label.setText("Inactive")
+
+        self._fullscale_velocity = session.velocity.fullscale_velocity_rpm
+
+        defaults = session.velocity.get_default_perturbation()
+        self._amplitude_spin.setValue(defaults["amplitude_rpm"])
+        self._halfperiod_spin.setValue(defaults["halfperiod_ms"])
+
+    def on_disconnected(self) -> None:
+        self._fullscale_velocity = None
+        self._mode_label.setText("--")
+        self._guard_label.setText("--")
+        self._cur_kwp_label.setText("--")
+        self._cur_kwi_label.setText("--")
+        self._kwp_spin.setValue(0.0)
+        self._kwi_spin.setValue(0.0)
+        self._velocity_spin.setValue(0.0)
+        self._amplitude_spin.setValue(0.0)
+        self._halfperiod_spin.setValue(0.0)
+        self._trigger_level_spin.setValue(0.0)
+
+    def on_gains_read(self, gains) -> None:
+        self._cur_kwp_label.setText(
+            f"{gains.kp:.6f} {gains.kp_units}  "
+            f"(counts={gains.kp_counts}, Q{gains.kp_shift})"
+        )
+        self._cur_kwi_label.setText(
+            f"{gains.ki:.4f} {gains.ki_units}  "
+            f"(counts={gains.ki_counts}, Q{gains.ki_shift})"
+        )
+        self._kwp_spin.setValue(gains.kp)
+        self._kwi_spin.setValue(gains.ki)
+
+    def on_gains_set(self, result) -> None:
+        self._cur_kwp_label.setText(
+            f"{result.kp:.6f} {result.kp_units}  "
+            f"(counts={result.kp_counts}, Q{result.kp_shift})"
+        )
+        self._cur_kwi_label.setText(
+            f"{result.ki:.4f} {result.ki_units}  "
+            f"(counts={result.ki_counts}, Q{result.ki_shift})"
+        )
+
+    def on_test_mode_entered(self, mode_name: str) -> None:
+        self._mode_label.setText(mode_name)
+        self._guard_label.setText("Active")
+
+    def on_test_mode_exited(self) -> None:
+        self._mode_label.setText("NORMAL")
+        self._guard_label.setText("Inactive")
+
+    def on_perturbation_started(self) -> None:
+        self._start_perturb_btn.setEnabled(False)
+        self._stop_perturb_btn.setEnabled(True)
+
+    def on_perturbation_stopped(self) -> None:
+        self._start_perturb_btn.setEnabled(True)
+
+    def on_continuous_started(self) -> None:
+        self._continuous_start_btn.setEnabled(False)
+        self._continuous_stop_btn.setEnabled(True)
+        self._capture_btn.setEnabled(False)
+
+    def on_continuous_stopped(self) -> None:
+        self._continuous_start_btn.setEnabled(True)
+        self._continuous_stop_btn.setEnabled(False)
+        self._capture_btn.setEnabled(True)
+
+    def on_capture_started(self) -> None:
+        self._capture_btn.setEnabled(False)
+        self._cancel_capture_btn.setEnabled(True)
+
+    def on_capture_done(self) -> None:
+        self._cancel_capture_btn.setEnabled(False)
+        if not self._continuous_stop_btn.isEnabled():
+            self._capture_btn.setEnabled(True)
+
+    def on_capture_cancelled(self) -> None:
+        self._cancel_capture_btn.setEnabled(False)
+        self._capture_btn.setEnabled(True)
+
+    def trigger_enabled(self) -> bool:
+        return self._trigger_check.isChecked()
+
+    def trigger_level(self) -> float:
+        """Return trigger level in raw Q15 counts, converted from RPM."""
+        rpm = self._trigger_level_spin.value()
+        if self._fullscale_velocity is not None and self._fullscale_velocity > 0:
+            return round(rpm / self._fullscale_velocity * 32768)
+        return round(rpm)
+
+    # ── Settings persistence ──────────────────────────────────────────
+
+    def save_settings(self, settings) -> None:
+        settings.setValue("velocity/amplitude", self._amplitude_spin.value())
+        settings.setValue("velocity/halfperiod", self._halfperiod_spin.value())
+        settings.setValue("velocity/command", self._velocity_spin.value())
+
+    def restore_settings(self, settings) -> None:
+        amp = settings.value("velocity/amplitude", type=float)
+        if amp:
+            self._amplitude_spin.setValue(amp)
+        hp = settings.value("velocity/halfperiod", type=float)
+        if hp:
+            self._halfperiod_spin.setValue(hp)
+        vel = settings.value("velocity/command", type=float)
+        if vel:
+            self._velocity_spin.setValue(vel)

@@ -251,6 +251,11 @@ class CurrentTuning:
 
     # ── Perturbation Unit Conversion ─────────────────────────────────
 
+    @property
+    def fullscale_current(self) -> float | None:
+        """Return the full-scale current in Amps from parameters.json, or None."""
+        return self._fullscale_current()
+
     def _fullscale_current(self) -> float | None:
         """Return the full-scale current in Amps from parameters.json, or None."""
         params = self._session.params

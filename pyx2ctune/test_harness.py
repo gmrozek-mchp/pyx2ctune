@@ -71,6 +71,9 @@ _VAR_FORCE_STATE = "motor.testing.forceStateChange"
 _VAR_SQWAVE_VALUE = "motor.testing.sqwave.value"
 _VAR_IDQCMDRAW_D = "motor.idqCmdRaw.d"
 _VAR_IDQCMDRAW_Q = "motor.idqCmdRaw.q"
+_VAR_OVERRIDE_OMEGA = "motor.testing.overrideOmegaElectrical"
+_VAR_VDQ_CMD_D = "motor.vdqCmd.d"
+_VAR_VDQ_CMD_Q = "motor.vdqCmd.q"
 
 
 class TestHarness:
@@ -247,13 +250,87 @@ class TestHarness:
     def enter_velocity_override_mode(self) -> None:
         """Enter normal mode with velocity command override.
 
-        Follows the procedure from MCAF section 4.5.15.3:
+        Follows the procedure from MCAF section 4.5.15.5:
           1. Enable guard
           2. Set velocity command override flag
+          3. Force motor to RUN state
+
+        The velocity command should be set before or immediately after
+        calling this method.  The motor stays in OM_NORMAL so the full
+        velocity loop remains active — the override only bypasses the
+        external potentiometer input.
         """
         self.enable_guard()
         self.set_override_flags(velocity_command=True)
-        logger.info("Entered velocity override mode")
+        self.force_state(ForceState.RUN)
+        logger.info("Entered velocity override mode (forced RUN)")
+
+    def enter_force_voltage_mode(self) -> None:
+        """Enter OM_FORCE_VOLTAGE_DQ mode.
+
+        Follows MCAF section 4.5.15.1:
+          1. Enable guard
+          2. Set operatingMode = OM_DISABLED
+          3. Set commutation override and override omega
+          4. Set operatingMode = OM_FORCE_VOLTAGE_DQ
+        """
+        self.enable_guard()
+        self.set_operating_mode(OperatingMode.DISABLED)
+        time.sleep(0.05)
+        self.set_override_flags(commutation=True)
+        self.set_operating_mode(OperatingMode.FORCE_VOLTAGE_DQ)
+        logger.info("Entered force voltage DQ mode")
+
+    # ── Commutation & Direct Variable Control ────────────────────────
+
+    def set_commutation_frequency(self, omega: int) -> None:
+        """Set the commutation override frequency (raw counts).
+
+        Args:
+            omega: Electrical angular velocity in Q15 counts.
+        """
+        self._session.write_variable(_VAR_OVERRIDE_OMEGA, omega)
+        logger.debug("Set override omega electrical: %d", omega)
+
+    def get_commutation_frequency(self) -> int:
+        """Read the commutation override frequency (raw counts)."""
+        return int(self._session.read_variable(_VAR_OVERRIDE_OMEGA))
+
+    def set_dq_current(self, d: int, q: int) -> None:
+        """Set dq current command (raw Q15 counts).
+
+        Args:
+            d: D-axis current command in Q15 counts.
+            q: Q-axis current command in Q15 counts.
+        """
+        self._session.write_variable(_VAR_IDQCMDRAW_D, d)
+        self._session.write_variable(_VAR_IDQCMDRAW_Q, q)
+        logger.debug("Set dq current: d=%d, q=%d", d, q)
+
+    def get_dq_current(self) -> tuple[int, int]:
+        """Read the current dq current command (raw Q15 counts)."""
+        d = int(self._session.read_variable(_VAR_IDQCMDRAW_D))
+        q = int(self._session.read_variable(_VAR_IDQCMDRAW_Q))
+        return d, q
+
+    def set_dq_voltage(self, d: int, q: int) -> None:
+        """Set dq voltage command (raw Q15 counts).
+
+        Only effective in OM_FORCE_VOLTAGE_DQ mode.
+
+        Args:
+            d: D-axis voltage command in Q15 counts.
+            q: Q-axis voltage command in Q15 counts.
+        """
+        self._session.write_variable(_VAR_VDQ_CMD_D, d)
+        self._session.write_variable(_VAR_VDQ_CMD_Q, q)
+        logger.debug("Set dq voltage: d=%d, q=%d", d, q)
+
+    def get_dq_voltage(self) -> tuple[int, int]:
+        """Read the current dq voltage command (raw Q15 counts)."""
+        d = int(self._session.read_variable(_VAR_VDQ_CMD_D))
+        q = int(self._session.read_variable(_VAR_VDQ_CMD_Q))
+        return d, q
 
     def exit_test_mode(self) -> None:
         """Return to normal operation safely.
