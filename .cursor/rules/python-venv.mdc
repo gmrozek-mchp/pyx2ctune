@@ -1,0 +1,18 @@
+---
+description: Always use a Python virtual environment for running Python commands
+alwaysApply: true
+---
+
+# Python Virtual Environment
+
+Always use the project virtual environment at `.venv/` for running Python.
+
+- Before running any `python` or `pip` command, ensure `.venv/` exists. If not, create it:
+  ```
+  python3.12 -m venv .venv
+  ```
+- Activate or reference the venv explicitly:
+  - Use `.venv/bin/python` and `.venv/bin/pip` (macOS/Linux) or `.venv\Scripts\python` (Windows)
+  - Or activate with `source .venv/bin/activate` before running commands
+- Install the project in editable mode after creating the venv: `pip install -e .`
+- Never install packages into the system Python

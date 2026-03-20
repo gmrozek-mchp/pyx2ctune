@@ -1,0 +1,18 @@
+---
+description: Project specification and design context for pyx2ctune
+alwaysApply: true
+---
+
+# pyx2ctune Project Context
+
+This project is a Python library for real-time tuning of Microchip MCAF motor control firmware via X2Cscope.
+
+The full specification is in [SPEC.md](../../SPEC.md). Read it before making architectural decisions or adding new modules.
+
+Key points:
+- Uses `pyx2cscope` (pyX2Cscope) as the communication layer -- do not reimplement LNet or ELF parsing
+- All tuning is at runtime via X2Cscope variable reads/writes -- no firmware recompilation
+- Q-format conversion uses `parameters.json` from the motorBench project
+- Test harness guard key `0xD1A6` must be set before test modes; guard timeout must be refreshed periodically
+- Phase 1 is library-only (Python scripts / Jupyter); Phase 2 adds a cross-platform GUI
+- Python 3.12, baud rate default 115200 (configurable)

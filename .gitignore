@@ -17,7 +17,6 @@ logs/
 
 # IDE / editor
 .vscode/
-.cursor/
 
 # SpecStory explanation file
 .specstory/.what-is-this.md
