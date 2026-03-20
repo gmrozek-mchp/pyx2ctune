@@ -47,22 +47,33 @@ jobs:
           pip install -e ".[dev]"
           pip install pyinstaller
 
-      - name: Build executable
+      - name: Build application
         run: pyinstaller pyx2ctune.spec
 
-      - name: Rename artifact (Linux/macOS)
-        if: runner.os != 'Windows'
-        run: mv dist/pyx2ctune dist/${{ matrix.artifact }}
+      - name: Package (macOS .app bundle)
+        if: runner.os == 'macOS'
+        run: |
+          cd dist
+          tar czf ${{ matrix.artifact }}.tar.gz pyx2ctune.app
 
-      - name: Rename artifact (Windows)
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd dist
+          tar czf ${{ matrix.artifact }}.tar.gz pyx2ctune/
+
+      - name: Package (Windows)
         if: runner.os == 'Windows'
-        run: mv dist/pyx2ctune.exe dist/${{ matrix.artifact }}.exe
+        shell: pwsh
+        run: |
+          cd dist
+          Compress-Archive -Path pyx2ctune -DestinationPath ${{ matrix.artifact }}.zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: dist/${{ matrix.artifact }}*
+          path: dist/${{ matrix.artifact }}.*
 
   release:
     needs: build
@@ -77,25 +88,10 @@ jobs:
         with:
           path: artifacts
 
-      - name: Package artifacts
-        run: |
-          cd artifacts
-          for dir in */; do
-            name="${dir%/}"
-            cd "$name"
-            if ls *.exe 1>/dev/null 2>&1; then
-              zip "../${name}.zip" *
-            else
-              chmod +x *
-              tar czf "../${name}.tar.gz" *
-            fi
-            cd ..
-          done
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
-            artifacts/*.zip
-            artifacts/*.tar.gz
+            artifacts/**/*.zip
+            artifacts/**/*.tar.gz

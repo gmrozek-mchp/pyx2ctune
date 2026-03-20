@@ -1,8 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec for pyx2ctune GUI application."""
+"""PyInstaller spec for pyx2ctune GUI application.
+
+Uses --onedir mode for fast startup (no temp extraction).
+On macOS, also produces a .app bundle.
+"""
 
 import sys
-from pathlib import Path
 
 block_cipher = None
 
@@ -52,10 +55,8 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
     [],
+    exclude_binaries=True,
     name='pyx2ctune',
     debug=False,
     bootloader_ignore_signals=False,
@@ -70,3 +71,26 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
 )
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='pyx2ctune',
+)
+
+if sys.platform == 'darwin':
+    app = BUNDLE(
+        coll,
+        name='pyx2ctune.app',
+        icon=None,
+        bundle_identifier='com.microchip.pyx2ctune',
+        info_plist={
+            'CFBundleShortVersionString': '0.1.0',
+            'NSHighResolutionCapable': True,
+        },
+    )
