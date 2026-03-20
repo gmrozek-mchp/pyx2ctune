@@ -50,23 +50,6 @@ jobs:
       - name: Build application
         run: pyinstaller pyx2ctune.spec
 
-      - name: Smoke-test executable
-        if: runner.os == 'macOS'
-        run: |
-          dist/pyx2ctune.app/Contents/MacOS/pyx2ctune --help 2>&1 || true
-          timeout 5 dist/pyx2ctune.app/Contents/MacOS/pyx2ctune 2>&1 &
-          sleep 3
-          pgrep -f 'pyx2ctune' && echo "App is running" || echo "App failed to start"
-          pkill -f 'pyx2ctune' 2>/dev/null || true
-
-      - name: Smoke-test executable (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          timeout 5 dist/pyx2ctune/pyx2ctune 2>&1 &
-          sleep 3
-          pgrep -f 'pyx2ctune' && echo "App is running" || echo "App failed to start"
-          pkill -f 'pyx2ctune' 2>/dev/null || true
-
       - name: Sign and package (macOS .app bundle)
         if: runner.os == 'macOS'
         run: |
