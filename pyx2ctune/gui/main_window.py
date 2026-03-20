@@ -221,16 +221,20 @@ class MainWindow(QMainWindow):
         self._axis_combo.addItems(["q", "d"])
         form.addRow("Axis:", self._axis_combo)
 
-        self._amplitude_spin = QSpinBox()
-        self._amplitude_spin.setRange(1, 32767)
-        self._amplitude_spin.setValue(500)
-        self._amplitude_spin.setSuffix("  counts")
+        self._amplitude_spin = QDoubleSpinBox()
+        self._amplitude_spin.setRange(0.01, 50.0)
+        self._amplitude_spin.setValue(0.5)
+        self._amplitude_spin.setDecimals(3)
+        self._amplitude_spin.setSingleStep(0.1)
+        self._amplitude_spin.setSuffix("  A")
         form.addRow("Amplitude:", self._amplitude_spin)
 
-        self._halfperiod_spin = QSpinBox()
-        self._halfperiod_spin.setRange(1, 10000)
-        self._halfperiod_spin.setValue(100)
-        self._halfperiod_spin.setSuffix("  PWM cycles")
+        self._halfperiod_spin = QDoubleSpinBox()
+        self._halfperiod_spin.setRange(0.05, 500.0)
+        self._halfperiod_spin.setValue(5.0)
+        self._halfperiod_spin.setDecimals(2)
+        self._halfperiod_spin.setSingleStep(0.5)
+        self._halfperiod_spin.setSuffix("  ms")
         form.addRow("Half-period:", self._halfperiod_spin)
 
         layout.addLayout(form)
@@ -558,11 +562,11 @@ class MainWindow(QMainWindow):
             if idx >= 0:
                 self._axis_combo.setCurrentIndex(idx)
 
-        amp = s.value("amplitude", type=int)
+        amp = s.value("amplitude", type=float)
         if amp:
             self._amplitude_spin.setValue(amp)
 
-        hp = s.value("halfperiod", type=int)
+        hp = s.value("halfperiod", type=float)
         if hp:
             self._halfperiod_spin.setValue(hp)
 

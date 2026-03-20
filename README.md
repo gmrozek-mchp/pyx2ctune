@@ -92,7 +92,7 @@ session.test_harness.enter_current_test_mode()
 session.current.set_gains(kp=3.0, ki=5000)
 
 session.capture.configure_current_loop(axis="q")
-session.current.setup_step_test(axis="q", amplitude=500, halfperiod=100)
+session.current.setup_step_test(axis="q", amplitude=0.5, halfperiod=5.0)
 
 response = session.capture.capture_frame()
 metrics = compute_metrics(response)

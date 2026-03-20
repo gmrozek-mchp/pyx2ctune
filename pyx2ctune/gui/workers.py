@@ -181,14 +181,15 @@ class SessionWorker(QObject):
         self.status.emit("Normal operation")
         self.test_mode_exited.emit()
 
-    def _do_start_perturbation(self, axis: str, amplitude: int,
-                               halfperiod: int) -> None:
+    def _do_start_perturbation(self, axis: str, amplitude: float,
+                               halfperiod: float) -> None:
         self.status.emit("Starting perturbation...")
         self._session.current.setup_step_test(
             axis=axis, amplitude=amplitude, halfperiod=halfperiod,
+            units="engineering",
         )
         self.status.emit(
-            f"Perturbation: {axis}-axis, amp={amplitude}, T/2={halfperiod}"
+            f"Perturbation: {axis}-axis, {amplitude:.3f} A, T/2={halfperiod:.2f} ms"
         )
         self.perturbation_started.emit()
 

@@ -29,8 +29,8 @@ def main():
         default=[0.5, 8.0, 0.5],
         help="Kp sweep range: start stop step (V/A)",
     )
-    parser.add_argument("--amplitude", type=int, default=500, help="Perturbation amplitude")
-    parser.add_argument("--halfperiod", type=int, default=100, help="Perturbation half-period")
+    parser.add_argument("--amplitude", type=float, default=0.5, help="Perturbation amplitude (A)")
+    parser.add_argument("--halfperiod", type=float, default=5.0, help="Perturbation half-period (ms)")
     parser.add_argument("--axis", default="q", choices=["q", "d"])
     parser.add_argument("--output", default=None, help="Save results to JSON file")
     parser.add_argument("--plot-each", action="store_true", help="Plot each step response individually")
@@ -69,6 +69,7 @@ def main():
                 axis=args.axis,
                 amplitude=args.amplitude,
                 halfperiod=args.halfperiod,
+                units="engineering",
             )
             time.sleep(0.2)
 

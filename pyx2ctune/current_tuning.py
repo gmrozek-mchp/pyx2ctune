@@ -44,6 +44,10 @@ _VAR_SQWAVE_IDQ_Q = "motor.testing.sqwave.idq.q"
 _PARAM_KIP = "foc.kip"
 _PARAM_KII = "foc.kii"
 
+# parameters.json keys for perturbation unit conversion
+_PARAM_FULLSCALE_CURRENT = "mcapi.fullscale.current"
+_PARAM_ISR_DIVIDER = "timing.mcafIsrSubsampleDivider"
+
 
 @dataclass
 class CurrentGains:
@@ -240,37 +244,121 @@ class CurrentTuning:
             return [axes]
         raise ValueError(f"axes must be 'both', 'q', or 'd', got {axes!r}")
 
+    # ── Perturbation Unit Conversion ─────────────────────────────────
+
+    def _fullscale_current(self) -> float | None:
+        """Return the full-scale current in Amps from parameters.json, or None."""
+        params = self._session.params
+        if params is None:
+            return None
+        try:
+            return params.get_info(_PARAM_FULLSCALE_CURRENT).intended_value
+        except KeyError:
+            return None
+
+    def _isr_period_s(self) -> float | None:
+        """Return the ISR period in seconds from parameters.json, or None."""
+        params = self._session.params
+        if params is None:
+            return None
+        try:
+            return params.get_info(_PARAM_ISR_DIVIDER).scale
+        except KeyError:
+            return None
+
+    def amps_to_counts(self, amps: float) -> int:
+        """Convert a current amplitude in Amps to Q15 counts."""
+        ifs = self._fullscale_current()
+        if ifs is None:
+            raise RuntimeError(
+                "ParameterDB required for current unit conversion. "
+                "Pass parameters_json to TuningSession."
+            )
+        return round(amps / ifs * 32768)
+
+    def counts_to_amps(self, counts: int) -> float:
+        """Convert Q15 counts to a current amplitude in Amps."""
+        ifs = self._fullscale_current()
+        if ifs is None:
+            return float(counts)
+        return (counts / 32768) * ifs
+
+    def ms_to_isr_cycles(self, ms: float) -> int:
+        """Convert a half-period in milliseconds to ISR cycles."""
+        isr_period = self._isr_period_s()
+        if isr_period is None:
+            raise RuntimeError(
+                "ParameterDB required for timing unit conversion. "
+                "Pass parameters_json to TuningSession."
+            )
+        return round(ms / 1000.0 / isr_period)
+
+    def isr_cycles_to_ms(self, cycles: int) -> float:
+        """Convert ISR cycles to milliseconds."""
+        isr_period = self._isr_period_s()
+        if isr_period is None:
+            return float(cycles)
+        return cycles * isr_period * 1000.0
+
+    def get_perturbation_scaling(self) -> dict | None:
+        """Return scaling info for GUI display, or None if parameters unavailable."""
+        ifs = self._fullscale_current()
+        isr_period = self._isr_period_s()
+        if ifs is None or isr_period is None:
+            return None
+        return {
+            "fullscale_current_a": ifs,
+            "isr_period_s": isr_period,
+            "isr_freq_hz": 1.0 / isr_period,
+        }
+
     # ── Perturbation Control ──────────────────────────────────────────
 
     def setup_step_test(
         self,
         axis: str = "q",
-        amplitude: int = 500,
-        halfperiod: int = 100,
+        amplitude: float = 0.5,
+        halfperiod: float = 5.0,
+        units: str = "engineering",
     ) -> None:
         """Configure and start a square-wave perturbation for step response testing.
 
         Args:
             axis: "q" or "d" -- which current axis to perturb.
-            amplitude: Perturbation amplitude in raw counts.
-            halfperiod: Half-period in PWM cycles. At 20kHz ISR rate,
-                100 cycles = 5ms half-period = 100Hz square wave.
+            amplitude: Perturbation amplitude. In engineering mode, Amps.
+                In counts mode, raw Q15 counts.
+            halfperiod: Half-period. In engineering mode, milliseconds.
+                In counts mode, ISR cycles.
+            units: "engineering" (Amps / ms) or "counts" (raw values).
         """
-        self._session.write_variable(_VAR_SQWAVE_HALFPERIOD, halfperiod)
+        if units == "engineering":
+            amp_counts = self.amps_to_counts(amplitude)
+            hp_cycles = self.ms_to_isr_cycles(halfperiod)
+        elif units == "counts":
+            amp_counts = int(amplitude)
+            hp_cycles = int(halfperiod)
+        else:
+            raise ValueError(f"units must be 'engineering' or 'counts', got {units!r}")
+
+        self._session.write_variable(_VAR_SQWAVE_HALFPERIOD, hp_cycles)
 
         if axis.lower() == "q":
-            self._session.write_variable(_VAR_SQWAVE_IDQ_Q, amplitude)
+            self._session.write_variable(_VAR_SQWAVE_IDQ_Q, amp_counts)
             self._session.write_variable(_VAR_SQWAVE_IDQ_D, 0)
         elif axis.lower() == "d":
-            self._session.write_variable(_VAR_SQWAVE_IDQ_D, amplitude)
+            self._session.write_variable(_VAR_SQWAVE_IDQ_D, amp_counts)
             self._session.write_variable(_VAR_SQWAVE_IDQ_Q, 0)
         else:
             raise ValueError(f"axis must be 'q' or 'd', got {axis!r}")
 
         self._session.write_variable(_VAR_SQWAVE_VALUE, 1)
         logger.info(
-            "Started step test: axis=%s, amplitude=%d counts, halfperiod=%d cycles",
-            axis, amplitude, halfperiod,
+            "Started step test: axis=%s, amplitude=%.3f A (%d counts), "
+            "halfperiod=%.2f ms (%d cycles)",
+            axis, amplitude if units == "engineering" else self.counts_to_amps(amp_counts),
+            amp_counts,
+            halfperiod if units == "engineering" else self.isr_cycles_to_ms(hp_cycles),
+            hp_cycles,
         )
 
     def stop_perturbation(self) -> None:

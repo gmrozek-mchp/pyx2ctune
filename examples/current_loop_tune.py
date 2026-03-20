@@ -28,8 +28,8 @@ def main():
     parser.add_argument("--baud", type=int, default=115200, help="Baud rate (default: 115200)")
     parser.add_argument("--kp", type=float, default=None, help="Proportional gain (V/A)")
     parser.add_argument("--ki", type=float, default=None, help="Integral gain (V/A/s)")
-    parser.add_argument("--amplitude", type=int, default=500, help="Perturbation amplitude (counts)")
-    parser.add_argument("--halfperiod", type=int, default=100, help="Perturbation half-period (PWM cycles)")
+    parser.add_argument("--amplitude", type=float, default=0.5, help="Perturbation amplitude (A)")
+    parser.add_argument("--halfperiod", type=float, default=5.0, help="Perturbation half-period (ms)")
     parser.add_argument("--axis", default="q", choices=["q", "d"], help="Current axis to tune")
     args = parser.parse_args()
 
@@ -60,11 +60,12 @@ def main():
         print(f"Configuring scope for {args.axis}-axis current loop...")
         session.capture.configure_current_loop(axis=args.axis)
 
-        print(f"Starting perturbation: amplitude={args.amplitude}, halfperiod={args.halfperiod}")
+        print(f"Starting perturbation: amplitude={args.amplitude:.3f} A, halfperiod={args.halfperiod:.2f} ms")
         session.current.setup_step_test(
             axis=args.axis,
             amplitude=args.amplitude,
             halfperiod=args.halfperiod,
+            units="engineering",
         )
 
         print("Capturing step response...")
