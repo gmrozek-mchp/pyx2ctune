@@ -37634,4 +37634,1201 @@ Let me think about the design:
 
 **PlotWidget changes:**
 - No major changes needed - it just displays whatever data it's given
-</details></think>
+
+
+- **MainWindow changes:** I'll maintain a cache mapping each view ID to its last captured response and metrics, then when the scope panel signals a view change, I'll look up the cached data and update the plot accordingly, or clear it if nothing's been captured yet
+- **ScopePanel changes:** I need to add a signal that fires whenever the selected view changes, passing the view ID along
+
+Now I'm going to check the current implementation of these files to see what I'm working with.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Good idea. I'll add per-view plot caching so switching views restores the last capture for that view, and emit a signal from the scope panel when the view changes.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+The plan is:
+
+1. **ScopePanel**: Add a `view_changed` signal emitted when the dropdown changes.
+2. **MainWindow**: 
+   - Add a `_view_cache: dict[str, tuple[StepResponse, StepMetrics]]` to store the last capture per view.
+   - On `capture_done`, store the result keyed by the current scope view.
+   - Connect `scope_panel.view_changed` to a handler that restores cached data or clears.
+   - Also restore the cached metrics when switching views.
+   - Clear the cache on disconnect.
+
+Let me implement this.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Here's the approach: the scope panel will emit a `view_changed` signal, and the main window will maintain a per-view cache of the last `(StepResponse, StepMetrics)`. Switching views restores the cached plot and metrics, or clears if none exist.
+
+First, add the `view_changed` signal to `ScopePanel`:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Emit the signal from `_on_view_changed`:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update `MainWindow` to cache per-view data and restore on view switch:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Connect the `view_changed` signal:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Store capture data keyed by view in `_on_capture_done`:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Add the `_on_view_switched` handler and a helper to update metrics labels:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now use the helper in `_on_capture_done` to avoid duplication:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Clear the cache on disconnect:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+The `_on_view_switched` handler calls `self._plot.clear()` before `update_plot()` to force fresh line creation (since the axis labels and data are different per view). Let me also make sure the plot widget's `clear()` properly resets line objects so `update_plot` recreates them.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/plot_widget.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Good — `clear()` already sets all line references to `None`, so the next `update_plot()` call will recreate them fresh with correct labels. Let me run a lint check:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "pyx2ctune/gui/scope_panel.py",
+    "pyx2ctune/gui/main_window.py"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/scope_panel.py"
+    },
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/main_window.py"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints"><details>
+<summary>Tool use: **read_lints**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Quick import sanity check:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/greg/projects/microchip/pyx2ctune && python -c "from pyx2ctune.gui.main_window import MainWindow; print('OK')"</summary>
+
+```bash
+cd /Users/greg/projects/microchip/pyx2ctune && python -c "from pyx2ctune.gui.main_window import MainWindow; print('OK')"
+```
+
+```
+OK
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Here's what was implemented:
+
+- **`ScopePanel`** now emits `view_changed(view_id)` whenever the dropdown selection changes.
+- **`MainWindow`** maintains a `_view_cache` dict keyed by view ID, storing the last `(StepResponse, StepMetrics)` for each view.
+- When a capture completes, the result is stored in the cache under the current view.
+- When the user switches views, `_on_view_switched` checks the cache — if there's a previous capture for that view, it restores the plot and metrics; otherwise it clears to the empty state.
+- The cache is cleared on disconnect so stale data from a previous session doesn't persist.
+
+Each view's plot state is now independent — you can capture on Current Iq, switch to Velocity to capture there, then switch back to Current Iq and see your previous capture restored.
+
+---
+
+_**User**_
+
+getting there. on open loop tab all settings should be in real world units
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Let me check the current state of the open loop tab and the test harness to understand what needs conversion.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/tabs/openloop_tab.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/test_harness.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+Now I need to understand what fullscale values are available. Let me check the parameters.json to see what we have:
+- `mcapi.fullscale.current` - for current conversions (A ↔ Q15)
+- `mcapi.fullscale.voltage` - for voltage conversions (V ↔ Q15)
+- `mcapi.fullscale.velocity` - for velocity/omega conversions (RPM ↔ Q15)
+
+The open loop tab has three things in raw counts that need real-world units:
+
+1. **Commutation Override** (`ω electrical`): Currently `QSpinBox` with `-32768..32767 counts`. This is `motor.testing.overrideOmegaElectrical` — an angular velocity in Q15 format. 
+
+For the commutation override, I should convert it to a `QDoubleSpinBox` displaying RPM using the velocity fullscale. The DQ current commands (`Id`, `Iq`) from `motor.idqCmdRaw.d/q` are also in Q15 format, so they need to become `QDoubleSpinBox` fields in Amps using the current fullscale. Similarly, the DQ voltage commands (`Vd`, `Vq`) are in Q15 and should be converted to `QDoubleSpinBox` fields in volts using the voltage fullscale.
+
+The conversion math is straightforward: to go from engineering units to Q15 counts I multiply by 32768 and divide by fullscale, then round. Going the other direction, I divide the counts by 32768 and multiply by fullscale. My plan is to refactor the open loop tab to use `QDoubleSpinBox` with actual units, cache the fullscale values when connecting, switch the signals to emit floats instead of integers, and update the worker code accordingly.
+
+Now I'm deciding where the conversion should happen — either in the worker methods themselves since they have session access, in the tab before emitting since it already knows the fullscale values, or by adding new engineering-unit methods to the test harness. The cleanest approach is to do the conversion in the tab and change the signal types to float, since that's where the UI values originate.
+
+The flow would be: tab emits real-world values in engineering units, the main window passes those to the worker as floats, and the worker converts them to raw counts using the session parameters before calling the test harness methods. I need to update the tab to use double spinboxes instead of integer ones and adjust the signal types accordingly.
+
+Updating the tab UI... I'll set up generous fixed ranges for the control parameters and let the fullscale values handle the actual clamping, then update the code to implement these changes.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now I need to check what fullscale parameters are available for the conversions.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now I have the full picture. Three controls need real-world units:
+
+1. **Commutation frequency** (omega): Q15 counts → RPM via `fullscale_velocity`
+2. **DQ Current** (Id, Iq): Q15 counts → Amps via `fullscale_current`
+3. **DQ Voltage** (Vd, Vq): Q15 counts → Volts via `fullscale_voltage`
+
+I'll convert in the worker (which has session access) and make the tab emit floats.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me implement all three changes. First, update the open loop tab to use `QDoubleSpinBox` with real-world units:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/tabs/openloop_tab.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the main_window slots to pass floats:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the worker methods to convert from engineering units to Q15 counts:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now I need to add the `_get_fullscale` helper to the worker:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me check for lint errors:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "pyx2ctune/gui/tabs/openloop_tab.py",
+    "pyx2ctune/gui/main_window.py",
+    "pyx2ctune/gui/workers.py"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/tabs/openloop_tab.py"
+    },
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/main_window.py"
+    },
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/workers.py"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints"><details>
+<summary>Tool use: **read_lints**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Quick import check:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/greg/projects/microchip/pyx2ctune && python -c "
+from pyx2ctune.gui.tabs.openloop_tab import OpenLoopTab
+from pyx2ctune.gui.main_window import MainWindow
+from pyx2ctune.gui.workers import SessionWorker
+print('All imports OK')
+"</summary>
+
+```bash
+cd /Users/greg/projects/microchip/pyx2ctune && python -c "
+from pyx2ctune.gui.tabs.openloop_tab import OpenLoopTab
+from pyx2ctune.gui.main_window import MainWindow
+from pyx2ctune.gui.workers import SessionWorker
+print('All imports OK')
+"
+```
+
+```
+All imports OK
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Here's what changed:
+
+**Open Loop tab** — All three control panels now use `QDoubleSpinBox` with engineering units:
+- **Commutation Override**: `ω electrical` in RPM (was raw Q15 counts)
+- **DQ Current Command**: `Id` and `Iq` in Amps with 3 decimal places (was raw counts)
+- **DQ Voltage Command**: `Vd` and `Vq` in Volts with 2 decimal places (was raw counts)
+
+Signal types changed from `int` to `float` accordingly.
+
+**Worker** — The three command handlers (`_do_set_commutation_freq`, `_do_set_dq_current`, `_do_set_dq_voltage`) now accept engineering-unit values and convert to Q15 counts using the fullscale values from `parameters.json` before writing to firmware. A shared `_get_fullscale()` helper reads the appropriate fullscale parameter. Status messages show both the engineering value and counts for transparency.
+
+---
+
+_**User**_
+
+on scope view, settings should also stick / change with preset views - not just the plots themselves
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+The user wants the trigger settings (trigger enabled, trigger level) to be saved and restored per-view, just like the plot data is. So when you switch from "Current Iq" to "Velocity" and back, the trigger checkbox state and trigger level value should be remembered per view.
+
+Let me look at the scope panel to understand what settings need to be cached per view.
+
+The settings that should be per-view:
+1. Trigger enabled (checkbox)
+2. Trigger level (spinbox value in engineering units)
+
+The trigger channel label and unit suffix already auto-update from the preset definition, so those don't need caching.
+
+I need to:
+1. In `ScopePanel`, maintain a dict of `{view_id: (trigger_enabled, trigger_level)}` 
+
+
+2. When switching views, I'll save the current trigger state before loading the new view's settings
+3. This requires tracking which view was previously active so I know what to save when the view changes
+
+Let me start implementing this.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Good point — right now the trigger checkbox and level stay the same when switching views, but different views likely want different trigger settings. I'll cache trigger settings per view so they persist when switching.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+I need to:
+1. Add a per-view settings cache (`_view_settings`) that stores trigger enabled + trigger level per view
+2. On view change, save current settings under the old view, then restore settings for the new view
+3. Persist all per-view settings to `QSettings`
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update `_on_view_changed` to save/restore per-view settings:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the persistence methods to save/restore per-view settings:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Also clear the per-view cache on disconnect:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "pyx2ctune/gui/scope_panel.py"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/scope_panel.py"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints"><details>
+<summary>Tool use: **read_lints**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/greg/projects/microchip/pyx2ctune && python -c "from pyx2ctune.gui.scope_panel import ScopePanel; print('OK')"</summary>
+
+```bash
+cd /Users/greg/projects/microchip/pyx2ctune && python -c "from pyx2ctune.gui.scope_panel import ScopePanel; print('OK')"
+```
+
+```
+OK
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now each preset view remembers its own trigger settings independently:
+
+- **On view switch**: the current trigger enabled/level are saved under the outgoing view, and the incoming view's saved values are restored (defaults to trigger on, level 0 if never set).
+- **On app save/restore**: all per-view settings are persisted to `QSettings` under `scope/{view_id}/trigger` and `scope/{view_id}/level`, so they survive between sessions.
+- Combined with the earlier plot caching, switching views now fully restores both the plot/metrics and the trigger controls.
+
+---
+
+_**User**_
+
+on scope view, lets add sample time factor setting. This changes how often x2cscope takes a sample, effectively changing the sample time window. This is needed for slower views like velocity tuning
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me check how `sample_time` is used downstream — it's currently hardcoded to `1` in every `CONFIGURE_SCOPE` submission in main_window.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "glob": "**/main_window.py",
+  "outputMode": "content",
+  "pattern": "sample_time"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "pattern": "sample_time",
+  "topFiles": [
+    {
+      "matchCount": 4,
+      "uri": "pyx2ctune/gui/main_window.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 4
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+I need to:
+
+1. Add a `QSpinBox` for sample time to the scope panel, with a sensible default per view (1 for current, higher for velocity)
+2. Include sample_time in the per-view settings cache
+3. Add a `sample_time()` property to the scope panel
+4. Update main_window to read from `sp.sample_time()` instead of hardcoding `1`
+
+The per-view defaults should be:
+- current_q, current_d: 1 (fast ISR, full resolution needed)
+- velocity: maybe 10 or so (velocity loop is slower)
+
+
+- open_voltage, open_current: 1 (probably want full resolution for commissioning)
+
+Actually, I'll just default everything to 1 and let the user adjust it per view—the per-view persistence will handle remembering their choices. I could add preset defaults later if needed, but keeping it simple for now makes sense. I'll add a QSpinBox labeled "Sample time:" on the trigger row with an appropriate range, defaulting to 1 across all views.
+
+I need to be careful about layout though—the trigger row is already getting crowded, so I'll insert the sample time control between the view row and trigger row to keep things organized. Let me update the scope panel with this new control.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+I'll add a sample time spinner to the scope panel, cache it per view, and wire it through to the `CONFIGURE_SCOPE` calls.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the per-view settings tuple to include sample_time, and add the spinner to the UI:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Add the sample time spinner to the UI between the view row and the trigger row:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update `_on_view_changed` to save/restore sample_time as part of the per-view cache:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Add the `sample_time()` property:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Update persistence to include sample_time:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update `main_window.py` to use `sp.sample_time()` instead of the hardcoded `1`:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Replace all four hardcoded `sample_time=1` with `sample_time=sp.sample_time()`:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me also enable/disable the sample time spinner along with the other controls:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Also reset sample_time on disconnect:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Let me verify the final state of both files:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "pyx2ctune/gui/scope_panel.py",
+    "pyx2ctune/gui/main_window.py"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/scope_panel.py"
+    },
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/main_window.py"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints"><details>
+<summary>Tool use: **read_lints**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Let me verify the final scope panel looks correct:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Everything looks clean. Here's a summary of the changes:
+
+**`pyx2ctune/gui/scope_panel.py`**:
+- Added a **Sample time** `QSpinBox` (range 1–255) on the view row, next to the view dropdown. The tooltip explains that `1` means every ISR sample (fastest), and higher values extend the capture window at lower resolution.
+- The sample time value is included in the **per-view settings cache** (`_view_settings` tuple is now `(trigger_enabled, trigger_level, sample_time)`), so switching views saves/restores the sample time just like trigger settings.
+- Added `sample_time() -> int` public accessor.
+- The spinner is enabled/disabled with connection state and reset to `1` on disconnect.
+- `save_settings()` and `restore_settings()` persist sample time per view to `QSettings`.
+
+**`pyx2ctune/gui/main_window.py`**:
+- All four `CONFIGURE_SCOPE` submissions now use `sample_time=sp.sample_time()` instead of the hardcoded `1`, pulling the value from the scope panel widget.
+
+---
+
+_**User**_
+
+lets move location of the sample time setting. it's a bit lost all the way to the right
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+Status: **loading**
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>

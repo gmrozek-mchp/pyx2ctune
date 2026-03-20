@@ -395,7 +395,8 @@ class MainWindow(QMainWindow):
         self._scope_panel.set_view(view)
         sp = self._scope_panel
         self._worker.submit(
-            Command.CONFIGURE_SCOPE, view=view, sample_time=1,
+            Command.CONFIGURE_SCOPE, view=view,
+            sample_time=sp.sample_time(),
             trigger=sp.trigger_enabled(),
             trigger_level=sp.trigger_level_q15(),
         )
@@ -429,7 +430,8 @@ class MainWindow(QMainWindow):
         self._scope_panel.set_view("velocity")
         sp = self._scope_panel
         self._worker.submit(
-            Command.CONFIGURE_SCOPE, view="velocity", sample_time=1,
+            Command.CONFIGURE_SCOPE, view="velocity",
+            sample_time=sp.sample_time(),
             trigger=sp.trigger_enabled(),
             trigger_level=sp.trigger_level_q15(),
         )
@@ -449,13 +451,13 @@ class MainWindow(QMainWindow):
     def _on_ol_set_overrides(self, flags: dict) -> None:
         self._worker.submit(Command.SET_OVERRIDES, flags=flags)
 
-    def _on_ol_set_omega(self, omega: int) -> None:
-        self._worker.submit(Command.SET_COMMUTATION_FREQ, omega=omega)
+    def _on_ol_set_omega(self, rpm: float) -> None:
+        self._worker.submit(Command.SET_COMMUTATION_FREQ, rpm=rpm)
 
-    def _on_ol_set_dq_current(self, d: int, q: int) -> None:
+    def _on_ol_set_dq_current(self, d: float, q: float) -> None:
         self._worker.submit(Command.SET_DQ_CURRENT, d=d, q=q)
 
-    def _on_ol_set_dq_voltage(self, d: int, q: int) -> None:
+    def _on_ol_set_dq_voltage(self, d: float, q: float) -> None:
         self._worker.submit(Command.SET_DQ_VOLTAGE, d=d, q=q)
 
     def _on_ol_force_state(self, transition: int) -> None:
@@ -470,7 +472,8 @@ class MainWindow(QMainWindow):
         sp = self._scope_panel
         self._worker.submit(
             Command.CONFIGURE_SCOPE,
-            view=sp.current_view(), sample_time=1,
+            view=sp.current_view(),
+            sample_time=sp.sample_time(),
             trigger=sp.trigger_enabled(),
             trigger_level=sp.trigger_level_q15(),
         )
@@ -481,7 +484,8 @@ class MainWindow(QMainWindow):
         sp = self._scope_panel
         self._worker.submit(
             Command.CONFIGURE_SCOPE,
-            view=sp.current_view(), sample_time=1,
+            view=sp.current_view(),
+            sample_time=sp.sample_time(),
             trigger=sp.trigger_enabled(),
             trigger_level=sp.trigger_level_q15(),
         )

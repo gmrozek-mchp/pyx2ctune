@@ -3,6 +3,9 @@
 Provides direct access to MCAF test harness operating modes,
 override flags, commutation override, DQ current/voltage commands,
 and forced state transitions for motor commissioning.
+
+All settings are in real-world engineering units (A, V, RPM).
+Conversion to/from Q15 counts happens in the worker layer.
 """
 
 from __future__ import annotations
@@ -11,13 +14,12 @@ from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QCheckBox,
-    QComboBox,
+    QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -30,12 +32,11 @@ _MONO.setPointSize(10)
 class OpenLoopTab(QWidget):
     """Tab for open-loop commissioning and test harness control."""
 
-    set_operating_mode_requested = pyqtSignal(int)           # OperatingMode value
-    force_state_requested = pyqtSignal(int)                  # ForceState value
-    set_overrides_requested = pyqtSignal(dict)               # {flag_name: bool}
-    set_commutation_freq_requested = pyqtSignal(int)         # omega counts
-    set_dq_current_requested = pyqtSignal(int, int)          # d, q counts
-    set_dq_voltage_requested = pyqtSignal(int, int)          # d, q counts
+    force_state_requested = pyqtSignal(int)                    # ForceState value
+    set_overrides_requested = pyqtSignal(dict)                 # {flag_name: bool}
+    set_commutation_freq_requested = pyqtSignal(float)         # RPM
+    set_dq_current_requested = pyqtSignal(float, float)        # d, q in Amps
+    set_dq_voltage_requested = pyqtSignal(float, float)        # d, q in Volts
     read_status_requested = pyqtSignal()
     enter_force_voltage_requested = pyqtSignal()
     enter_force_current_requested = pyqtSignal()
@@ -61,7 +62,6 @@ class OpenLoopTab(QWidget):
         grp = QGroupBox("Operating Mode")
         layout = QVBoxLayout(grp)
 
-        # Status row 1: test harness
         status_layout = QHBoxLayout()
         status_layout.addWidget(QLabel("Mode:"))
         self._mode_label = QLabel("--")
@@ -75,7 +75,6 @@ class OpenLoopTab(QWidget):
         status_layout.addStretch()
         layout.addLayout(status_layout)
 
-        # Status row 2: motor state and speed
         motor_layout = QHBoxLayout()
         motor_layout.addWidget(QLabel("State:"))
         self._state_label = QLabel("--")
@@ -141,10 +140,12 @@ class OpenLoopTab(QWidget):
         layout = QVBoxLayout(grp)
 
         form = QFormLayout()
-        self._omega_spin = QSpinBox()
-        self._omega_spin.setRange(-32768, 32767)
-        self._omega_spin.setValue(0)
-        self._omega_spin.setSuffix("  counts")
+        self._omega_spin = QDoubleSpinBox()
+        self._omega_spin.setRange(-10000.0, 10000.0)
+        self._omega_spin.setValue(0.0)
+        self._omega_spin.setDecimals(1)
+        self._omega_spin.setSingleStep(10.0)
+        self._omega_spin.setSuffix("  RPM")
         form.addRow("ω electrical:", self._omega_spin)
         layout.addLayout(form)
 
@@ -158,16 +159,20 @@ class OpenLoopTab(QWidget):
         layout = QVBoxLayout(grp)
 
         form = QFormLayout()
-        self._id_spin = QSpinBox()
-        self._id_spin.setRange(-32768, 32767)
-        self._id_spin.setValue(0)
-        self._id_spin.setSuffix("  counts")
+        self._id_spin = QDoubleSpinBox()
+        self._id_spin.setRange(-50.0, 50.0)
+        self._id_spin.setValue(0.0)
+        self._id_spin.setDecimals(3)
+        self._id_spin.setSingleStep(0.1)
+        self._id_spin.setSuffix("  A")
         form.addRow("Id:", self._id_spin)
 
-        self._iq_spin = QSpinBox()
-        self._iq_spin.setRange(-32768, 32767)
-        self._iq_spin.setValue(0)
-        self._iq_spin.setSuffix("  counts")
+        self._iq_spin = QDoubleSpinBox()
+        self._iq_spin.setRange(-50.0, 50.0)
+        self._iq_spin.setValue(0.0)
+        self._iq_spin.setDecimals(3)
+        self._iq_spin.setSingleStep(0.1)
+        self._iq_spin.setSuffix("  A")
         form.addRow("Iq:", self._iq_spin)
         layout.addLayout(form)
 
@@ -181,16 +186,20 @@ class OpenLoopTab(QWidget):
         layout = QVBoxLayout(grp)
 
         form = QFormLayout()
-        self._vd_spin = QSpinBox()
-        self._vd_spin.setRange(-32768, 32767)
-        self._vd_spin.setValue(0)
-        self._vd_spin.setSuffix("  counts")
+        self._vd_spin = QDoubleSpinBox()
+        self._vd_spin.setRange(-100.0, 100.0)
+        self._vd_spin.setValue(0.0)
+        self._vd_spin.setDecimals(2)
+        self._vd_spin.setSingleStep(0.1)
+        self._vd_spin.setSuffix("  V")
         form.addRow("Vd:", self._vd_spin)
 
-        self._vq_spin = QSpinBox()
-        self._vq_spin.setRange(-32768, 32767)
-        self._vq_spin.setValue(0)
-        self._vq_spin.setSuffix("  counts")
+        self._vq_spin = QDoubleSpinBox()
+        self._vq_spin.setRange(-100.0, 100.0)
+        self._vq_spin.setValue(0.0)
+        self._vq_spin.setDecimals(2)
+        self._vq_spin.setSingleStep(0.1)
+        self._vq_spin.setSuffix("  V")
         form.addRow("Vq:", self._vq_spin)
         layout.addLayout(form)
 
@@ -294,11 +303,11 @@ class OpenLoopTab(QWidget):
         self._guard_label.setText("--")
         self._state_label.setText("--")
         self._speed_label.setText("--")
-        self._id_spin.setValue(0)
-        self._iq_spin.setValue(0)
-        self._vd_spin.setValue(0)
-        self._vq_spin.setValue(0)
-        self._omega_spin.setValue(0)
+        self._id_spin.setValue(0.0)
+        self._iq_spin.setValue(0.0)
+        self._vd_spin.setValue(0.0)
+        self._vq_spin.setValue(0.0)
+        self._omega_spin.setValue(0.0)
         for cb in self._override_checks.values():
             cb.setChecked(False)
 

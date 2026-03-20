@@ -231,6 +231,18 @@ class SessionWorker(QObject):
         elif cmd == Command._CONTINUOUS_FRAME:
             self._do_continuous_frame()
 
+    # ── Helpers ────────────────────────────────────────────────────────
+
+    def _get_fullscale(self, param_name: str) -> float:
+        """Read a fullscale value from parameters.json, or 0 if unavailable."""
+        params = self._session.params if self._session else None
+        if params is not None:
+            try:
+                return params.get_info(param_name).intended_value
+            except (KeyError, AttributeError):
+                pass
+        return 0.0
+
     # ── Command implementations ───────────────────────────────────────
 
     def _do_connect(self, port: str, elf_file: str,
@@ -386,22 +398,30 @@ class SessionWorker(QObject):
         self.status.emit("Override flags applied")
         self.overrides_applied.emit()
 
-    def _do_set_commutation_freq(self, omega: int) -> None:
-        self.status.emit(f"Setting commutation frequency: {omega}...")
-        self._session.test_harness.set_commutation_frequency(omega)
-        self.status.emit(f"Commutation frequency: {omega} counts")
+    def _do_set_commutation_freq(self, rpm: float) -> None:
+        self.status.emit(f"Setting commutation frequency: {rpm:.1f} RPM...")
+        fs = self._get_fullscale("mcapi.fullscale.velocity")
+        counts = round(rpm / fs * 32768) if fs > 0 else 0
+        self._session.test_harness.set_commutation_frequency(counts)
+        self.status.emit(f"Commutation frequency: {rpm:.1f} RPM ({counts} counts)")
         self.commutation_freq_set.emit()
 
-    def _do_set_dq_current(self, d: int, q: int) -> None:
-        self.status.emit(f"Setting dq current: d={d}, q={q}...")
-        self._session.test_harness.set_dq_current(d, q)
-        self.status.emit(f"DQ current: d={d}, q={q}")
+    def _do_set_dq_current(self, d: float, q: float) -> None:
+        self.status.emit(f"Setting dq current: d={d:.3f} A, q={q:.3f} A...")
+        fs = self._get_fullscale("mcapi.fullscale.current")
+        d_counts = round(d / fs * 32768) if fs > 0 else 0
+        q_counts = round(q / fs * 32768) if fs > 0 else 0
+        self._session.test_harness.set_dq_current(d_counts, q_counts)
+        self.status.emit(f"DQ current: d={d:.3f} A, q={q:.3f} A")
         self.dq_current_set.emit()
 
-    def _do_set_dq_voltage(self, d: int, q: int) -> None:
-        self.status.emit(f"Setting dq voltage: d={d}, q={q}...")
-        self._session.test_harness.set_dq_voltage(d, q)
-        self.status.emit(f"DQ voltage: d={d}, q={q}")
+    def _do_set_dq_voltage(self, d: float, q: float) -> None:
+        self.status.emit(f"Setting dq voltage: d={d:.2f} V, q={q:.2f} V...")
+        fs = self._get_fullscale("mcapi.fullscale.voltage")
+        d_counts = round(d / fs * 32768) if fs > 0 else 0
+        q_counts = round(q / fs * 32768) if fs > 0 else 0
+        self._session.test_harness.set_dq_voltage(d_counts, q_counts)
+        self.status.emit(f"DQ voltage: d={d:.2f} V, q={q:.2f} V")
         self.dq_voltage_set.emit()
 
     def _do_force_state(self, transition: int) -> None:

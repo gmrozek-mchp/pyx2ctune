@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -43,10 +44,14 @@ class ScopePanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._fullscale: dict[str, float] = {}
+        # Per-view settings: view_id → (trigger_enabled, trigger_level, sample_time)
+        self._view_settings: dict[str, tuple[bool, float, int]] = {}
+        self._prev_view: str | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._build_panel())
+        self._prev_view = self.current_view()
         self._connect_internal()
 
     def _build_panel(self) -> QGroupBox:
@@ -60,6 +65,19 @@ class ScopePanel(QWidget):
             self._view_combo.addItem(display, view_id)
         view_row.addWidget(self._view_combo, stretch=1)
         outer.addLayout(view_row)
+
+        sample_row = QHBoxLayout()
+        sample_row.addWidget(QLabel("Sample time:"))
+        self._sample_time_spin = QSpinBox()
+        self._sample_time_spin.setRange(1, 255)
+        self._sample_time_spin.setValue(1)
+        self._sample_time_spin.setToolTip(
+            "Scope prescaler: 1 = every ISR sample (fastest).\n"
+            "Higher values extend the capture window at lower resolution."
+        )
+        sample_row.addWidget(self._sample_time_spin)
+        sample_row.addStretch()
+        outer.addLayout(sample_row)
 
         trigger_row = QHBoxLayout()
         self._trigger_check = QCheckBox("Trigger")
@@ -117,9 +135,32 @@ class ScopePanel(QWidget):
     def _on_view_changed(self, index: int) -> None:
         if index < 0 or index >= len(_VIEW_PRESETS):
             return
+
+        # Save settings for the view we're leaving
+        if self._prev_view is not None:
+            self._view_settings[self._prev_view] = (
+                self._trigger_check.isChecked(),
+                self._trigger_level_spin.value(),
+                self._sample_time_spin.value(),
+            )
+
         view_id, _, channel_label, unit, _ = _VIEW_PRESETS[index]
         self._trigger_channel_label.setText(channel_label)
         self._trigger_level_spin.setSuffix(f" {unit}")
+
+        # Restore settings for the view we're entering
+        saved = self._view_settings.get(view_id)
+        if saved is not None:
+            enabled, level, st = saved
+            self._trigger_check.setChecked(enabled)
+            self._trigger_level_spin.setValue(level)
+            self._sample_time_spin.setValue(st)
+        else:
+            self._trigger_check.setChecked(True)
+            self._trigger_level_spin.setValue(0.0)
+            self._sample_time_spin.setValue(1)
+
+        self._prev_view = view_id
         self.view_changed.emit(view_id)
 
     # ── Public API ────────────────────────────────────────────────────
@@ -133,6 +174,9 @@ class ScopePanel(QWidget):
         idx = self._view_combo.findData(view_id)
         if idx >= 0:
             self._view_combo.setCurrentIndex(idx)
+
+    def sample_time(self) -> int:
+        return self._sample_time_spin.value()
 
     def trigger_enabled(self) -> bool:
         return self._trigger_check.isChecked()
@@ -155,6 +199,7 @@ class ScopePanel(QWidget):
         self._continuous_stop_btn.setEnabled(False)
         self._cancel_btn.setEnabled(False)
         self._view_combo.setEnabled(connected)
+        self._sample_time_spin.setEnabled(connected)
 
     def on_connected(self, session) -> None:
         """Store fullscale values for trigger level conversion."""
@@ -176,6 +221,8 @@ class ScopePanel(QWidget):
     def on_disconnected(self) -> None:
         self._fullscale = {}
         self._trigger_level_spin.setValue(0.0)
+        self._trigger_check.setChecked(True)
+        self._sample_time_spin.setValue(1)
 
     def on_capture_started(self) -> None:
         if not self._continuous_stop_btn.isEnabled():
@@ -205,21 +252,40 @@ class ScopePanel(QWidget):
     # ── Settings persistence ──────────────────────────────────────────
 
     def save_settings(self, settings) -> None:
-        settings.setValue("scope/view", self.current_view())
-        settings.setValue("scope/trigger", self._trigger_check.isChecked())
-        settings.setValue(
-            "scope/trigger_level", self._trigger_level_spin.value(),
+        # Snapshot current widgets into the cache before persisting
+        cur = self.current_view()
+        self._view_settings[cur] = (
+            self._trigger_check.isChecked(),
+            self._trigger_level_spin.value(),
+            self._sample_time_spin.value(),
         )
+        settings.setValue("scope/view", cur)
+        for view_id, *_ in _VIEW_PRESETS:
+            saved = self._view_settings.get(view_id)
+            if saved is not None:
+                enabled, level, st = saved
+                settings.setValue(f"scope/{view_id}/trigger", enabled)
+                settings.setValue(f"scope/{view_id}/level", level)
+                settings.setValue(f"scope/{view_id}/sample_time", st)
 
     def restore_settings(self, settings) -> None:
+        for view_id, *_ in _VIEW_PRESETS:
+            trig = settings.value(f"scope/{view_id}/trigger")
+            level = settings.value(f"scope/{view_id}/level", type=float)
+            st = settings.value(f"scope/{view_id}/sample_time", type=int)
+            if trig is not None:
+                enabled = str(trig).lower() in ("true", "1")
+                self._view_settings[view_id] = (
+                    enabled, level or 0.0, st or 1,
+                )
+
         view = settings.value("scope/view", "")
         if view:
             self.set_view(view)
-        trig = settings.value("scope/trigger")
-        if trig is not None:
-            self._trigger_check.setChecked(
-                str(trig).lower() in ("true", "1"),
-            )
-        level = settings.value("scope/trigger_level", type=float)
-        if level:
-            self._trigger_level_spin.setValue(level)
+
+        # Apply cached settings for the active view
+        saved = self._view_settings.get(self.current_view())
+        if saved is not None:
+            self._trigger_check.setChecked(saved[0])
+            self._trigger_level_spin.setValue(saved[1])
+            self._sample_time_spin.setValue(saved[2])
