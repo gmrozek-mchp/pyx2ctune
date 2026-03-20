@@ -24,10 +24,10 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -50,9 +50,10 @@ jobs:
       - name: Build application
         run: pyinstaller pyx2ctune.spec
 
-      - name: Package (macOS .app bundle)
+      - name: Sign and package (macOS .app bundle)
         if: runner.os == 'macOS'
         run: |
+          codesign --force --deep -s - dist/pyx2ctune.app
           cd dist
           tar czf ${{ matrix.artifact }}.tar.gz pyx2ctune.app
 
@@ -70,7 +71,7 @@ jobs:
           Compress-Archive -Path pyx2ctune -DestinationPath ${{ matrix.artifact }}.zip
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact }}
           path: dist/${{ matrix.artifact }}.*
@@ -84,7 +85,7 @@ jobs:
 
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: artifacts
 
