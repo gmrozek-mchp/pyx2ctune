@@ -112,6 +112,15 @@ gain changes, test harness events, and scope captures at DEBUG level.
 Console output is kept quiet by default. To see log messages inline in a notebook,
 change the `logging.basicConfig` level from `WARNING` to `INFO`.
 
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+Third-party dependencies are subject to their own licenses. See
+[THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md) for a complete listing,
+including licensing considerations for PyQt5 (GPL-3.0, transitive via
+pyx2cscope) and Microchip proprietary packages.
+
 ## References
 
 See [SPEC.md](SPEC.md) for full architecture and module documentation.
