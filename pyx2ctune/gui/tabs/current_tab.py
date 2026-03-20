@@ -1,7 +1,7 @@
 """Current Loop Tuning tab.
 
-PI gain read/write, symmetric square-wave perturbation, and scope
-capture for step response analysis of the current controller.
+PI gain read/write, symmetric square-wave perturbation, and test harness
+control for step response analysis of the current controller.
 Supports both OM_FORCE_CURRENT (use case 4.5.15.6) and velocity-
 override (use case 4.5.15.5) test modes.
 """
@@ -12,7 +12,6 @@ from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QButtonGroup,
-    QCheckBox,
     QComboBox,
     QDoubleSpinBox,
     QFormLayout,
@@ -33,28 +32,21 @@ _MONO.setPointSize(10)
 class CurrentLoopTab(QWidget):
     """Tab for current loop PI tuning with step response capture."""
 
-    # Requests from the tab to MainWindow / worker
     read_gains_requested = pyqtSignal(str)             # axis
     set_gains_requested = pyqtSignal(float, float)     # kp, ki
     enter_test_requested = pyqtSignal(str, float)       # mode, velocity_rpm
     exit_test_requested = pyqtSignal()
     start_perturbation_requested = pyqtSignal(str, float, float)  # axis, amplitude, halfperiod
     stop_perturbation_requested = pyqtSignal()
-    capture_requested = pyqtSignal()
-    cancel_capture_requested = pyqtSignal()
-    continuous_start_requested = pyqtSignal(str)       # axis
-    continuous_stop_requested = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._fullscale_current: float | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._build_gains_panel())
         layout.addWidget(self._build_test_harness_panel())
         layout.addWidget(self._build_perturbation_panel())
-        layout.addWidget(self._build_capture_panel())
         layout.addStretch()
 
         self._connect_internal()
@@ -107,7 +99,6 @@ class CurrentLoopTab(QWidget):
         grp = QGroupBox("Test Harness")
         layout = QVBoxLayout(grp)
 
-        # Test mode radio
         self._mode_group = QButtonGroup(self)
         self._radio_vel_override = QRadioButton("Under velocity control")
         self._radio_force_current = QRadioButton("Force current (no velocity loop)")
@@ -134,7 +125,6 @@ class CurrentLoopTab(QWidget):
 
         layout.addSpacing(4)
 
-        # Status row 1: test harness
         status_layout = QHBoxLayout()
         status_layout.addWidget(QLabel("Mode:"))
         self._mode_label = QLabel("--")
@@ -148,7 +138,6 @@ class CurrentLoopTab(QWidget):
         status_layout.addStretch()
         layout.addLayout(status_layout)
 
-        # Status row 2: motor state and speed
         motor_layout = QHBoxLayout()
         motor_layout.addWidget(QLabel("State:"))
         self._state_label = QLabel("--")
@@ -207,51 +196,6 @@ class CurrentLoopTab(QWidget):
 
         return grp
 
-    def _build_capture_panel(self) -> QGroupBox:
-        grp = QGroupBox("Capture")
-        layout = QVBoxLayout(grp)
-
-        trigger_row = QHBoxLayout()
-        self._trigger_check = QCheckBox("Trigger")
-        self._trigger_check.setChecked(True)
-        trigger_row.addWidget(self._trigger_check)
-        self._trigger_channel_label = QLabel("on Iq ref")
-        trigger_row.addWidget(self._trigger_channel_label)
-        trigger_row.addWidget(QLabel("Level:"))
-        self._trigger_level_spin = QDoubleSpinBox()
-        self._trigger_level_spin.setRange(-100.0, 100.0)
-        self._trigger_level_spin.setDecimals(2)
-        self._trigger_level_spin.setValue(0.0)
-        self._trigger_level_spin.setSuffix(" A")
-        trigger_row.addWidget(self._trigger_level_spin)
-        trigger_row.addStretch()
-        layout.addLayout(trigger_row)
-
-        btn_layout = QHBoxLayout()
-        self._capture_btn = QPushButton("Single")
-        self._capture_btn.setMinimumHeight(36)
-        btn_layout.addWidget(self._capture_btn)
-
-        self._continuous_start_btn = QPushButton("Start")
-        self._continuous_start_btn.setMinimumHeight(36)
-        font = self._continuous_start_btn.font()
-        font.setBold(True)
-        self._continuous_start_btn.setFont(font)
-        btn_layout.addWidget(self._continuous_start_btn)
-
-        self._continuous_stop_btn = QPushButton("Stop")
-        self._continuous_stop_btn.setMinimumHeight(36)
-        self._continuous_stop_btn.setEnabled(False)
-        btn_layout.addWidget(self._continuous_stop_btn)
-
-        self._cancel_capture_btn = QPushButton("Cancel")
-        self._cancel_capture_btn.setMinimumHeight(36)
-        self._cancel_capture_btn.setEnabled(False)
-        btn_layout.addWidget(self._cancel_capture_btn)
-
-        layout.addLayout(btn_layout)
-        return grp
-
     # ── Internal signal wiring ────────────────────────────────────────
 
     def _connect_internal(self) -> None:
@@ -267,17 +211,6 @@ class CurrentLoopTab(QWidget):
         self._stop_perturb_btn.clicked.connect(
             lambda: self.stop_perturbation_requested.emit(),
         )
-        self._capture_btn.clicked.connect(
-            lambda: self.capture_requested.emit(),
-        )
-        self._cancel_capture_btn.clicked.connect(
-            lambda: self.cancel_capture_requested.emit(),
-        )
-        self._continuous_start_btn.clicked.connect(self._on_start_continuous)
-        self._continuous_stop_btn.clicked.connect(
-            lambda: self.continuous_stop_requested.emit(),
-        )
-        self._axis_combo.currentTextChanged.connect(self._update_trigger_channel_label)
 
     def _on_read_gains(self) -> None:
         self.read_gains_requested.emit(self._axis_combo.currentText())
@@ -306,33 +239,19 @@ class CurrentLoopTab(QWidget):
             self._halfperiod_spin.value(),
         )
 
-    def _on_start_continuous(self) -> None:
-        self.continuous_start_requested.emit(self._axis_combo.currentText())
-
-    def _update_trigger_channel_label(self, axis: str) -> None:
-        self._trigger_channel_label.setText(f"on I{axis} ref")
-
     # ── Public interface for MainWindow ───────────────────────────────
 
     def set_connected(self, connected: bool) -> None:
-        """Enable or disable controls based on connection state."""
         self._read_gains_btn.setEnabled(connected)
         self._set_gains_btn.setEnabled(connected)
         self._enter_test_btn.setEnabled(connected)
         self._exit_test_btn.setEnabled(connected)
         self._start_perturb_btn.setEnabled(connected)
         self._stop_perturb_btn.setEnabled(connected)
-        self._capture_btn.setEnabled(connected)
-        self._continuous_start_btn.setEnabled(connected)
-        self._continuous_stop_btn.setEnabled(False)
-        self._cancel_capture_btn.setEnabled(False)
 
     def on_connected(self, session) -> None:
-        """Populate defaults when a session is established."""
         self._mode_label.setText("--")
         self._guard_label.setText("Inactive")
-
-        self._fullscale_current = session.current.fullscale_current
 
         defaults = session.current.get_default_perturbation()
         self._amplitude_spin.setValue(defaults["amplitude_a"])
@@ -349,8 +268,6 @@ class CurrentLoopTab(QWidget):
             self._speed_label.setText("--")
 
     def on_disconnected(self) -> None:
-        """Reset display when session ends."""
-        self._fullscale_current = None
         self._mode_label.setText("--")
         self._guard_label.setText("--")
         self._state_label.setText("--")
@@ -361,7 +278,6 @@ class CurrentLoopTab(QWidget):
         self._ki_spin.setValue(0.0)
         self._amplitude_spin.setValue(0.0)
         self._halfperiod_spin.setValue(0.0)
-        self._trigger_level_spin.setValue(0.0)
 
     def on_gains_read(self, gains) -> None:
         self._cur_kp_label.setText(
@@ -400,45 +316,8 @@ class CurrentLoopTab(QWidget):
     def on_perturbation_stopped(self) -> None:
         self._start_perturb_btn.setEnabled(True)
 
-    def on_continuous_started(self) -> None:
-        self._continuous_start_btn.setEnabled(False)
-        self._continuous_stop_btn.setEnabled(True)
-        self._capture_btn.setEnabled(False)
-        self._set_gains_btn.setEnabled(True)
-        self._read_gains_btn.setEnabled(True)
-
-    def on_continuous_stopped(self) -> None:
-        self._continuous_start_btn.setEnabled(True)
-        self._continuous_stop_btn.setEnabled(False)
-        self._capture_btn.setEnabled(True)
-
-    def on_capture_started(self) -> None:
-        """Show cancel button while waiting for capture."""
-        self._capture_btn.setEnabled(False)
-        self._cancel_capture_btn.setEnabled(True)
-
-    def on_capture_done(self) -> None:
-        """Re-enable single capture button after one-shot completes."""
-        self._cancel_capture_btn.setEnabled(False)
-        if not self._continuous_stop_btn.isEnabled():
-            self._capture_btn.setEnabled(True)
-
-    def on_capture_cancelled(self) -> None:
-        self._cancel_capture_btn.setEnabled(False)
-        self._capture_btn.setEnabled(True)
-
     def current_axis(self) -> str:
         return self._axis_combo.currentText()
-
-    def trigger_enabled(self) -> bool:
-        return self._trigger_check.isChecked()
-
-    def trigger_level(self) -> float:
-        """Return trigger level in raw Q15 counts, converted from Amps."""
-        amps = self._trigger_level_spin.value()
-        if self._fullscale_current is not None and self._fullscale_current > 0:
-            return round(amps / self._fullscale_current * 32768)
-        return round(amps)
 
     # ── Settings persistence helpers ──────────────────────────────────
 

@@ -46,7 +46,6 @@ class Command(Enum):
     SET_VELOCITY_COMMAND = auto()
     START_VELOCITY_PERTURBATION = auto()
     STOP_VELOCITY_PERTURBATION = auto()
-    CONFIGURE_VELOCITY_SCOPE = auto()
     ENTER_FORCE_VOLTAGE_MODE = auto()
     SET_OVERRIDES = auto()
     SET_COMMUTATION_FREQ = auto()
@@ -205,8 +204,6 @@ class SessionWorker(QObject):
             self._do_start_velocity_perturbation(**kw)
         elif cmd == Command.STOP_VELOCITY_PERTURBATION:
             self._do_stop_velocity_perturbation()
-        elif cmd == Command.CONFIGURE_VELOCITY_SCOPE:
-            self._do_configure_velocity_scope(**kw)
         elif cmd == Command.ENTER_FORCE_VOLTAGE_MODE:
             self._do_enter_force_voltage_mode()
         elif cmd == Command.SET_OVERRIDES:
@@ -373,18 +370,6 @@ class SessionWorker(QObject):
         self.status.emit("Velocity perturbation stopped")
         self.velocity_perturbation_stopped.emit()
 
-    def _do_configure_velocity_scope(self, sample_time: int = 1,
-                                     trigger: bool = True,
-                                     trigger_level: float = 0) -> None:
-        self.status.emit("Configuring velocity scope...")
-        self._session.capture.configure_velocity_loop(
-            sample_time=sample_time,
-            trigger=trigger, trigger_level=trigger_level,
-        )
-        trig_str = f"trigger={'on' if trigger else 'off'}"
-        self.status.emit(f"Scope configured: velocity loop ({trig_str})")
-        self.scope_configured.emit()
-
     # ── Open-loop / harness commands ──────────────────────────────────
 
     def _do_enter_force_voltage_mode(self) -> None:
@@ -444,16 +429,16 @@ class SessionWorker(QObject):
 
     # ── Scope commands ────────────────────────────────────────────────
 
-    def _do_configure_scope(self, axis: str, sample_time: int,
+    def _do_configure_scope(self, view: str, sample_time: int = 1,
                             trigger: bool = True,
                             trigger_level: float = 0) -> None:
-        self.status.emit("Configuring scope...")
-        self._session.capture.configure_current_loop(
-            axis=axis, sample_time=sample_time,
+        self.status.emit(f"Configuring scope ({view})...")
+        self._session.capture.configure_view(
+            view=view, sample_time=sample_time,
             trigger=trigger, trigger_level=trigger_level,
         )
         trig_str = f"trigger={'on' if trigger else 'off'}"
-        self.status.emit(f"Scope configured: {axis}-axis ({trig_str})")
+        self.status.emit(f"Scope configured: {view} ({trig_str})")
         self.scope_configured.emit()
 
     def _do_capture(self, timeout: float = 10.0) -> None:
@@ -506,6 +491,7 @@ class SessionWorker(QObject):
 
         from pyx2ctune.analysis import compute_metrics
 
+        self.capture_started.emit()
         try:
             response = self._session.capture.capture_frame(
                 timeout=self._continuous_timeout,

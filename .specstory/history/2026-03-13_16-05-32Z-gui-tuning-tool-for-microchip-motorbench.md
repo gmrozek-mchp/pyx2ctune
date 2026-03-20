@@ -34601,11 +34601,43 @@ on any exit test mode, stop, exit application, etc. we should make sure that the
 
 _**Agent (claude-4.6-opus-high-thinking)**_
 
+Good point — safety-critical. Let me trace all the exit paths to make sure motor shutdown is handled everywhere.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
 <tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
 <details>
 <summary>Tool use: **ripgrep_raw_search**</summary>
 
-Status: **loading**
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "def _on_exit_test|def _on_disconnect|def closeEvent|EXIT_TEST|DISCONNECT"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "def _on_exit_test|def _on_disconnect|def closeEvent|EXIT_TEST|DISCONNECT",
+  "topFiles": [
+    {
+      "matchCount": 9,
+      "uri": "pyx2ctune/gui/main_window.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 9
+}
+```
+Status: **completed**
 
 
 </details>
@@ -34619,7 +34651,7 @@ Status: **loading**
 _**Agent (claude-4.6-opus-high-thinking)**_
 
 <tool-use data-tool-type="read" data-tool-name="read_file_v2">
-<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
 
 </details>
 </tool-use>
@@ -34632,7 +34664,7 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 _**Agent (claude-4.6-opus-high-thinking)**_
 
 <tool-use data-tool-type="read" data-tool-name="read_file_v2">
-<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
 
 </details>
 </tool-use>
@@ -34645,7 +34677,7 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 _**Agent (claude-4.6-opus-high-thinking)**_
 
 <tool-use data-tool-type="read" data-tool-name="read_file_v2">
-<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
 
 </details>
 </tool-use>
@@ -34657,8 +34689,12 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 
 _**Agent (claude-4.6-opus-high-thinking)**_
 
+Now let me check what `EXIT_TEST_MODE` and `DISCONNECT` actually do in the worker:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
 <tool-use data-tool-type="read" data-tool-name="read_file_v2">
-<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py</summary>
 
 </details>
 </tool-use>
@@ -34674,7 +34710,36 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 <details>
 <summary>Tool use: **ripgrep_raw_search**</summary>
 
-Status: **loading**
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "contextAfter": 10,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py",
+  "pattern": "def _do_disconnect"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py",
+  "pattern": "def _do_disconnect",
+  "topFiles": [
+    {
+      "matchCount": 11,
+      "uri": "pyx2ctune/gui/workers.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 1
+}
+```
+Status: **completed**
 
 
 </details>
@@ -34684,3 +34749,2889 @@ Status: **loading**
 <summary>Tool use: **ripgrep_raw_search**</summary>
 
 </details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me check `exit_test_mode` in `test_harness.py` one more time:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/test_harness.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Good — `exit_test_mode` already stops perturbation, clears overrides, returns to `OM_NORMAL`, forces STOP, and disables guard. That's thorough.
+
+Now let me identify all the gaps:
+
+1. **`_on_disconnect`**: Just submits `DISCONNECT` — doesn't stop perturbation or exit test mode first
+2. **`closeEvent`**: Submits `EXIT_TEST_MODE` then `DISCONNECT`, but doesn't stop perturbation or velocity perturbation first. Also, does the worker have time to process before `stop()` is called?
+3. **`_do_disconnect`**: Doesn't do any cleanup before disconnecting the serial port
+4. **`_on_exit_test`**: Only submits `EXIT_TEST_MODE` — but doesn't stop velocity perturbation
+
+Let me also check if there's a `STOP_VELOCITY_PERTURBATION`:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py",
+  "pattern": "STOP_VELOCITY_PERTURBATION|_do_stop_velocity"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py",
+  "pattern": "STOP_VELOCITY_PERTURBATION|_do_stop_velocity",
+  "topFiles": [
+    {
+      "matchCount": 4,
+      "uri": "pyx2ctune/gui/workers.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 4
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now I understand all the flows. Looking at `exit_test_mode`, it already sets `sqwave.value = 0` which stops the symmetric perturbation. So `EXIT_TEST_MODE` handles perturbation stop. But `_do_disconnect` doesn't do any of this.
+
+The right fix is:
+
+1. **`_do_disconnect`** should do a full safe shutdown before closing the serial port
+2. **`closeEvent`** should ensure the worker has time to process shutdown commands
+3. **`_on_disconnect`** should submit cleanup commands before disconnect
+
+Let me implement:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update `closeEvent` to also stop continuous capture and perturbation:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now the most important fix — make `_do_disconnect` do a safe shutdown if the session is still active. This is the last line of defense in case the commands weren't processed:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me also make `_do_exit_test_mode` more robust — it should handle the case where there might be velocity perturbation active too (the sqwave value=0 in `exit_test_mode` already covers symmetric perturbation, but let's be safe):
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/test_harness.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+`exit_test_mode` already sets `sqwave.value = 0` which stops the perturbation square wave. Setting `OM_NORMAL` and forcing STOP covers the motor. This is thorough.
+
+But I notice the `_do_exit_test_mode` in the worker doesn't handle exceptions gracefully — if the serial port has issues, the whole thing crashes. Let me also add the `stop()` worker method to make sure the worker loop terminates cleanly:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py",
+  "pattern": "def stop"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py",
+  "pattern": "def stop",
+  "topFiles": [
+    {
+      "matchCount": 1,
+      "uri": "pyx2ctune/gui/workers.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 1
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Good, `stop()` exists. The queue is processed in order, so `EXIT_TEST_MODE` → `DISCONNECT` will complete before `stop()` terminates the loop.
+
+Now let me check for linter errors:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "pyx2ctune/gui/main_window.py",
+    "pyx2ctune/gui/workers.py"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/main_window.py"
+    },
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/workers.py"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints"><details>
+<summary>Tool use: **read_lints**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Here's a summary of the safety shutdown changes:
+
+**Three exit paths, all now safe:**
+
+1. **Disconnect button** (`_on_disconnect`): Now stops continuous capture, cancels any pending single capture, submits `EXIT_TEST_MODE` (stops perturbation, clears overrides, sets OM_NORMAL, forces STOP, disables guard), then submits `DISCONNECT`.
+
+2. **Close application** (`closeEvent`): Stops the speed poll timer, stops continuous capture, cancels pending captures, then submits `EXIT_TEST_MODE` + `DISCONNECT`. Wait timeout increased to 5 seconds to ensure the worker has time to process the shutdown sequence.
+
+3. **`_do_disconnect` (last line of defense)**: Now calls `exit_test_mode()` directly before closing the serial port, wrapped in try/except so it still disconnects even if the serial link is unresponsive. This ensures the motor is stopped even if the queued commands weren't processed.
+
+The `exit_test_mode()` method itself is already thorough — it stops perturbation (`sqwave.value = 0`), clears all override flags, sets `OM_NORMAL`, forces the motor to STOP, and disables the guard.
+
+---
+
+_**User**_
+
+I think we need to split out the scope / plot section and settings from the tabs. For example, one current problem is the open loop tab doesn't have any controls. The scope controls are mostly the same regardless of mode. But desired channels , triggers, etc. will change. So maybe sepeate scope section with some predetermined views.
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="switch_mode">
+<details>
+<summary>Tool use: **switch_mode**</summary>
+
+
+Parameters:
+
+```json
+{
+  "explanation": "This is a significant UI architecture change — extracting scope controls from per-tab placement into a shared section. There are meaningful design decisions about how to structure the \"views\" and what controls belong where. Let's plan this before implementing.",
+  "toModeId": "plan"
+}
+```
+Result:
+
+```json
+{
+  "toModeId": "plan",
+  "userApproved": true
+}
+```
+User decision: **accepted**
+
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="switch_mode"><details>
+<summary>Tool use: **switch_mode**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Good call. Let me look at the current architecture to understand how scope/capture is wired today, and what channels are available.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/capture.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/plot_widget.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me look at how the capture panels in the tabs currently work with main_window to understand the existing wiring:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me look at the capture-related methods in main_window to understand the current flow for each tab:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me check what firmware variables are available that could be interesting scope channels:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/capture.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now I have a clear picture. Let me think about the design and present a plan.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ask_question">
+<details>
+<summary>Tool use: **ask_question**</summary>
+
+
+Parameters:
+
+```json
+{
+  "questions": [
+    {
+      "id": "scope_views",
+      "options": [
+        {
+          "id": "presets_good",
+          "label": "Yes, preset views like that are what I had in mind"
+        },
+        {
+          "id": "presets_plus_custom",
+          "label": "Preset views plus ability to pick custom channels now (not future)"
+        },
+        {
+          "id": "different_idea",
+          "label": "I have a different idea -- let me explain"
+        }
+      ],
+      "prompt": "For the predetermined scope views, I'm thinking of a dropdown that selects from views like:\n\n- Current Loop (q-axis): Iq measured, Iq ref, Vq\n- Current Loop (d-axis): Id measured, Id ref, Vd\n- Velocity Loop: omega measured, omega cmd, Iq output\n- Open Loop Voltage: Vd, Vq, Iq measured\n- Open Loop Current: Id, Iq, omegaElectrical\n\nEach view would pre-set channels, trigger channel, trigger units, and default trigger level. The user could potentially also pick a custom view where they choose variables manually (future). Does this sound right, or do you have different views in mind?"
+    }
+  ]
+}
+```
+Additional data:
+
+```json
+{
+  "currentSelections": {
+    "scope_views": [
+      "presets_good"
+    ]
+  },
+  "freeformTexts": {
+    "scope_views": ""
+  },
+  "status": "submitted"
+}
+```
+Result:
+
+```json
+{
+  "answers": [
+    {
+      "freeformText": "",
+      "questionId": "scope_views",
+      "selectedOptionIds": [
+        "presets_good"
+      ]
+    }
+  ]
+}
+```
+User decision: **accepted**
+
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ask_question"><details>
+<summary>Tool use: **ask_question**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Good. Now let me formalize the plan. The key design decisions are:
+
+1. **Scope panel becomes a shared widget** between the plot area and the tabs, with a "View" dropdown for preset channel configurations
+2. **Capture buttons (Single, Start, Stop, Cancel)** move to the scope panel since they're the same for all modes
+3. **Trigger controls** move to the scope panel since they're view-dependent, not tab-dependent
+4. **Each tab loses its capture panel** — it only keeps the mode-specific controls (gains, test harness, perturbation)
+
+Let me look at what the current layout looks like structurally:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now I have all the information needed to create a plan. Let me also quickly check how many scope channels pyX2Cscope supports (this matters for views):
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/capture.py",
+  "pattern": "add_scope_channel|MAX.*CHANNEL|max.*channel"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/capture.py",
+  "pattern": "add_scope_channel|MAX.*CHANNEL|max.*channel",
+  "topFiles": [
+    {
+      "matchCount": 2,
+      "uri": "pyx2ctune/capture.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 2
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/capture.py",
+  "pattern": "capture_frame|def capture\""
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/capture.py",
+  "pattern": "capture_frame|def capture\"",
+  "topFiles": [
+    {
+      "matchCount": 1,
+      "uri": "pyx2ctune/capture.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 1
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/capture.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/capture.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now I have a complete understanding. Let me create the plan.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="task_v2">
+<details>
+<summary>Tool use: **task_v2**</summary>
+
+
+Parameters:
+
+```json
+{
+  "description": "Design scope panel refactoring plan",
+  "model": "composer-2",
+  "name": "general-purpose",
+  "prompt": "Create a comprehensive plan for refactoring the pyx2ctune GUI to extract scope/capture controls from the per-tab panels into a shared \"Scope\" panel. \n\nHere is the current architecture:\n- MainWindow has a horizontal splitter: left=QTabWidget (Current Loop, Velocity Loop, Open Loop tabs), right=PlotWidget + MetricsPanel\n- Each tab (current_tab.py, velocity_tab.py) has its own \"Capture\" QGroupBox with trigger checkbox, trigger channel label, trigger level spinbox, and Single/Start/Stop/Cancel buttons\n- The open loop tab has NO capture controls at all\n- PlotWidget is shared across all tabs\n- Capture is wired per-tab: main_window has separate _on_capture, _on_vel_capture, _on_start_continuous, _on_vel_start_continuous methods that each pull trigger settings from their respective tab\n- capture.py has two configure methods: configure_current_loop(axis, ...) and configure_velocity_loop(...)\n- The StepResponse dataclass and plot_widget already handle both current and velocity loop types\n\nThe plan should cover creating a new ScopePanel widget with:\n1. A \"View\" QComboBox with preset scope views:\n   - \"Current Loop (q-axis)\" - channels: motor.idq.q, motor.idqCmd.q, motor.vdq.q - trigger on Iq ref - units: A\n   - \"Current Loop (d-axis)\" - channels: motor.idq.d, motor.idqCmd.d, motor.vdq.d - trigger on Id ref - units: A\n   - \"Velocity Loop\" - channels: motor.omegaElectrical, motor.omegaCmd, motor.idqCmd.q - trigger on velocity cmd - units: RPM\n   - \"Open Loop Voltage\" - channels: motor.vdq.d, motor.vdq.q, motor.idq.q - trigger on Vq - units: V\n   - \"Open Loop Current\" - channels: motor.idq.d, motor.idq.q, motor.omegaElectrical - trigger on Iq - units: A\n\n2. Trigger controls: enable checkbox, channel label (auto from view), level spinbox (units auto from view)\n3. Capture buttons: Single, Start continuous, Stop continuous, Cancel\n4. The ScopePanel emits signals that MainWindow connects to the worker\n\nKey files:\n- pyx2ctune/gui/tabs/current_tab.py - remove _build_capture_panel and related signals/slots\n- pyx2ctune/gui/tabs/velocity_tab.py - remove _build_capture_panel and related signals/slots  \n- pyx2ctune/gui/main_window.py - add ScopePanel to right side above plot, simplify capture wiring\n- NEW: pyx2ctune/gui/scope_panel.py - the new shared scope panel widget\n- pyx2ctune/capture.py - may need a generic configure method or the views can map to existing configure_current_loop/configure_velocity_loop\n- pyx2ctune/gui/workers.py - may need a unified CONFIGURE_SCOPE command\n\nReturn a detailed implementation plan with specific code changes for each file.",
+  "subagentType": "unspecified"
+}
+```
+Additional data:
+
+```json
+{
+  "status": "success",
+  "subagentComposerId": "decc2522-0c28-4d3a-b836-fb5c8c983e04",
+  "terminationReason": "completed"
+}
+```
+Result:
+
+```json
+{
+  "agentId": "decc2522-0c28-4d3a-b836-fb5c8c983e04"
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="task_v2"><details>
+<summary>Tool use: **task_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Here's the plan for extracting scope controls into a shared panel:
+
+---
+
+## Plan: Shared Scope Panel with Preset Views
+
+### Current problem
+
+Capture controls are duplicated in the Current Loop and Velocity Loop tabs, with the Open Loop tab having no capture at all. Trigger settings, channel configuration, and capture buttons are essentially the same across modes — only the channels and units differ.
+
+### Architecture after refactor
+
+```mermaid
+flowchart LR
+  subgraph left [Left pane]
+    Tabs["QTabWidget\n(gains, harness, perturbation)"]
+  end
+  subgraph right [Right pane]
+    ScopePanel["ScopePanel\n(view, trigger, capture buttons)"]
+    Plot[PlotWidget]
+    Metrics[MetricsPanel]
+  end
+  Tabs --> MW[MainWindow]
+  ScopePanel --> MW
+  MW --> Worker[SessionWorker]
+  Worker --> Capture["ScopeCapture\n(capture.py)"]
+```
+
+The right pane layout becomes: **ScopePanel** (compact, fixed height) -> **PlotWidget** (stretch) -> **MetricsPanel** (fixed).
+
+---
+
+### 1. New file: `pyx2ctune/gui/scope_panel.py`
+
+A `QGroupBox("Scope")` widget containing:
+
+**View dropdown** with preset configurations:
+
+| View | Channels (ch0, ch1, ch2) | Trigger on | Level units |
+|------|--------------------------|------------|-------------|
+| Current Loop (q-axis) | `motor.idq.q`, `motor.idqCmd.q`, `motor.vdq.q` | Iq ref | A |
+| Current Loop (d-axis) | `motor.idq.d`, `motor.idqCmd.d`, `motor.vdq.d` | Id ref | A |
+| Velocity Loop | `motor.omegaElectrical`, `motor.omegaCmd`, `motor.idqCmd.q` | velocity cmd | RPM |
+| Open Loop Voltage | `motor.vdq.d`, `motor.vdq.q`, `motor.idq.q` | Vq | V |
+| Open Loop Current | `motor.idq.d`, `motor.idq.q`, `motor.omegaElectrical` | Iq | A |
+
+Each preset is a dataclass/dict with: `view_id`, `channels`, `trigger_var`, `trigger_label`, `level_unit`, `level_range`, `loop_type`, `axis`.
+
+**Trigger row**: `QCheckBox("Trigger")`, trigger channel `QLabel` (auto-updates from preset), "Level:" `QDoubleSpinBox` (range/suffix auto-update from preset).
+
+**Capture buttons**: Single, Start (bold), Stop, Cancel — same as today, moved here.
+
+**Signals**: `capture_single_requested`, `continuous_start_requested`, `continuous_stop_requested`, `cancel_capture_requested`.
+
+**Public API**: `set_connected()`, `on_connected(session)` (stash fullscale values for unit conversion), `on_disconnected()`, `current_view_id()`, `trigger_enabled()`, `trigger_level_counts()` (converts engineering units to Q15 using stored fullscale), `on_capture_started()`, `on_capture_done()`, `on_capture_cancelled()`, `on_continuous_started()`, `on_continuous_stopped()`, `save_settings()`, `restore_settings()`.
+
+When the view combo changes: update trigger channel label, spinbox suffix/range, and reset level to 0.
+
+---
+
+### 2. Strip capture from `pyx2ctune/gui/tabs/current_tab.py`
+
+**Remove**: `_build_capture_panel()`, capture-related signals (`capture_requested`, `cancel_capture_requested`, `continuous_start_requested`, `continuous_stop_requested`), capture button wiring in `_connect_internal`, trigger widget members, lifecycle callbacks (`on_capture_started`, `on_capture_done`, `on_capture_cancelled`, `on_continuous_started`, `on_continuous_stopped`), `trigger_enabled()`, `trigger_level()`, fullscale_current storage (moved to ScopePanel).
+
+**Keep**: Gains panel, test harness panel, perturbation panel, `current_axis()`.
+
+---
+
+### 3. Strip capture from `pyx2ctune/gui/tabs/velocity_tab.py`
+
+Same removals as current tab. **Keep**: Gains, velocity command, test harness, perturbation.
+
+---
+
+### 4. Update `pyx2ctune/gui/main_window.py`
+
+- Add `ScopePanel` to `right_layout` above `PlotWidget`.
+- Connect `ScopePanel` signals to new unified slots `_on_scope_capture`, `_on_scope_continuous_start`, etc.
+- These slots read `self._scope_panel.current_view_id()`, `trigger_enabled()`, `trigger_level_counts()` and submit a single `Command.CONFIGURE_SCOPE` with a `view` parameter.
+- Remove tab-specific capture slots (`_on_capture`, `_on_vel_capture`, `_on_start_continuous`, `_on_vel_start_continuous`).
+- Perturbation slots (`_on_start_perturbation`, `_on_vel_start_perturbation`) still configure the scope before starting perturbation, but pull trigger settings from `ScopePanel` instead of tabs.
+- Capture lifecycle signals (`capture_started`, `capture_done`, etc.) route only to `ScopePanel`, not to tabs.
+- `set_connected`/`on_connected`/`on_disconnected` call `ScopePanel` methods.
+- Settings persistence delegates to `ScopePanel.save_settings()`/`restore_settings()`.
+
+---
+
+### 5. Extend `pyx2ctune/capture.py`
+
+Add a unified `configure_view(view_id, *, sample_time, trigger, trigger_level)` method that maps view_id to the correct channels, trigger variable, and `loop_type`. Keep `configure_current_loop` and `configure_velocity_loop` as thin wrappers for backward compatibility.
+
+For open-loop views, assign roles (`measured`, `reference`, `output`) so `capture_frame` can use the same structure. Extend the unit conversion block in `capture_frame` to handle `open_voltage` and `open_current` loop types.
+
+---
+
+### 6. Consolidate `pyx2ctune/gui/workers.py`
+
+Remove `CONFIGURE_VELOCITY_SCOPE` command. Unify on `CONFIGURE_SCOPE` with a `view` parameter. The dispatch calls `self._session.capture.configure_view(...)`.
+
+---
+
+### 7. Update `pyx2ctune/gui/plot_widget.py`
+
+Extend the label/title logic beyond the current `is_velocity` binary check to support open-loop view labels (e.g., "DQ Voltage" / "DQ Current" / "Speed"). Use `response.loop_type` and the unit fields already in `StepResponse`.
+
+---
+
+### Design decision: perturbation vs. scope view
+
+Perturbation "Start" still configures the scope using the tab's axis context (current q/d or velocity), not the View dropdown. This ensures perturbation always captures the right channels. The View dropdown drives **only** explicit Single/Continuous captures from the ScopePanel. A future enhancement could auto-select the view when perturbation starts.
+
+---
+
+### Implementation order
+
+1. `capture.py` — add `configure_view()` + open-loop channel maps + unit conversion
+2. `workers.py` — unify `CONFIGURE_SCOPE` command
+3. `scope_panel.py` — new widget
+4. `current_tab.py` / `velocity_tab.py` — strip capture panels
+5. `main_window.py` — rewire everything
+6. `plot_widget.py` — extend labeling for open-loop views
+
+Shall I proceed with implementation?
+
+---
+
+_**User**_
+
+proceed
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="create_plan">
+<details>
+<summary>Tool use: **create_plan**</summary>
+
+
+Parameters:
+
+```json
+{
+  "name": "Shared Scope Panel",
+  "overview": "Extract scope/capture controls from per-tab panels into a shared ScopePanel widget with preset views, giving all tabs (including Open Loop) consistent capture capability.",
+  "plan": "# Shared Scope Panel with Preset Views\n\n## Architecture\n\n&#96;&#96;&#96;mermaid\nflowchart LR\n  subgraph left [Left pane]\n    Tabs[\"QTabWidget\\n(gains, harness, perturbation)\"]\n  end\n  subgraph right [Right pane]\n    ScopePanel[\"ScopePanel\\n(view, trigger, capture buttons)\"]\n    Plot[PlotWidget]\n    Metrics[MetricsPanel]\n  end\n  Tabs --\u003e MW[MainWindow]\n  ScopePanel --\u003e MW\n  MW --\u003e Worker[SessionWorker]\n  Worker --\u003e Capture[\"ScopeCapture\\n(capture.py)\"]\n&#96;&#96;&#96;\n\n## Implementation Steps\n\n### Step 1: Extend &#96;capture.py&#96; with &#96;configure_view()&#96;\n- Add preset channel maps for &#96;open_voltage&#96; and &#96;open_current&#96; views\n- Add &#96;configure_view(view_id, ...)&#96; that dispatches to correct channel setup\n- Extend &#96;capture_frame()&#96; unit conversion for open-loop types\n- Keep existing &#96;configure_current_loop&#96; / &#96;configure_velocity_loop&#96; as wrappers\n\n### Step 2: Consolidate &#96;workers.py&#96;\n- Remove &#96;CONFIGURE_VELOCITY_SCOPE&#96; command\n- Update &#96;CONFIGURE_SCOPE&#96; dispatch to pass &#96;view&#96; to &#96;configure_view()&#96;\n- Update &#96;_do_configure_scope&#96; signature to accept &#96;view&#96; instead of &#96;axis&#96;\n\n### Step 3: Create &#96;pyx2ctune/gui/scope_panel.py&#96;\n- View combo with 5 presets (current q/d, velocity, open voltage/current)\n- Trigger controls: checkbox, channel label (auto from view), level spinbox (units auto from view)\n- Capture buttons: Single, Start, Stop, Cancel\n- Store fullscale values on connection for trigger level conversion\n- Signals: &#96;capture_single_requested&#96;, &#96;continuous_start_requested&#96;, &#96;continuous_stop_requested&#96;, &#96;cancel_capture_requested&#96;\n\n### Step 4: Strip capture from &#96;current_tab.py&#96;\n- Remove &#96;_build_capture_panel()&#96;, capture signals, trigger widgets, lifecycle callbacks\n- Keep gains, test harness, perturbation, &#96;current_axis()&#96;\n\n### Step 5: Strip capture from &#96;velocity_tab.py&#96;\n- Same removals as current tab\n- Keep gains, velocity command, test harness, perturbation\n\n### Step 6: Rewire &#96;main_window.py&#96;\n- Add ScopePanel to right pane above PlotWidget\n- Connect ScopePanel signals to unified capture slots\n- Perturbation slots pull trigger settings from ScopePanel\n- Capture lifecycle signals route to ScopePanel only\n- Add ScopePanel to connect/disconnect/settings flows\n\n### Step 7: Update &#96;plot_widget.py&#96;\n- Extend label/title logic for open-loop view types\n\n### Design decision: perturbation vs scope view\nPerturbation Start still configures scope using the tab's axis context. The View dropdown drives only explicit Single/Continuous captures from ScopePanel.\n",
+  "todos": [
+    {
+      "content": "Extend capture.py with configure_view() and open-loop channel maps + unit conversion",
+      "id": "capture-views",
+      "status": "pending"
+    },
+    {
+      "content": "Consolidate workers.py: remove CONFIGURE_VELOCITY_SCOPE, unify on CONFIGURE_SCOPE with view param",
+      "id": "workers-consolidate",
+      "status": "pending"
+    },
+    {
+      "content": "Create scope_panel.py with view presets, trigger controls, capture buttons",
+      "id": "scope-panel",
+      "status": "pending"
+    },
+    {
+      "content": "Strip capture panel from current_tab.py",
+      "id": "strip-current-tab",
+      "status": "pending"
+    },
+    {
+      "content": "Strip capture panel from velocity_tab.py",
+      "id": "strip-velocity-tab",
+      "status": "pending"
+    },
+    {
+      "content": "Rewire main_window.py: add ScopePanel, connect signals, update perturbation/capture/lifecycle routing",
+      "id": "rewire-main-window",
+      "status": "pending"
+    },
+    {
+      "content": "Update plot_widget.py labels for open-loop view types",
+      "id": "update-plot-widget",
+      "status": "pending"
+    }
+  ]
+}
+```
+Additional data:
+
+```json
+{
+  "hasOpenedEditor": true,
+  "planUri": "file:///Users/greg/.cursor/plans/shared_scope_panel_9469ab93.plan.md",
+  "reviewData": {
+    "isShowingInput": false,
+    "selectedOption": "none",
+    "status": "Requested"
+  }
+}
+```
+Result:
+
+```json
+{
+  "rejected": {}
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="create_plan"><details>
+<summary>Tool use: **create_plan**</summary>
+
+</details></tool-use>
+
+---
+
+_**User**_
+
+Implement the plan as specified, it is attached for your reference. Do NOT edit the plan file itself.
+
+To-do's from the plan have already been created. Do not create them again. Mark them as in_progress as you work, starting with the first one. Don't stop until you have completed all the to-dos.
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+Let me start implementing the plan step by step. I'll begin with Step 1: Extend `capture.py` with `configure_view()`.
+
+Let me first read the current state of all the files I'll need to modify.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Let me start by reading all the files I need to understand fully before making changes.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Extend capture.py with configure_view() and open-loop channel maps + unit conversion",
+      "id": "capture-views",
+      "status": "in_progress"
+    },
+    {
+      "content": "Consolidate workers.py: remove CONFIGURE_VELOCITY_SCOPE, unify on CONFIGURE_SCOPE with view param",
+      "id": "workers-consolidate",
+      "status": "pending"
+    },
+    {
+      "content": "Create scope_panel.py with view presets, trigger controls, capture buttons",
+      "id": "scope-panel",
+      "status": "pending"
+    },
+    {
+      "content": "Strip capture panel from current_tab.py",
+      "id": "strip-current-tab",
+      "status": "pending"
+    },
+    {
+      "content": "Strip capture panel from velocity_tab.py",
+      "id": "strip-velocity-tab",
+      "status": "pending"
+    },
+    {
+      "content": "Rewire main_window.py: add ScopePanel, connect signals, update perturbation/capture/lifecycle routing",
+      "id": "rewire-main-window",
+      "status": "pending"
+    },
+    {
+      "content": "Update plot_widget.py labels for open-loop view types",
+      "id": "update-plot-widget",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Extend capture.py with configure_view() and open-loop channel maps + unit conversion",
+      "id": "capture-views",
+      "status": "pending"
+    },
+    {
+      "content": "Consolidate workers.py: remove CONFIGURE_VELOCITY_SCOPE, unify on CONFIGURE_SCOPE with view param",
+      "id": "workers-consolidate",
+      "status": "pending"
+    },
+    {
+      "content": "Create scope_panel.py with view presets, trigger controls, capture buttons",
+      "id": "scope-panel",
+      "status": "pending"
+    },
+    {
+      "content": "Strip capture panel from current_tab.py",
+      "id": "strip-current-tab",
+      "status": "pending"
+    },
+    {
+      "content": "Strip capture panel from velocity_tab.py",
+      "id": "strip-velocity-tab",
+      "status": "pending"
+    },
+    {
+      "content": "Rewire main_window.py: add ScopePanel, connect signals, update perturbation/capture/lifecycle routing",
+      "id": "rewire-main-window",
+      "status": "pending"
+    },
+    {
+      "content": "Update plot_widget.py labels for open-loop view types",
+      "id": "update-plot-widget",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/capture.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me read the workers and main_window to understand the current wiring:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now I have all the context I need. Let me implement step by step. Starting with `capture.py`:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/capture.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now add `configure_view()` and update the existing methods to use it:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/capture.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update `capture_frame()` to handle the open-loop view types:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/capture.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Let me verify the final state of capture.py:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/capture.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Good. Step 1 is complete. Now let's move on to Step 2: Consolidate `workers.py`.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Extend capture.py with configure_view() and open-loop channel maps + unit conversion",
+      "id": "capture-views",
+      "status": "completed"
+    },
+    {
+      "content": "Consolidate workers.py: remove CONFIGURE_VELOCITY_SCOPE, unify on CONFIGURE_SCOPE with view param",
+      "id": "workers-consolidate",
+      "status": "in_progress"
+    },
+    {
+      "content": "Create scope_panel.py with view presets, trigger controls, capture buttons",
+      "id": "scope-panel",
+      "status": "pending"
+    },
+    {
+      "content": "Strip capture panel from current_tab.py",
+      "id": "strip-current-tab",
+      "status": "pending"
+    },
+    {
+      "content": "Strip capture panel from velocity_tab.py",
+      "id": "strip-velocity-tab",
+      "status": "pending"
+    },
+    {
+      "content": "Rewire main_window.py: add ScopePanel, connect signals, update perturbation/capture/lifecycle routing",
+      "id": "rewire-main-window",
+      "status": "pending"
+    },
+    {
+      "content": "Update plot_widget.py labels for open-loop view types",
+      "id": "update-plot-widget",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Extend capture.py with configure_view() and open-loop channel maps + unit conversion",
+      "id": "capture-views",
+      "status": "in_progress"
+    },
+    {
+      "content": "Consolidate workers.py: remove CONFIGURE_VELOCITY_SCOPE, unify on CONFIGURE_SCOPE with view param",
+      "id": "workers-consolidate",
+      "status": "pending"
+    },
+    {
+      "content": "Create scope_panel.py with view presets, trigger controls, capture buttons",
+      "id": "scope-panel",
+      "status": "pending"
+    },
+    {
+      "content": "Strip capture panel from current_tab.py",
+      "id": "strip-current-tab",
+      "status": "pending"
+    },
+    {
+      "content": "Strip capture panel from velocity_tab.py",
+      "id": "strip-velocity-tab",
+      "status": "pending"
+    },
+    {
+      "content": "Rewire main_window.py: add ScopePanel, connect signals, update perturbation/capture/lifecycle routing",
+      "id": "rewire-main-window",
+      "status": "pending"
+    },
+    {
+      "content": "Update plot_widget.py labels for open-loop view types",
+      "id": "update-plot-widget",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now consolidate workers.py - remove `CONFIGURE_VELOCITY_SCOPE`, update `CONFIGURE_SCOPE` to accept a `view` param:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Remove the `CONFIGURE_VELOCITY_SCOPE` dispatch entry:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Remove the `_do_configure_velocity_scope` method:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update `_do_configure_scope` to accept a `view` param and use `configure_view()`:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Good. Step 2 done. Now let me read the current tabs and main_window to proceed with the next steps.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/tabs/current_tab.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/tabs/velocity_tab.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/tabs/openloop_tab.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/plot_widget.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+Now I have a comprehensive understanding of all the files. Let me now create the `scope_panel.py` (Step 3), then strip capture from current_tab and velocity_tab (Steps 4-5), rewire main_window (Step 6), and update plot_widget (Step 7).
+
+Let me plan the scope_panel carefully:
+
+**ScopePanel** should have:
+1. View combo with 5 presets: "Current Iq", "Current Id", "Velocity", "Open Voltage DQ", "Open Current DQ"
+2. Trigger controls: checkbox, channel label (auto from view), level spinbox (units auto from view)
+
+
+3. Capture buttons for single, continuous start/stop, and cancel operations
+4. Fullscale values cached on connection to handle trigger level unit conversions
+5. Signals emitted for each capture action, with the view ID mapping to capture.py's internal view strings and trigger channel labels determined by the selected view
+
+For trigger configuration, I'm setting up the units based on the view type—current measurements use amps, velocity uses RPM, and voltage uses volts—pulling the appropriate fullscale values for each. When perturbation starts from a tab, the scope view should auto-configure based on that tab's axis context, so clicking Start on the current tab will set the scope accordingly.
+
+Defining the view configurations... I'm settling on having ScopePanel expose properties like `current_view()`, `trigger_enabled()`, and `trigger_level_q15()` so that MainWindow can query them when signals fire, keeping the signals themselves parameter-less for simplicity. Now I need to think through how perturbation fits into this flow when the user clicks "Start perturbation" on the current tab.
+
+When perturbation starts, MainWindow will receive the axis and amplitude parameters, then it needs to update the scope panel's view to match that axis, configure the scope with the panel's trigger settings, and submit the perturbation command. This means ScopePanel also needs a `set_view()` method that MainWindow can call to switch views programmatically.
+
+Before implementing, I should clean up the signal architecture by removing all the capture-related signals and UI from the current and velocity tabs—that means stripping out the capture_requested, cancel_capture_requested, continuous_start_requested, and continuous_stop_requested signals, along with the capture panel UI methods and handlers.
+
+I also need to review what gets disconnected in `set_connected()` for both tabs since the capture buttons are going away, and trace through the internal wiring in current_tab to see which signal connections and button handlers need to be removed.
+
+Now I'm thinking through the ScopePanel view index mapping—I'll use an OrderedDict or list of tuples to keep things organized. For the trigger level conversion, the scope panel will need the fullscale values that come in on_connected, and I'll use the fullscale_type to pick the right one (current, velocity, or voltage). When a perturbation starts from a tab, the scope panel's view dropdown should probably update to match that tab.
+
+Writing the implementation files now...</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now I have full context on all files. Let me create the `ScopePanel`, strip capture from tabs, rewire main_window, and update plot_widget.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Extend capture.py with configure_view() and open-loop channel maps + unit conversion",
+      "id": "capture-views",
+      "status": "completed"
+    },
+    {
+      "content": "Consolidate workers.py: remove CONFIGURE_VELOCITY_SCOPE, unify on CONFIGURE_SCOPE with view param",
+      "id": "workers-consolidate",
+      "status": "completed"
+    },
+    {
+      "content": "Create scope_panel.py with view presets, trigger controls, capture buttons",
+      "id": "scope-panel",
+      "status": "in_progress"
+    },
+    {
+      "content": "Strip capture panel from current_tab.py",
+      "id": "strip-current-tab",
+      "status": "pending"
+    },
+    {
+      "content": "Strip capture panel from velocity_tab.py",
+      "id": "strip-velocity-tab",
+      "status": "pending"
+    },
+    {
+      "content": "Rewire main_window.py: add ScopePanel, connect signals, update perturbation/capture/lifecycle routing",
+      "id": "rewire-main-window",
+      "status": "pending"
+    },
+    {
+      "content": "Update plot_widget.py labels for open-loop view types",
+      "id": "update-plot-widget",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Extend capture.py with configure_view() and open-loop channel maps + unit conversion",
+      "id": "capture-views",
+      "status": "completed"
+    },
+    {
+      "content": "Consolidate workers.py: remove CONFIGURE_VELOCITY_SCOPE, unify on CONFIGURE_SCOPE with view param",
+      "id": "workers-consolidate",
+      "status": "in_progress"
+    },
+    {
+      "content": "Create scope_panel.py with view presets, trigger controls, capture buttons",
+      "id": "scope-panel",
+      "status": "pending"
+    },
+    {
+      "content": "Strip capture panel from current_tab.py",
+      "id": "strip-current-tab",
+      "status": "pending"
+    },
+    {
+      "content": "Strip capture panel from velocity_tab.py",
+      "id": "strip-velocity-tab",
+      "status": "pending"
+    },
+    {
+      "content": "Rewire main_window.py: add ScopePanel, connect signals, update perturbation/capture/lifecycle routing",
+      "id": "rewire-main-window",
+      "status": "pending"
+    },
+    {
+      "content": "Update plot_widget.py labels for open-loop view types",
+      "id": "update-plot-widget",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now strip the capture panel from `current_tab.py`:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Extend capture.py with configure_view() and open-loop channel maps + unit conversion",
+      "id": "capture-views",
+      "status": "completed"
+    },
+    {
+      "content": "Consolidate workers.py: remove CONFIGURE_VELOCITY_SCOPE, unify on CONFIGURE_SCOPE with view param",
+      "id": "workers-consolidate",
+      "status": "completed"
+    },
+    {
+      "content": "Create scope_panel.py with view presets, trigger controls, capture buttons",
+      "id": "scope-panel",
+      "status": "completed"
+    },
+    {
+      "content": "Strip capture panel from current_tab.py",
+      "id": "strip-current-tab",
+      "status": "in_progress"
+    },
+    {
+      "content": "Strip capture panel from velocity_tab.py",
+      "id": "strip-velocity-tab",
+      "status": "pending"
+    },
+    {
+      "content": "Rewire main_window.py: add ScopePanel, connect signals, update perturbation/capture/lifecycle routing",
+      "id": "rewire-main-window",
+      "status": "pending"
+    },
+    {
+      "content": "Update plot_widget.py labels for open-loop view types",
+      "id": "update-plot-widget",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Extend capture.py with configure_view() and open-loop channel maps + unit conversion",
+      "id": "capture-views",
+      "status": "completed"
+    },
+    {
+      "content": "Consolidate workers.py: remove CONFIGURE_VELOCITY_SCOPE, unify on CONFIGURE_SCOPE with view param",
+      "id": "workers-consolidate",
+      "status": "completed"
+    },
+    {
+      "content": "Create scope_panel.py with view presets, trigger controls, capture buttons",
+      "id": "scope-panel",
+      "status": "in_progress"
+    },
+    {
+      "content": "Strip capture panel from current_tab.py",
+      "id": "strip-current-tab",
+      "status": "pending"
+    },
+    {
+      "content": "Strip capture panel from velocity_tab.py",
+      "id": "strip-velocity-tab",
+      "status": "pending"
+    },
+    {
+      "content": "Rewire main_window.py: add ScopePanel, connect signals, update perturbation/capture/lifecycle routing",
+      "id": "rewire-main-window",
+      "status": "pending"
+    },
+    {
+      "content": "Update plot_widget.py labels for open-loop view types",
+      "id": "update-plot-widget",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/tabs/current_tab.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now strip capture from `velocity_tab.py`:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Extend capture.py with configure_view() and open-loop channel maps + unit conversion",
+      "id": "capture-views",
+      "status": "completed"
+    },
+    {
+      "content": "Consolidate workers.py: remove CONFIGURE_VELOCITY_SCOPE, unify on CONFIGURE_SCOPE with view param",
+      "id": "workers-consolidate",
+      "status": "completed"
+    },
+    {
+      "content": "Create scope_panel.py with view presets, trigger controls, capture buttons",
+      "id": "scope-panel",
+      "status": "completed"
+    },
+    {
+      "content": "Strip capture panel from current_tab.py",
+      "id": "strip-current-tab",
+      "status": "completed"
+    },
+    {
+      "content": "Strip capture panel from velocity_tab.py",
+      "id": "strip-velocity-tab",
+      "status": "in_progress"
+    },
+    {
+      "content": "Rewire main_window.py: add ScopePanel, connect signals, update perturbation/capture/lifecycle routing",
+      "id": "rewire-main-window",
+      "status": "pending"
+    },
+    {
+      "content": "Update plot_widget.py labels for open-loop view types",
+      "id": "update-plot-widget",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Extend capture.py with configure_view() and open-loop channel maps + unit conversion",
+      "id": "capture-views",
+      "status": "completed"
+    },
+    {
+      "content": "Consolidate workers.py: remove CONFIGURE_VELOCITY_SCOPE, unify on CONFIGURE_SCOPE with view param",
+      "id": "workers-consolidate",
+      "status": "completed"
+    },
+    {
+      "content": "Create scope_panel.py with view presets, trigger controls, capture buttons",
+      "id": "scope-panel",
+      "status": "completed"
+    },
+    {
+      "content": "Strip capture panel from current_tab.py",
+      "id": "strip-current-tab",
+      "status": "in_progress"
+    },
+    {
+      "content": "Strip capture panel from velocity_tab.py",
+      "id": "strip-velocity-tab",
+      "status": "pending"
+    },
+    {
+      "content": "Rewire main_window.py: add ScopePanel, connect signals, update perturbation/capture/lifecycle routing",
+      "id": "rewire-main-window",
+      "status": "pending"
+    },
+    {
+      "content": "Update plot_widget.py labels for open-loop view types",
+      "id": "update-plot-widget",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/tabs/velocity_tab.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now rewire `main_window.py` — this is the big one:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Extend capture.py with configure_view() and open-loop channel maps + unit conversion",
+      "id": "capture-views",
+      "status": "completed"
+    },
+    {
+      "content": "Consolidate workers.py: remove CONFIGURE_VELOCITY_SCOPE, unify on CONFIGURE_SCOPE with view param",
+      "id": "workers-consolidate",
+      "status": "completed"
+    },
+    {
+      "content": "Create scope_panel.py with view presets, trigger controls, capture buttons",
+      "id": "scope-panel",
+      "status": "completed"
+    },
+    {
+      "content": "Strip capture panel from current_tab.py",
+      "id": "strip-current-tab",
+      "status": "completed"
+    },
+    {
+      "content": "Strip capture panel from velocity_tab.py",
+      "id": "strip-velocity-tab",
+      "status": "completed"
+    },
+    {
+      "content": "Rewire main_window.py: add ScopePanel, connect signals, update perturbation/capture/lifecycle routing",
+      "id": "rewire-main-window",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update plot_widget.py labels for open-loop view types",
+      "id": "update-plot-widget",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Extend capture.py with configure_view() and open-loop channel maps + unit conversion",
+      "id": "capture-views",
+      "status": "completed"
+    },
+    {
+      "content": "Consolidate workers.py: remove CONFIGURE_VELOCITY_SCOPE, unify on CONFIGURE_SCOPE with view param",
+      "id": "workers-consolidate",
+      "status": "completed"
+    },
+    {
+      "content": "Create scope_panel.py with view presets, trigger controls, capture buttons",
+      "id": "scope-panel",
+      "status": "completed"
+    },
+    {
+      "content": "Strip capture panel from current_tab.py",
+      "id": "strip-current-tab",
+      "status": "completed"
+    },
+    {
+      "content": "Strip capture panel from velocity_tab.py",
+      "id": "strip-velocity-tab",
+      "status": "in_progress"
+    },
+    {
+      "content": "Rewire main_window.py: add ScopePanel, connect signals, update perturbation/capture/lifecycle routing",
+      "id": "rewire-main-window",
+      "status": "pending"
+    },
+    {
+      "content": "Update plot_widget.py labels for open-loop view types",
+      "id": "update-plot-widget",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update `plot_widget.py` for open-loop view types:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Extend capture.py with configure_view() and open-loop channel maps + unit conversion",
+      "id": "capture-views",
+      "status": "completed"
+    },
+    {
+      "content": "Consolidate workers.py: remove CONFIGURE_VELOCITY_SCOPE, unify on CONFIGURE_SCOPE with view param",
+      "id": "workers-consolidate",
+      "status": "completed"
+    },
+    {
+      "content": "Create scope_panel.py with view presets, trigger controls, capture buttons",
+      "id": "scope-panel",
+      "status": "completed"
+    },
+    {
+      "content": "Strip capture panel from current_tab.py",
+      "id": "strip-current-tab",
+      "status": "completed"
+    },
+    {
+      "content": "Strip capture panel from velocity_tab.py",
+      "id": "strip-velocity-tab",
+      "status": "completed"
+    },
+    {
+      "content": "Rewire main_window.py: add ScopePanel, connect signals, update perturbation/capture/lifecycle routing",
+      "id": "rewire-main-window",
+      "status": "completed"
+    },
+    {
+      "content": "Update plot_widget.py labels for open-loop view types",
+      "id": "update-plot-widget",
+      "status": "in_progress"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Extend capture.py with configure_view() and open-loop channel maps + unit conversion",
+      "id": "capture-views",
+      "status": "completed"
+    },
+    {
+      "content": "Consolidate workers.py: remove CONFIGURE_VELOCITY_SCOPE, unify on CONFIGURE_SCOPE with view param",
+      "id": "workers-consolidate",
+      "status": "completed"
+    },
+    {
+      "content": "Create scope_panel.py with view presets, trigger controls, capture buttons",
+      "id": "scope-panel",
+      "status": "completed"
+    },
+    {
+      "content": "Strip capture panel from current_tab.py",
+      "id": "strip-current-tab",
+      "status": "completed"
+    },
+    {
+      "content": "Strip capture panel from velocity_tab.py",
+      "id": "strip-velocity-tab",
+      "status": "completed"
+    },
+    {
+      "content": "Rewire main_window.py: add ScopePanel, connect signals, update perturbation/capture/lifecycle routing",
+      "id": "rewire-main-window",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update plot_widget.py labels for open-loop view types",
+      "id": "update-plot-widget",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/plot_widget.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me run linter checks on all the modified files to make sure there are no issues:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "pyx2ctune/capture.py",
+    "pyx2ctune/gui/workers.py",
+    "pyx2ctune/gui/scope_panel.py",
+    "pyx2ctune/gui/tabs/current_tab.py",
+    "pyx2ctune/gui/tabs/velocity_tab.py",
+    "pyx2ctune/gui/main_window.py",
+    "pyx2ctune/gui/plot_widget.py"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "pyx2ctune/capture.py"
+    },
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/workers.py"
+    },
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/scope_panel.py"
+    },
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/tabs/current_tab.py"
+    },
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/tabs/velocity_tab.py"
+    },
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/main_window.py"
+    },
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/plot_widget.py"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints"><details>
+<summary>Tool use: **read_lints**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Let me also verify that any external callers of `configure_current_loop` or `configure_velocity_loop` still work, and that nothing references the removed `CONFIGURE_VELOCITY_SCOPE`:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "outputMode": "files_with_matches",
+  "pattern": "CONFIGURE_VELOCITY_SCOPE"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "files_with_matches",
+  "pattern": "CONFIGURE_VELOCITY_SCOPE",
+  "topFiles": [
+    {
+      "matchCount": 1,
+      "uri": ".specstory/history/2026-03-13_16-05-32Z-gui-tuning-tool-for-microchip-motorbench.md"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 1
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "outputMode": "content",
+  "pattern": "configure_current_loop|configure_velocity_loop"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "pattern": "configure_current_loop|configure_velocity_loop",
+  "topFiles": [
+    {
+      "matchCount": 1,
+      "uri": "README.md"
+    },
+    {
+      "matchCount": 1,
+      "uri": "notebooks/current_loop_tuning.ipynb"
+    },
+    {
+      "matchCount": 2,
+      "uri": "SPEC.md"
+    },
+    {
+      "matchCount": 4,
+      "uri": "pyx2ctune/capture.py"
+    },
+    {
+      "matchCount": 6,
+      "uri": ".specstory/history/2026-03-20_01-53-44Z-test-harness-documentation-review.md"
+    },
+    {
+      "matchCount": 2,
+      "uri": ".specstory/history/2026-03-20_14-38-52Z-refactoring-pyx2ctune-gui-for-scope-panel.md"
+    },
+    {
+      "matchCount": 1,
+      "uri": "examples/gain_sweep.py"
+    },
+    {
+      "matchCount": 10,
+      "uri": ".specstory/history/2026-03-13_16-05-32Z-gui-tuning-tool-for-microchip-motorbench.md"
+    },
+    {
+      "matchCount": 1,
+      "uri": "examples/current_loop_tune.py"
+    },
+    {
+      "matchCount": 2,
+      "uri": ".specstory/history/2026-03-20_13-07-27Z-file-structure-examination-for-pyx2ctune.md"
+    }
+  ],
+  "totalFiles": 10,
+  "totalMatches": 30
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+Good - `CONFIGURE_VELOCITY_SCOPE` only appears in the specstory history files (past conversation logs), not in any active code. The `configure_current_loop` and `configure_velocity_loop` wrappers still exist and are used by the notebook, examples, and SPEC/README, so backward compatibility is maintained.
+
+Let me also check the examples use case to make sure nothing is broken:
+- `examples/current_loop_tune.py` uses `session.capture.configure_current_loop(axis=args.axis)` — still works with the wrapper.
+- `examples/gain_sweep.py` uses `session.capture.configure_current_loop(axis=args.axis)` — still works.
+
+
+- `notebooks/current_loop_tuning.ipynb` uses `session.capture.configure_current_loop(axis=AXIS, sample_time=1)` — still works.
+
+Now I'm verifying that the `configure_current_loop` wrapper correctly forwards all keyword arguments through to the underlying `configure_view` method, which should handle any parameters like `sample_time`, `trigger`, and others that callers might pass in.
+
+I should also scan the codebase to make sure there are no lingering calls to the old trigger configuration methods that were removed.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Good. `CONFIGURE_VELOCITY_SCOPE` is only in history files. The `configure_current_loop` / `configure_velocity_loop` wrappers maintain backward compatibility for examples and notebooks. Let me also verify no remaining references to the removed tab methods:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "glob": "**/*.py",
+  "outputMode": "files_with_matches",
+  "pattern": "ct\\.trigger_|vt\\.trigger_|ct\\.on_capture|vt\\.on_capture|ct\\.on_continuous|vt\\.on_continuous"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "files_with_matches",
+  "pattern": "ct\\.trigger_|vt\\.trigger_|ct\\.on_capture|vt\\.on_capture|ct\\.on_continuous|vt\\.on_continuous",
+  "topFiles": [],
+  "totalFiles": 0,
+  "totalMatches": 0
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+No stale references. Let me also verify the `configure_current_loop` wrapper signature is compatible with existing callers by checking the examples:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "glob": "**/*.py",
+  "outputMode": "content",
+  "pattern": "configure_current_loop\\("
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "pattern": "configure_current_loop\\(",
+  "topFiles": [
+    {
+      "matchCount": 1,
+      "uri": "examples/current_loop_tune.py"
+    },
+    {
+      "matchCount": 1,
+      "uri": "examples/gain_sweep.py"
+    },
+    {
+      "matchCount": 2,
+      "uri": "pyx2ctune/capture.py"
+    }
+  ],
+  "totalFiles": 3,
+  "totalMatches": 4
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Both call with `axis=` as a keyword argument, which works perfectly with the `**kwargs` wrapper. Let me do a quick import test to verify no syntax errors:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/greg/projects/microchip/pyx2ctune && python -c "
+from pyx2ctune.capture import ScopeCapture, StepResponse, _VIEW_CONFIGS
+print('capture.py OK, views:', list(_VIEW_CONFIGS.keys()))
+"</summary>
+
+```bash
+cd /Users/greg/projects/microchip/pyx2ctune && python -c "
+from pyx2ctune.capture import ScopeCapture, StepResponse, _VIEW_CONFIGS
+print('capture.py OK, views:', list(_VIEW_CONFIGS.keys()))
+"
+```
+
+```
+capture.py OK, views: ['current_q', 'current_d', 'velocity', 'open_voltage', 'open_current']
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/greg/projects/microchip/pyx2ctune && python -c "
+from pyx2ctune.gui.workers import Command, SessionWorker
+print('workers.py OK')
+print('Commands:', [c.name for c in Command])
+assert not hasattr(Command, 'CONFIGURE_VELOCITY_SCOPE')
+print('CONFIGURE_VELOCITY_SCOPE correctly removed')
+"</summary>
+
+```bash
+cd /Users/greg/projects/microchip/pyx2ctune && python -c "
+from pyx2ctune.gui.workers import Command, SessionWorker
+print('workers.py OK')
+print('Commands:', [c.name for c in Command])
+assert not hasattr(Command, 'CONFIGURE_VELOCITY_SCOPE')
+print('CONFIGURE_VELOCITY_SCOPE correctly removed')
+"
+```
+
+```
+workers.py OK
+Commands: ['CONNECT', 'DISCONNECT', 'READ_GAINS', 'SET_GAINS', 'ENTER_TEST_MODE', 'ENTER_VELOCITY_OVERRIDE_MODE', 'EXIT_TEST_MODE', 'START_PERTURBATION', 'STOP_PERTURBATION', 'CONFIGURE_SCOPE', 'CAPTURE', 'READ_VELOCITY_GAINS', 'SET_VELOCITY_GAINS', 'SET_VELOCITY_COMMAND', 'START_VELOCITY_PERTURBATION', 'STOP_VELOCITY_PERTURBATION', 'ENTER_FORCE_VOLTAGE_MODE', 'SET_OVERRIDES', 'SET_COMMUTATION_FREQ', 'SET_DQ_CURRENT', 'SET_DQ_VOLTAGE', 'FORCE_STATE', 'READ_HARNESS_STATUS', 'READ_MEASURED_SPEED', 'CAPTURE_CONTINUOUS_START', 'CAPTURE_CONTINUOUS_STOP', '_CONTINUOUS_FRAME']
+CONFIGURE_VELOCITY_SCOPE correctly removed
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/greg/projects/microchip/pyx2ctune && python -c "
+from pyx2ctune.gui.scope_panel import ScopePanel
+print('scope_panel.py OK')
+"</summary>
+
+```bash
+cd /Users/greg/projects/microchip/pyx2ctune && python -c "
+from pyx2ctune.gui.scope_panel import ScopePanel
+print('scope_panel.py OK')
+"
+```
+
+```
+scope_panel.py OK
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/greg/projects/microchip/pyx2ctune && python -c "
+from pyx2ctune.gui.tabs.current_tab import CurrentLoopTab
+from pyx2ctune.gui.tabs.velocity_tab import VelocityLoopTab
+from pyx2ctune.gui.tabs.openloop_tab import OpenLoopTab
+print('All tab imports OK')
+# Verify capture-related attrs are removed
+import inspect
+ct_attrs = [a for a in dir(CurrentLoopTab) if 'capture' in a.lower() or 'continuous' in a.lower() or 'trigger' in a.lower()]
+vt_attrs = [a for a in dir(VelocityLoopTab) if 'capture' in a.lower() or 'continuous' in a.lower() or 'trigger' in a.lower()]
+print('CurrentLoopTab capture/trigger attrs:', ct_attrs)
+print('VelocityLoopTab capture/trigger attrs:', vt_attrs)
+"</summary>
+
+```bash
+cd /Users/greg/projects/microchip/pyx2ctune && python -c "
+from pyx2ctune.gui.tabs.current_tab import CurrentLoopTab
+from pyx2ctune.gui.tabs.velocity_tab import VelocityLoopTab
+from pyx2ctune.gui.tabs.openloop_tab import OpenLoopTab
+print('All tab imports OK')
+# Verify capture-related attrs are removed
+import inspect
+ct_attrs = [a for a in dir(CurrentLoopTab) if 'capture' in a.lower() or 'continuous' in a.lower() or 'trigger' in a.lower()]
+vt_attrs = [a for a in dir(VelocityLoopTab) if 'capture' in a.lower() or 'continuous' in a.lower() or 'trigger' in a.lower()]
+print('CurrentLoopTab capture/trigger attrs:', ct_attrs)
+print('VelocityLoopTab capture/trigger attrs:', vt_attrs)
+"
+```
+
+```
+All tab imports OK
+CurrentLoopTab capture/trigger attrs: []
+VelocityLoopTab capture/trigger attrs: []
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/greg/projects/microchip/pyx2ctune && python -c "
+from pyx2ctune.gui.main_window import MainWindow
+print('main_window.py OK')
+"</summary>
+
+```bash
+cd /Users/greg/projects/microchip/pyx2ctune && python -c "
+from pyx2ctune.gui.main_window import MainWindow
+print('main_window.py OK')
+"
+```
+
+```
+main_window.py OK
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+All imports pass cleanly. Let me also verify the plot_widget:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/greg/projects/microchip/pyx2ctune && python -c "
+from pyx2ctune.gui.plot_widget import PlotWidget
+print('plot_widget.py OK')
+"</summary>
+
+```bash
+cd /Users/greg/projects/microchip/pyx2ctune && python -c "
+from pyx2ctune.gui.plot_widget import PlotWidget
+print('plot_widget.py OK')
+"
+```
+
+```
+plot_widget.py OK
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+All imports are clean. Let me mark the final todo as complete:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Extend capture.py with configure_view() and open-loop channel maps + unit conversion",
+      "id": "capture-views",
+      "status": "completed"
+    },
+    {
+      "content": "Consolidate workers.py: remove CONFIGURE_VELOCITY_SCOPE, unify on CONFIGURE_SCOPE with view param",
+      "id": "workers-consolidate",
+      "status": "completed"
+    },
+    {
+      "content": "Create scope_panel.py with view presets, trigger controls, capture buttons",
+      "id": "scope-panel",
+      "status": "completed"
+    },
+    {
+      "content": "Strip capture panel from current_tab.py",
+      "id": "strip-current-tab",
+      "status": "completed"
+    },
+    {
+      "content": "Strip capture panel from velocity_tab.py",
+      "id": "strip-velocity-tab",
+      "status": "completed"
+    },
+    {
+      "content": "Rewire main_window.py: add ScopePanel, connect signals, update perturbation/capture/lifecycle routing",
+      "id": "rewire-main-window",
+      "status": "completed"
+    },
+    {
+      "content": "Update plot_widget.py labels for open-loop view types",
+      "id": "update-plot-widget",
+      "status": "completed"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Extend capture.py with configure_view() and open-loop channel maps + unit conversion",
+      "id": "capture-views",
+      "status": "completed"
+    },
+    {
+      "content": "Consolidate workers.py: remove CONFIGURE_VELOCITY_SCOPE, unify on CONFIGURE_SCOPE with view param",
+      "id": "workers-consolidate",
+      "status": "completed"
+    },
+    {
+      "content": "Create scope_panel.py with view presets, trigger controls, capture buttons",
+      "id": "scope-panel",
+      "status": "completed"
+    },
+    {
+      "content": "Strip capture panel from current_tab.py",
+      "id": "strip-current-tab",
+      "status": "completed"
+    },
+    {
+      "content": "Strip capture panel from velocity_tab.py",
+      "id": "strip-velocity-tab",
+      "status": "completed"
+    },
+    {
+      "content": "Rewire main_window.py: add ScopePanel, connect signals, update perturbation/capture/lifecycle routing",
+      "id": "rewire-main-window",
+      "status": "completed"
+    },
+    {
+      "content": "Update plot_widget.py labels for open-loop view types",
+      "id": "update-plot-widget",
+      "status": "in_progress"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+All 7 plan items are complete. Here's a summary of what was implemented:
+
+**Step 1 — `capture.py`**: Added `configure_view()` as the unified entry point with 5 preset views (`current_q`, `current_d`, `velocity`, `open_voltage`, `open_current`). Added open-loop channel maps (`_OPEN_VOLTAGE_VARS`, `_OPEN_CURRENT_VARS`) and a `_VIEW_CONFIGS` lookup. Extended `capture_frame()` unit conversion for `open_voltage` (Vd/Vq → V, Iq → A) and `open_current` (Id/Iq → A, velocity → RPM). Kept `configure_current_loop()` and `configure_velocity_loop()` as thin wrappers for backward compatibility.
+
+**Step 2 — `workers.py`**: Removed `CONFIGURE_VELOCITY_SCOPE` command and its dispatch/handler. Updated `_do_configure_scope()` to accept a `view` parameter and call `configure_view()` instead of `configure_current_loop()`.
+
+**Step 3 — `scope_panel.py`** (new file): Created a shared `ScopePanel` widget with a View dropdown (5 presets), trigger controls (checkbox, auto-updating channel label and unit suffix), and capture buttons (Single, Start continuous, Stop, Cancel). Stores fullscale values on connection for trigger level Q15 conversion. Includes `set_view()` for programmatic control, and settings persistence.
+
+**Step 4 — `current_tab.py`**: Removed `_build_capture_panel()`, all capture/trigger/continuous signals, widgets, and lifecycle methods. Removed `_fullscale_current` (no longer needed for trigger conversion). Kept gains, test harness, perturbation, and `current_axis()`.
+
+**Step 5 — `velocity_tab.py`**: Same removals as current tab. Kept gains, velocity command, test harness, and perturbation.
+
+**Step 6 — `main_window.py`**: Added `ScopePanel` to the right pane above `PlotWidget`. Connected scope panel signals to unified capture slots (`_on_scope_single`, `_on_scope_continuous_start`). Perturbation start slots now auto-set the scope panel's view to match the tab's axis context and pull trigger settings from the scope panel. Capture lifecycle signals route to scope panel exclusively. Added scope panel to connect/disconnect/settings flows.
+
+**Step 7 — `plot_widget.py`**: Extended Y-axis label and title logic for `open_voltage` (Vdq/Iq) and `open_current` (Idq/Velocity) loop types.
+
+---
+
+_**User**_
+
+we lost waiting for trigger overlay on continuous scan
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+The user is saying that the "Waiting for trigger" overlay no longer appears during continuous capture. Let me look at the code to understand why.
+
+In the previous implementation, the `capture_started` signal was emitted during `_do_capture()` which handles single captures. But continuous capture uses `_do_continuous_frame()` which doesn't emit `capture_started`.
+
+Let me check the current flow:
+
+1. `_on_scope_continuous_start()` in main_window submits `CONFIGURE_SCOPE` then `CAPTURE_CONTINUOUS_START`
+2. `_do_start_continuous()` in workers.py clears stop event, emits `continuous_started`, and queues `_CONTINUOUS_FRAME`
+
+
+3. `_do_continuous_frame()` captures a frame, emits `capture_done`, and re-queues itself
+
+The problem is that `_do_continuous_frame()` never emits `capture_started` before waiting for the trigger, so the overlay doesn't appear. In the old code, `capture_started` was only emitted from `_do_capture()`, yet continuous capture still showed the waiting overlay somehow. Let me trace through the old main_window code to see how it was handling this.
+
+Looking at the signal connections, `capture_started` was wired to `_on_capture_started`, which triggered `show_waiting()` on the plot. But since `_do_continuous_frame` never emitted that signal, the overlay shouldn't have shown during continuous capture either. The user says we lost it though, so something must have changed in the refactoring. The continuous frame path needs to emit `capture_started` to trigger the waiting overlay, or we need a different mechanism to show it. Looking at the old `_do_start_continuous` method, it emits `continuous_started` and a status message, but neither of those signals were connected to show the waiting overlay—so the overlay was never displayed at the start of continuous capture either.
+
+The real issue is that `_do_continuous_frame` doesn't emit any status message before attempting to capture, leaving the user without feedback about what's happening. I think the solution is to add the "Waiting for trigger..." status message during continuous capture as well, so the user gets the same visual feedback they'd get in single-capture mode. capture_started` in `_do_continuous_frame` but have the scope panel check whether we're in continuous mode before updating button states, so the overlay shows during frame capture without disrupting the button management that's already handled by the continuous mode handlers. The issue is that `on_capture_done` disables the cancel button after each frame, which breaks the continuous mode experience. I think the cleanest approach is to handle the overlay visibility directly in the continuous frame loop without triggering the scope panel's capture lifecycle callbacks, since those are designed for single captures.
+
+Actually, looking more carefully, `on_capture_done` already calls `hide_waiting()` for continuous frames, but `show_waiting()` only gets triggered from `on_capture_started` which is connected to the capture signal—and that signal isn't being emitted during continuous frames. So I just need to emit that signal in the continuous frame method before capturing, while making sure the scope panel doesn't toggle its button states.
+
+The scope panel's handlers would disable the cancel button during capture and re-enable it after each frame, which would cause flickering. A cleaner approach is to skip the scope panel's lifecycle entirely for continuous frames and just emit the signal directly to show the overlay. I'll emit `capture_started` in the continuous frame method before capturing, then in main_window's handler, always show the overlay but only update the scope panel button state when not in continuous mode. I can track continuous mode with a flag rather than checking private widget state.
+
+Implementing the button toggle logic...</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Let me check the continuous capture path to understand what's happening.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+The issue is clear: `_do_continuous_frame()` never emits `capture_started`, so the overlay never shows while waiting for trigger during continuous capture. The `_on_capture_done` handler hides the overlay via `self._plot.hide_waiting()`, but `show_waiting()` is never called.
+
+I need to:
+1. Emit `capture_started` in `_do_continuous_frame()` before calling `capture_frame()`
+2. Make the scope panel's `on_capture_started()` not toggle single-capture buttons when continuous is active
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the scope panel's `on_capture_started()` to not toggle single-capture buttons when continuous is running:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Similarly, `on_capture_done()` shouldn't toggle those buttons during continuous mode either:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now each continuous frame will: emit `capture_started` → overlay shows → capture waits for trigger → data arrives → emit `capture_done` → overlay hides + plot updates. The scope panel buttons stay stable throughout continuous mode.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "pyx2ctune/gui/workers.py",
+    "pyx2ctune/gui/scope_panel.py"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/workers.py"
+    },
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/scope_panel.py"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints"><details>
+<summary>Tool use: **read_lints**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+The fix is in place. Now during continuous capture, the "Waiting for trigger..." overlay will appear while each frame waits for the trigger to fire, and disappears as soon as data arrives and the plot updates. The scope panel buttons (Single/Cancel) remain stable during continuous mode -- only the Stop button is active.
+
+---
+
+_**User**_
+
+let's update the plot views when selecting a different preset view. Is it possible to keep independent plot state of each view so that it remembers when switching between views?
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+The user wants two things:
+
+1. When selecting a different preset view in the scope panel, the plot should update (clear or show the last capture for that view)
+2. Each view should maintain its own plot state, so switching back to a previously captured view shows the old data
+
+This means I need to:
+- Store the last `StepResponse` and `StepMetrics` per view in the main window or plot widget
+- When the view changes in the scope panel, emit a signal
+- Main window handles it by restoring the cached plot data for that view, or showing empty if no data exists
+
+Let me think about the design:
+
+**PlotWidget changes:**
+- No major changes needed - it just displays whatever data it's given
+</details></think>

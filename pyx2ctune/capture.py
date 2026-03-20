@@ -46,6 +46,28 @@ _VELOCITY_LOOP_VARS = {
     "output": "motor.idqCmd.q",
 }
 
+# Scope variables for open-loop analysis
+_OPEN_VOLTAGE_VARS = {
+    "measured": "motor.vdq.d",
+    "reference": "motor.vdq.q",
+    "output": "motor.idq.q",
+}
+
+_OPEN_CURRENT_VARS = {
+    "measured": "motor.idq.d",
+    "reference": "motor.idq.q",
+    "output": "motor.omegaElectrical",
+}
+
+# Unified view lookup: view_id -> (var_dict, loop_type, axis)
+_VIEW_CONFIGS = {
+    "current_q": (_CURRENT_LOOP_VARS["q"], "current", "q"),
+    "current_d": (_CURRENT_LOOP_VARS["d"], "current", "d"),
+    "velocity": (_VELOCITY_LOOP_VARS, "velocity", "velocity"),
+    "open_voltage": (_OPEN_VOLTAGE_VARS, "open_voltage", "open"),
+    "open_current": (_OPEN_CURRENT_VARS, "open_current", "open"),
+}
+
 
 @dataclass
 class StepResponse:
@@ -100,42 +122,37 @@ class ScopeCapture:
         self._configured_vars: dict[str, str] = {}
         self._loop_type: str = "current"
 
-    def configure_current_loop(
+    def configure_view(
         self,
-        axis: str = "q",
+        view: str,
         sample_time: int = 1,
         trigger: bool = True,
         trigger_level: float = 0,
         trigger_edge: int = 0,
         trigger_delay: int = 0,
     ) -> None:
-        """Set up scope channels for current loop step response capture.
-
-        Configures three channels: measured current, reference current,
-        and voltage output for the specified axis.  When ``trigger=True``,
-        the scope triggers on the reference signal (idqCmd) so the display
-        remains locked to the square-wave perturbation.
+        """Configure scope channels from a named preset view.
 
         Args:
-            axis: "q" or "d" (which current axis to capture).
-            sample_time: Scope prescaler. 1 = every ISR sample (highest
-                resolution). Higher values extend capture duration at
-                lower resolution.
-            trigger: If True, trigger on the current reference signal.
-            trigger_level: Trigger threshold in raw counts (default 0,
-                which triggers on the zero crossing of the square wave).
-            trigger_edge: 0 = rising (default), 1 = falling.
-            trigger_delay: Pre/post-trigger delay as a percentage of the
-                scope buffer size.  0 = trigger at start of buffer.
+            view: One of "current_q", "current_d", "velocity",
+                "open_voltage", "open_current".
+            sample_time: Scope prescaler (1 = every ISR sample).
+            trigger: If True, trigger on the view's reference channel.
+            trigger_level: Trigger threshold in raw Q15 counts.
+            trigger_edge: 0 = rising, 1 = falling.
+            trigger_delay: Pre/post-trigger delay percentage.
         """
-        axis = axis.lower()
-        if axis not in _CURRENT_LOOP_VARS:
-            raise ValueError(f"axis must be 'q' or 'd', got {axis!r}")
+        if view not in _VIEW_CONFIGS:
+            raise ValueError(
+                f"Unknown view {view!r}; "
+                f"choose from {list(_VIEW_CONFIGS)}"
+            )
+
+        var_names, loop_type, axis = _VIEW_CONFIGS[view]
 
         x2c = self._session.x2c
         x2c.clear_all_scope_channel()
 
-        var_names = _CURRENT_LOOP_VARS[axis]
         for role, var_name in var_names.items():
             var = self._session.get_variable(var_name)
             x2c.add_scope_channel(var)
@@ -167,67 +184,22 @@ class ScopeCapture:
         self._configured_axis = axis
         self._configured_vars = var_names
         self._sample_time = sample_time
-        self._loop_type = "current"
+        self._loop_type = loop_type
 
         logger.info(
-            "Scope configured for %s-axis current loop (sample_time=%d, trigger=%s)",
-            axis, sample_time, trigger,
+            "Scope configured: view=%s (sample_time=%d, trigger=%s)",
+            view, sample_time, trigger,
         )
 
-    def configure_velocity_loop(
-        self,
-        sample_time: int = 1,
-        trigger: bool = True,
-        trigger_level: float = 0,
-        trigger_edge: int = 0,
-        trigger_delay: int = 0,
+    def configure_current_loop(
+        self, axis: str = "q", **kwargs,
     ) -> None:
-        """Set up scope channels for velocity loop step response capture.
+        """Convenience wrapper: configure scope for current loop."""
+        self.configure_view(f"current_{axis.lower()}", **kwargs)
 
-        Configures three channels: measured velocity (omegaElectrical),
-        velocity command (omegaCmd), and q-axis current command (PI output).
-
-        Args:
-            sample_time: Scope prescaler (1 = every ISR sample).
-            trigger: If True, trigger on the velocity command signal.
-            trigger_level: Trigger threshold in raw counts.
-            trigger_edge: 0 = rising (default), 1 = falling.
-            trigger_delay: Pre/post-trigger delay percentage.
-        """
-        x2c = self._session.x2c
-        x2c.clear_all_scope_channel()
-
-        var_names = _VELOCITY_LOOP_VARS
-        for role, var_name in var_names.items():
-            var = self._session.get_variable(var_name)
-            x2c.add_scope_channel(var)
-            logger.debug("Added scope channel: %s (%s)", var_name, role)
-
-        if trigger:
-            from pyx2cscope.x2cscope import TriggerConfig
-
-            ref_var = self._session.get_variable(var_names["reference"])
-            config = TriggerConfig(
-                variable=ref_var,
-                trigger_level=trigger_level,
-                trigger_mode=1,
-                trigger_delay=trigger_delay,
-                trigger_edge=trigger_edge,
-            )
-            x2c.set_scope_trigger(config)
-        else:
-            x2c.reset_scope_trigger()
-
-        x2c.set_sample_time(sample_time)
-        self._configured_axis = "velocity"
-        self._configured_vars = var_names
-        self._sample_time = sample_time
-        self._loop_type = "velocity"
-
-        logger.info(
-            "Scope configured for velocity loop (sample_time=%d, trigger=%s)",
-            sample_time, trigger,
-        )
+    def configure_velocity_loop(self, **kwargs) -> None:
+        """Convenience wrapper: configure scope for velocity loop."""
+        self.configure_view("velocity", **kwargs)
 
     def capture_frame(
         self,
@@ -283,9 +255,9 @@ class ScopeCapture:
         channel_data = x2c.get_scope_channel_data(valid_data=True)
 
         var_names = self._configured_vars
-        is_velocity = self._loop_type == "velocity"
+        loop = self._loop_type
 
-        if is_velocity:
+        if loop in ("velocity", "open_voltage", "open_current"):
             measured_key, reference_key, output_key = (
                 "measured", "reference", "output",
             )
@@ -315,7 +287,7 @@ class ScopeCapture:
         out_units = "counts"
         params = self._session.params
 
-        if is_velocity:
+        if loop == "velocity":
             if params is not None:
                 try:
                     vfs = params.get_info(
@@ -333,6 +305,47 @@ class ScopeCapture:
                     output_data = (output_data / 32768.0) * ifs
                     out_units = "A"
                     current_units = "A"
+                except KeyError:
+                    pass
+        elif loop == "open_voltage":
+            if params is not None:
+                try:
+                    vfs = params.get_info(
+                        _PARAM_FULLSCALE_VOLTAGE,
+                    ).intended_value
+                    measured_data = (measured_data / 32768.0) * vfs
+                    reference_data = (reference_data / 32768.0) * vfs
+                    voltage_units = "V"
+                    ref_units = meas_units = "V"
+                except KeyError:
+                    pass
+                try:
+                    ifs = params.get_info(
+                        _PARAM_FULLSCALE_CURRENT,
+                    ).intended_value
+                    output_data = (output_data / 32768.0) * ifs
+                    out_units = "A"
+                    current_units = "A"
+                except KeyError:
+                    pass
+        elif loop == "open_current":
+            if params is not None:
+                try:
+                    ifs = params.get_info(
+                        _PARAM_FULLSCALE_CURRENT,
+                    ).intended_value
+                    measured_data = (measured_data / 32768.0) * ifs
+                    reference_data = (reference_data / 32768.0) * ifs
+                    current_units = "A"
+                    ref_units = meas_units = "A"
+                except KeyError:
+                    pass
+                try:
+                    vfs = params.get_info(
+                        _PARAM_FULLSCALE_VELOCITY,
+                    ).intended_value
+                    output_data = (output_data / 32768.0) * vfs
+                    out_units = "RPM"
                 except KeyError:
                     pass
         else:
@@ -359,7 +372,7 @@ class ScopeCapture:
 
         gains = {}
         try:
-            if is_velocity:
+            if loop == "velocity":
                 gains_obj = self._session.velocity.get_gains()
                 gains = {
                     "kp": gains_obj.kp,
@@ -369,7 +382,7 @@ class ScopeCapture:
                     "kp_shift": gains_obj.kp_shift,
                     "ki_shift": gains_obj.ki_shift,
                 }
-            else:
+            elif loop in ("current",):
                 gains_obj = self._session.current.get_gains(
                     self._configured_axis,
                 )

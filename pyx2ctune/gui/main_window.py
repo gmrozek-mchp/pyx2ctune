@@ -26,6 +26,7 @@ from PyQt5.QtWidgets import (
 )
 
 from pyx2ctune.gui.plot_widget import PlotWidget
+from pyx2ctune.gui.scope_panel import ScopePanel
 from pyx2ctune.gui.tabs.current_tab import CurrentLoopTab
 from pyx2ctune.gui.tabs.openloop_tab import OpenLoopTab
 from pyx2ctune.gui.tabs.velocity_tab import VelocityLoopTab
@@ -44,6 +45,7 @@ class MainWindow(QMainWindow):
 
         self._session = None
         self._settings = QSettings("pyx2ctune", "pyx2ctune")
+        self._view_cache: dict[str, tuple] = {}  # view_id → (response, metrics)
 
         self._build_ui()
         self._start_worker()
@@ -78,10 +80,12 @@ class MainWindow(QMainWindow):
         self._tabs.addTab(self._velocity_tab, "Velocity Loop")
         self._tabs.addTab(self._openloop_tab, "Open Loop")
 
-        # Right: shared plot + metrics
+        # Right: scope panel + plot + metrics
         right = QWidget()
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
+        self._scope_panel = ScopePanel()
+        right_layout.addWidget(self._scope_panel, stretch=0)
         self._plot = PlotWidget()
         right_layout.addWidget(self._plot, stretch=3)
         right_layout.addWidget(self._build_metrics_panel(), stretch=0)
@@ -192,10 +196,6 @@ class MainWindow(QMainWindow):
         ct.exit_test_requested.connect(self._on_exit_test)
         ct.start_perturbation_requested.connect(self._on_start_perturbation)
         ct.stop_perturbation_requested.connect(self._on_stop_perturbation)
-        ct.capture_requested.connect(self._on_capture)
-        ct.cancel_capture_requested.connect(self._on_cancel_capture)
-        ct.continuous_start_requested.connect(self._on_start_continuous)
-        ct.continuous_stop_requested.connect(self._on_stop_continuous)
 
         # Velocity loop tab → worker
         vt = self._velocity_tab
@@ -206,10 +206,6 @@ class MainWindow(QMainWindow):
         vt.exit_test_requested.connect(self._on_exit_test)
         vt.start_perturbation_requested.connect(self._on_vel_start_perturbation)
         vt.stop_perturbation_requested.connect(self._on_vel_stop_perturbation)
-        vt.capture_requested.connect(self._on_vel_capture)
-        vt.cancel_capture_requested.connect(self._on_cancel_capture)
-        vt.continuous_start_requested.connect(self._on_vel_start_continuous)
-        vt.continuous_stop_requested.connect(self._on_stop_continuous)
 
         # Open loop tab → worker
         ol = self._openloop_tab
@@ -225,7 +221,15 @@ class MainWindow(QMainWindow):
         ol.force_state_requested.connect(self._on_ol_force_state)
         ol.read_status_requested.connect(self._on_ol_read_status)
 
-        # Worker results → tabs
+        # Scope panel → worker
+        sp = self._scope_panel
+        sp.capture_single_requested.connect(self._on_scope_single)
+        sp.continuous_start_requested.connect(self._on_scope_continuous_start)
+        sp.continuous_stop_requested.connect(self._on_stop_continuous)
+        sp.cancel_capture_requested.connect(self._on_cancel_capture)
+        sp.view_changed.connect(self._on_view_switched)
+
+        # Worker results → current tab
         self._worker.connected.connect(self._on_connected)
         self._worker.disconnected.connect(self._on_disconnected)
         self._worker.gains_read.connect(ct.on_gains_read)
@@ -234,9 +238,7 @@ class MainWindow(QMainWindow):
         self._worker.test_mode_exited.connect(ct.on_test_mode_exited)
         self._worker.perturbation_started.connect(ct.on_perturbation_started)
         self._worker.perturbation_stopped.connect(ct.on_perturbation_stopped)
-        self._worker.capture_done.connect(self._on_capture_done)
-        self._worker.continuous_started.connect(ct.on_continuous_started)
-        self._worker.continuous_stopped.connect(ct.on_continuous_stopped)
+
         # Worker results → velocity tab
         self._worker.velocity_gains_read.connect(vt.on_gains_read)
         self._worker.velocity_gains_set.connect(vt.on_gains_set)
@@ -244,8 +246,6 @@ class MainWindow(QMainWindow):
         self._worker.test_mode_exited.connect(vt.on_test_mode_exited)
         self._worker.velocity_perturbation_started.connect(vt.on_perturbation_started)
         self._worker.velocity_perturbation_stopped.connect(vt.on_perturbation_stopped)
-        self._worker.continuous_started.connect(vt.on_continuous_started)
-        self._worker.continuous_stopped.connect(vt.on_continuous_stopped)
 
         # Worker results → open loop tab
         self._worker.test_mode_entered.connect(ol.on_test_mode_entered)
@@ -253,14 +253,17 @@ class MainWindow(QMainWindow):
         self._worker.force_voltage_entered.connect(ol.on_test_mode_entered)
         self._worker.harness_status_read.connect(ol.on_status_read)
 
+        # Worker capture lifecycle → scope panel
+        self._worker.capture_done.connect(self._on_capture_done)
+        self._worker.capture_started.connect(self._on_capture_started)
+        self._worker.capture_cancelled.connect(self._on_capture_cancelled)
+        self._worker.continuous_started.connect(sp.on_continuous_started)
+        self._worker.continuous_stopped.connect(sp.on_continuous_stopped)
+
         # Speed readback → all tabs
         self._worker.measured_speed_read.connect(ct.on_speed_read)
         self._worker.measured_speed_read.connect(vt.on_speed_read)
         self._worker.measured_speed_read.connect(ol.on_speed_read)
-
-        # Worker capture lifecycle
-        self._worker.capture_started.connect(self._on_capture_started)
-        self._worker.capture_cancelled.connect(self._on_capture_cancelled)
 
         self._worker.error.connect(self._on_error)
         self._worker.status.connect(self._status_bar.showMessage)
@@ -281,6 +284,7 @@ class MainWindow(QMainWindow):
         self._current_tab.set_connected(connected)
         self._velocity_tab.set_connected(connected)
         self._openloop_tab.set_connected(connected)
+        self._scope_panel.set_connected(connected)
 
     # ── Slots: Connection ─────────────────────────────────────────────
 
@@ -340,6 +344,7 @@ class MainWindow(QMainWindow):
         self._current_tab.on_connected(session)
         self._velocity_tab.on_connected(session)
         self._openloop_tab.on_connected(session)
+        self._scope_panel.on_connected(session)
 
         self._worker.submit(Command.STOP_PERTURBATION)
         self._worker.submit(Command.EXIT_TEST_MODE)
@@ -353,10 +358,12 @@ class MainWindow(QMainWindow):
     def _on_disconnected(self) -> None:
         self._speed_timer.stop()
         self._session = None
+        self._view_cache.clear()
         self._set_ui_state(connected=False)
         self._current_tab.on_disconnected()
         self._velocity_tab.on_disconnected()
         self._openloop_tab.on_disconnected()
+        self._scope_panel.on_disconnected()
 
     def _poll_speed(self) -> None:
         if self._session is not None:
@@ -384,11 +391,13 @@ class MainWindow(QMainWindow):
 
     def _on_start_perturbation(self, axis: str, amplitude: float,
                                halfperiod: float) -> None:
-        ct = self._current_tab
+        view = f"current_{axis}"
+        self._scope_panel.set_view(view)
+        sp = self._scope_panel
         self._worker.submit(
-            Command.CONFIGURE_SCOPE, axis=axis, sample_time=1,
-            trigger=ct.trigger_enabled(),
-            trigger_level=ct.trigger_level(),
+            Command.CONFIGURE_SCOPE, view=view, sample_time=1,
+            trigger=sp.trigger_enabled(),
+            trigger_level=sp.trigger_level_q15(),
         )
         self._worker.submit(
             Command.START_PERTURBATION,
@@ -397,32 +406,6 @@ class MainWindow(QMainWindow):
 
     def _on_stop_perturbation(self) -> None:
         self._worker.submit(Command.STOP_PERTURBATION)
-
-    def _on_capture(self) -> None:
-        ct = self._current_tab
-        self._worker.submit(
-            Command.CONFIGURE_SCOPE,
-            axis=ct.current_axis(), sample_time=1,
-            trigger=ct.trigger_enabled(),
-            trigger_level=ct.trigger_level(),
-        )
-        self._worker.submit(Command.CAPTURE, timeout=10.0)
-
-    def _on_cancel_capture(self) -> None:
-        self._worker.cancel_capture()
-
-    def _on_start_continuous(self, axis: str) -> None:
-        self._plot.clear()
-        ct = self._current_tab
-        self._worker.submit(
-            Command.CONFIGURE_SCOPE, axis=axis, sample_time=1,
-            trigger=ct.trigger_enabled(),
-            trigger_level=ct.trigger_level(),
-        )
-        self._worker.submit(Command.CAPTURE_CONTINUOUS_START, timeout=10.0)
-
-    def _on_stop_continuous(self) -> None:
-        self._worker.request_stop_continuous()
 
     # ── Slots: routed from VelocityLoopTab ──────────────────────────
 
@@ -443,11 +426,12 @@ class MainWindow(QMainWindow):
 
     def _on_vel_start_perturbation(self, amplitude_rpm: float,
                                    halfperiod_ms: float) -> None:
-        vt = self._velocity_tab
+        self._scope_panel.set_view("velocity")
+        sp = self._scope_panel
         self._worker.submit(
-            Command.CONFIGURE_VELOCITY_SCOPE, sample_time=1,
-            trigger=vt.trigger_enabled(),
-            trigger_level=vt.trigger_level(),
+            Command.CONFIGURE_SCOPE, view="velocity", sample_time=1,
+            trigger=sp.trigger_enabled(),
+            trigger_level=sp.trigger_level_q15(),
         )
         self._worker.submit(
             Command.START_VELOCITY_PERTURBATION,
@@ -456,25 +440,6 @@ class MainWindow(QMainWindow):
 
     def _on_vel_stop_perturbation(self) -> None:
         self._worker.submit(Command.STOP_VELOCITY_PERTURBATION)
-
-    def _on_vel_capture(self) -> None:
-        vt = self._velocity_tab
-        self._worker.submit(
-            Command.CONFIGURE_VELOCITY_SCOPE, sample_time=1,
-            trigger=vt.trigger_enabled(),
-            trigger_level=vt.trigger_level(),
-        )
-        self._worker.submit(Command.CAPTURE, timeout=10.0)
-
-    def _on_vel_start_continuous(self) -> None:
-        self._plot.clear()
-        vt = self._velocity_tab
-        self._worker.submit(
-            Command.CONFIGURE_VELOCITY_SCOPE, sample_time=1,
-            trigger=vt.trigger_enabled(),
-            trigger_level=vt.trigger_level(),
-        )
-        self._worker.submit(Command.CAPTURE_CONTINUOUS_START, timeout=10.0)
 
     # ── Slots: routed from OpenLoopTab ──────────────────────────────
 
@@ -499,24 +464,67 @@ class MainWindow(QMainWindow):
     def _on_ol_read_status(self) -> None:
         self._worker.submit(Command.READ_HARNESS_STATUS)
 
-    # ── Slots: capture lifecycle (shared across tabs) ──────────────────
+    # ── Slots: routed from ScopePanel ───────────────────────────────
+
+    def _on_scope_single(self) -> None:
+        sp = self._scope_panel
+        self._worker.submit(
+            Command.CONFIGURE_SCOPE,
+            view=sp.current_view(), sample_time=1,
+            trigger=sp.trigger_enabled(),
+            trigger_level=sp.trigger_level_q15(),
+        )
+        self._worker.submit(Command.CAPTURE, timeout=10.0)
+
+    def _on_scope_continuous_start(self) -> None:
+        self._plot.clear()
+        sp = self._scope_panel
+        self._worker.submit(
+            Command.CONFIGURE_SCOPE,
+            view=sp.current_view(), sample_time=1,
+            trigger=sp.trigger_enabled(),
+            trigger_level=sp.trigger_level_q15(),
+        )
+        self._worker.submit(Command.CAPTURE_CONTINUOUS_START, timeout=10.0)
+
+    def _on_stop_continuous(self) -> None:
+        self._worker.request_stop_continuous()
+
+    def _on_cancel_capture(self) -> None:
+        self._worker.cancel_capture()
+
+    # ── Slots: capture lifecycle ──────────────────────────────────────
 
     def _on_capture_started(self) -> None:
-        self._current_tab.on_capture_started()
-        self._velocity_tab.on_capture_started()
+        self._scope_panel.on_capture_started()
         self._plot.show_waiting()
 
     def _on_capture_cancelled(self) -> None:
-        self._current_tab.on_capture_cancelled()
-        self._velocity_tab.on_capture_cancelled()
+        self._scope_panel.on_capture_cancelled()
         self._plot.hide_waiting()
 
     def _on_capture_done(self, response, metrics) -> None:
         self._plot.hide_waiting()
         self._plot.update_plot(response, metrics)
-        self._current_tab.on_capture_done()
-        self._velocity_tab.on_capture_done()
+        self._scope_panel.on_capture_done()
 
+        view = self._scope_panel.current_view()
+        self._view_cache[view] = (response, metrics)
+        self._update_metrics(metrics)
+
+    def _on_view_switched(self, view_id: str) -> None:
+        """Restore cached plot/metrics when the user switches views."""
+        cached = self._view_cache.get(view_id)
+        if cached is not None:
+            response, metrics = cached
+            self._plot.clear()
+            self._plot.update_plot(response, metrics)
+            self._update_metrics(metrics)
+        else:
+            self._plot.clear()
+            self._clear_metrics()
+
+    def _update_metrics(self, metrics) -> None:
         if metrics.n_steps > 0:
             self._os_label.setText(f"{metrics.overshoot:.1%}")
             self._tr_label.setText(f"{metrics.rise_time_us:.0f} \u00b5s")
@@ -524,12 +532,14 @@ class MainWindow(QMainWindow):
             self._sse_label.setText(f"{metrics.steady_state_error:.3f}")
             self._steps_label.setText(str(metrics.n_steps))
         else:
-            for lbl in (
-                self._os_label, self._tr_label, self._ts_label,
-                self._sse_label,
-            ):
-                lbl.setText("--")
-            self._steps_label.setText("0 (no steps detected)")
+            self._clear_metrics()
+
+    def _clear_metrics(self) -> None:
+        for lbl in (
+            self._os_label, self._tr_label, self._ts_label,
+            self._sse_label, self._steps_label,
+        ):
+            lbl.setText("--")
 
     # ── Error / Busy ──────────────────────────────────────────────────
 
@@ -559,6 +569,7 @@ class MainWindow(QMainWindow):
         s.setValue("splitter", self._splitter.saveState() if hasattr(self, "_splitter") else None)
         self._current_tab.save_settings(s)
         self._velocity_tab.save_settings(s)
+        self._scope_panel.save_settings(s)
 
     def _restore_settings(self) -> None:
         s = self._settings
@@ -596,6 +607,7 @@ class MainWindow(QMainWindow):
 
         self._current_tab.restore_settings(s)
         self._velocity_tab.restore_settings(s)
+        self._scope_panel.restore_settings(s)
 
         geom = s.value("geometry")
         if geom:

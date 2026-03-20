@@ -111,13 +111,27 @@ class PlotWidget(QWidget):
 
         self._remove_annotations()
 
-        is_velocity = response.loop_type == "velocity"
-        if is_velocity:
+        loop = response.loop_type
+        if loop == "velocity":
             ax_c.set_ylabel(
                 f"Velocity ({response.measured_units or 'counts'})",
             )
             ax_v.set_ylabel(
                 f"Iq output ({response.output_units or 'counts'})",
+            )
+        elif loop == "open_voltage":
+            ax_c.set_ylabel(
+                f"Vdq ({response.measured_units or 'counts'})",
+            )
+            ax_v.set_ylabel(
+                f"Iq ({response.output_units or 'counts'})",
+            )
+        elif loop == "open_current":
+            ax_c.set_ylabel(
+                f"Idq ({response.measured_units or 'counts'})",
+            )
+            ax_v.set_ylabel(
+                f"Velocity ({response.output_units or 'counts'})",
             )
         else:
             ax_c.set_ylabel(
@@ -134,8 +148,12 @@ class PlotWidget(QWidget):
         ax_v.autoscale_view()
 
         gains = response.gains
-        if is_velocity:
+        if loop == "velocity":
             title = "Velocity loop step response"
+        elif loop == "open_voltage":
+            title = "Open loop — Voltage DQ"
+        elif loop == "open_current":
+            title = "Open loop — Current DQ"
         else:
             title = f"{response.axis.upper()}-axis step response"
         if gains:
