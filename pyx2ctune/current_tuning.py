@@ -40,6 +40,10 @@ _VAR_SQWAVE_HALFPERIOD = "motor.testing.sqwave.halfperiod"
 _VAR_SQWAVE_IDQ_D = "motor.testing.sqwave.idq.d"
 _VAR_SQWAVE_IDQ_Q = "motor.testing.sqwave.idq.q"
 
+# Baseline current command variables (zeroed for perturbation testing)
+_VAR_IDQCMDRAW_D = "motor.idqCmdRaw.d"
+_VAR_IDQCMDRAW_Q = "motor.idqCmdRaw.q"
+
 # parameters.json keys for gain scaling
 _PARAM_KIP = "foc.kip"
 _PARAM_KII = "foc.kii"
@@ -343,6 +347,11 @@ class CurrentTuning:
     ) -> None:
         """Configure and start a square-wave perturbation for step response testing.
 
+        Ensures the baseline dq current commands (idqCmdRaw) are zero so the
+        perturbation signal is the only current reference. This is critical in
+        OM_FORCE_CURRENT mode where the velocity loop and flux control are
+        inactive and idqCmdRaw retains stale values.
+
         Args:
             axis: "q" or "d" -- which current axis to perturb.
             amplitude: Perturbation amplitude. In engineering mode, Amps.
@@ -359,6 +368,9 @@ class CurrentTuning:
             hp_cycles = int(halfperiod)
         else:
             raise ValueError(f"units must be 'engineering' or 'counts', got {units!r}")
+
+        self._session.write_variable(_VAR_IDQCMDRAW_D, 0)
+        self._session.write_variable(_VAR_IDQCMDRAW_Q, 0)
 
         self._session.write_variable(_VAR_SQWAVE_HALFPERIOD, hp_cycles)
 

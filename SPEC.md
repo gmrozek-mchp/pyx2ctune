@@ -239,6 +239,8 @@ class ForceState(IntEnum):
 | `motor.testing.sqwave.idq.d` | D-axis current perturbation amplitude |
 | `motor.testing.sqwave.idq.q` | Q-axis current perturbation amplitude |
 | `motor.testing.sqwave.velocity` | Velocity perturbation amplitude |
+| `motor.idqCmdRaw.d` | D-axis baseline current command (zero for perturbation testing) |
+| `motor.idqCmdRaw.q` | Q-axis baseline current command (zero for perturbation testing) |
 
 ```python
 class TestHarness:
@@ -260,10 +262,15 @@ class TestHarness:
     def enter_current_test_mode(self):
         """
         High-level: enter OM_FORCE_CURRENT mode safely.
-        Steps (per MCAF section 4.5.15.2):
+        Steps (per MCAF section 4.5.15.2 / 4.5.15.6):
           1. Enable guard
           2. Set operatingMode = OM_DISABLED
-          3. Set operatingMode = OM_FORCE_CURRENT
+          3. Zero baseline dq current commands (motor.idqCmdRaw.d/q = 0)
+          4. Set operatingMode = OM_FORCE_CURRENT
+
+        Step 3 is required because in OM_FORCE_CURRENT the velocity loop
+        and flux control are inactive, so idqCmdRaw retains stale values.
+        The MCAF docs call this the "Set desired dq current" step.
         """
 
     def enter_velocity_override_mode(self):
@@ -323,6 +330,9 @@ class CurrentTuning:
                         halfperiod: int = 100):
         """
         Configure and start square-wave perturbation.
+
+        Zeros baseline current commands (idqCmdRaw.d/q) before starting
+        the perturbation to ensure a clean step response.
 
         Args:
             axis: "q" or "d" (which current axis to perturb)
