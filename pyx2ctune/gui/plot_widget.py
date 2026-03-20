@@ -1,4 +1,8 @@
-"""Matplotlib canvas widget for embedding step response plots in Qt."""
+"""Matplotlib canvas widget for embedding step response plots in Qt.
+
+Optimized for continuous (live) updates: line objects are reused across
+frames via set_data() to minimize redraw overhead.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +19,11 @@ from pyx2ctune.capture import StepResponse
 
 
 class PlotWidget(QWidget):
-    """Embeds a matplotlib figure with two subplots (current + voltage)."""
+    """Embeds a matplotlib figure with two subplots (current + voltage).
+
+    Line objects are cached so that continuous capture updates only
+    change data arrays and axis limits rather than recreating artists.
+    """
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -25,6 +33,13 @@ class PlotWidget(QWidget):
 
         self._ax_current = self._figure.add_subplot(2, 1, 1)
         self._ax_voltage = self._figure.add_subplot(2, 1, 2, sharex=self._ax_current)
+
+        self._line_ref = None
+        self._line_meas = None
+        self._line_volt = None
+        self._os_hline = None
+        self._os_annotation = None
+
         self._setup_empty()
 
         layout = QVBoxLayout(self)
@@ -44,30 +59,52 @@ class PlotWidget(QWidget):
 
     def update_plot(self, response: StepResponse,
                     metrics: StepMetrics | None = None) -> None:
-        """Redraw with new step response data."""
+        """Redraw with new step response data.
+
+        On the first call the line artists are created.  Subsequent calls
+        reuse them via ``set_data()`` for faster continuous updates.
+        """
+        time_ms = response.time_us / 1000.0
         ax_c = self._ax_current
         ax_v = self._ax_voltage
-        ax_c.clear()
-        ax_v.clear()
 
-        time_ms = response.time_us / 1000.0
+        if self._line_ref is None:
+            ax_c.clear()
+            ax_v.clear()
+            ax_c.grid(True, alpha=0.3)
+            ax_v.grid(True, alpha=0.3)
 
-        ax_c.plot(time_ms, response.reference, "r-", linewidth=1.0,
-                  label="Reference", alpha=0.8)
-        ax_c.plot(time_ms, response.measured, "b-", linewidth=1.0,
-                  label="Measured")
+            (self._line_ref,) = ax_c.plot(
+                time_ms, response.reference, "r-", linewidth=1.0,
+                label="Reference", alpha=0.8,
+            )
+            (self._line_meas,) = ax_c.plot(
+                time_ms, response.measured, "b-", linewidth=1.0,
+                label="Measured",
+            )
+            ax_c.legend(loc="upper right", fontsize=8)
+
+            (self._line_volt,) = ax_v.plot(
+                time_ms, response.voltage, "g-", linewidth=1.0,
+                label="Voltage",
+            )
+            ax_v.legend(loc="upper right", fontsize=8)
+        else:
+            self._line_ref.set_data(time_ms, response.reference)
+            self._line_meas.set_data(time_ms, response.measured)
+            self._line_volt.set_data(time_ms, response.voltage)
+
+        self._remove_annotations()
+
         ax_c.set_ylabel(f"I{response.axis} ({response.current_units})")
-        ax_c.legend(loc="upper right", fontsize=8)
-        ax_c.grid(True, alpha=0.3)
-
-        ax_v.plot(time_ms, response.voltage, "g-", linewidth=1.0,
-                  label="Voltage")
         ax_v.set_ylabel(f"V{response.axis} ({response.voltage_units})")
         ax_v.set_xlabel("Time (ms)")
-        ax_v.legend(loc="upper right", fontsize=8)
-        ax_v.grid(True, alpha=0.3)
 
-        # Title
+        ax_c.relim()
+        ax_c.autoscale_view()
+        ax_v.relim()
+        ax_v.autoscale_view()
+
         gains = response.gains
         title = f"{response.axis.upper()}-axis step response"
         if gains:
@@ -85,6 +122,15 @@ class PlotWidget(QWidget):
 
         self._figure.suptitle(title, fontsize=10)
         self._canvas.draw_idle()
+
+    def _remove_annotations(self) -> None:
+        """Remove overshoot annotations from the previous frame."""
+        if self._os_hline is not None:
+            self._os_hline.remove()
+            self._os_hline = None
+        if self._os_annotation is not None:
+            self._os_annotation.remove()
+            self._os_annotation = None
 
     def _annotate_overshoot(self, ax, response: StepResponse,
                             metrics: StepMetrics) -> None:
@@ -116,9 +162,11 @@ class PlotWidget(QWidget):
         peak_local = int(np.argmax(seg_meas) if rising else np.argmin(seg_meas))
         peak_idx = edge_idx + peak_local
         if 0 <= peak_idx < len(time_ms):
-            ax.axhline(y=meas[peak_idx], color="orange", linestyle=":",
-                       alpha=0.5, linewidth=0.8)
-            ax.annotate(
+            self._os_hline = ax.axhline(
+                y=meas[peak_idx], color="orange", linestyle=":",
+                alpha=0.5, linewidth=0.8,
+            )
+            self._os_annotation = ax.annotate(
                 f"OS={metrics.overshoot:.1%}",
                 xy=(time_ms[peak_idx], meas[peak_idx]),
                 fontsize=7, color="orange",
@@ -126,6 +174,11 @@ class PlotWidget(QWidget):
             )
 
     def clear(self) -> None:
+        """Reset the plot to its empty state."""
+        self._line_ref = None
+        self._line_meas = None
+        self._line_volt = None
+        self._remove_annotations()
         self._ax_current.clear()
         self._ax_voltage.clear()
         self._setup_empty()

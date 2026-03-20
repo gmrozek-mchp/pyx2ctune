@@ -251,12 +251,23 @@ class MainWindow(QMainWindow):
     def _build_capture_panel(self) -> QGroupBox:
         grp = QGroupBox("Capture")
         layout = QHBoxLayout(grp)
-        self._capture_btn = QPushButton("Capture && Analyze")
+
+        self._capture_btn = QPushButton("Single")
         self._capture_btn.setMinimumHeight(36)
-        font = self._capture_btn.font()
-        font.setBold(True)
-        self._capture_btn.setFont(font)
         layout.addWidget(self._capture_btn)
+
+        self._continuous_start_btn = QPushButton("Start")
+        self._continuous_start_btn.setMinimumHeight(36)
+        font = self._continuous_start_btn.font()
+        font.setBold(True)
+        self._continuous_start_btn.setFont(font)
+        layout.addWidget(self._continuous_start_btn)
+
+        self._continuous_stop_btn = QPushButton("Stop")
+        self._continuous_stop_btn.setMinimumHeight(36)
+        self._continuous_stop_btn.setEnabled(False)
+        layout.addWidget(self._continuous_stop_btn)
+
         return grp
 
     def _build_metrics_panel(self) -> QGroupBox:
@@ -311,6 +322,8 @@ class MainWindow(QMainWindow):
 
         # Capture
         self._capture_btn.clicked.connect(self._on_capture)
+        self._continuous_start_btn.clicked.connect(self._on_start_continuous)
+        self._continuous_stop_btn.clicked.connect(self._on_stop_continuous)
 
         # Worker results
         self._worker.connected.connect(self._on_connected)
@@ -322,6 +335,8 @@ class MainWindow(QMainWindow):
         self._worker.perturbation_started.connect(self._on_perturbation_started)
         self._worker.perturbation_stopped.connect(self._on_perturbation_stopped)
         self._worker.capture_done.connect(self._on_capture_done)
+        self._worker.continuous_started.connect(self._on_continuous_started)
+        self._worker.continuous_stopped.connect(self._on_continuous_stopped)
         self._worker.error.connect(self._on_error)
         self._worker.status.connect(self._status_bar.showMessage)
         self._worker.busy_changed.connect(self._on_busy_changed)
@@ -345,6 +360,8 @@ class MainWindow(QMainWindow):
         self._start_perturb_btn.setEnabled(connected)
         self._stop_perturb_btn.setEnabled(connected)
         self._capture_btn.setEnabled(connected)
+        self._continuous_start_btn.setEnabled(connected)
+        self._continuous_stop_btn.setEnabled(False)
 
     # ── Slots: Connection ─────────────────────────────────────────────
 
@@ -495,9 +512,33 @@ class MainWindow(QMainWindow):
         self._capture_btn.setEnabled(False)
         self._worker.submit(Command.CAPTURE, timeout=10.0)
 
+    def _on_start_continuous(self) -> None:
+        self._plot.clear()
+        axis = self._axis_combo.currentText()
+        self._worker.submit(Command.CONFIGURE_SCOPE,
+                            axis=axis, sample_time=1)
+        self._worker.submit(Command.CAPTURE_CONTINUOUS_START, timeout=10.0)
+
+    def _on_stop_continuous(self) -> None:
+        self._worker.request_stop_continuous()
+
+    def _on_continuous_started(self) -> None:
+        self._continuous_start_btn.setEnabled(False)
+        self._continuous_stop_btn.setEnabled(True)
+        self._capture_btn.setEnabled(False)
+        self._set_gains_btn.setEnabled(True)
+        self._read_gains_btn.setEnabled(True)
+
+    def _on_continuous_stopped(self) -> None:
+        self._continuous_start_btn.setEnabled(True)
+        self._continuous_stop_btn.setEnabled(False)
+        self._capture_btn.setEnabled(True)
+
     def _on_capture_done(self, response, metrics) -> None:
         self._plot.update_plot(response, metrics)
-        self._capture_btn.setEnabled(True)
+
+        if not self._capture_btn.isEnabled() and not self._continuous_stop_btn.isEnabled():
+            self._capture_btn.setEnabled(True)
 
         if metrics.n_steps > 0:
             self._os_label.setText(f"{metrics.overshoot:.1%}")
@@ -517,6 +558,8 @@ class MainWindow(QMainWindow):
         self._status_bar.showMessage(f"Error: {cmd_name}")
         self._set_ui_state(connected=self._session is not None)
         self._capture_btn.setEnabled(self._session is not None)
+        self._continuous_start_btn.setEnabled(self._session is not None)
+        self._continuous_stop_btn.setEnabled(False)
         QMessageBox.critical(
             self, f"Error: {cmd_name}",
             f"Command {cmd_name} failed:\n\n{message}",
@@ -591,6 +634,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         self._save_settings()
+        self._worker.request_stop_continuous()
         if self._session is not None:
             self._worker.submit(Command.EXIT_TEST_MODE)
             self._worker.submit(Command.DISCONNECT)

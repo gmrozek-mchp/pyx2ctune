@@ -362,15 +362,31 @@ class StepResponse:
 class ScopeCapture:
     def __init__(self, session, control_freq_hz: float = 20000.0): ...
 
-    def configure_current_loop(self, axis: str = "q", sample_time: int = 1):
+    def configure_current_loop(self, axis: str = "q", sample_time: int = 1,
+                               trigger: bool = True,
+                               trigger_level: float = 0,
+                               trigger_edge: int = 0,
+                               trigger_delay: int = 0):
         """
         Set up scope channels for current loop analysis.
         Channels: motor.idq.{axis}, motor.idqCmd.{axis}, motor.vdq.{axis}
+
+        When trigger=True (default), configures the scope to trigger on
+        the reference signal (motor.idqCmd.{axis}) using pyX2Cscope's
+        TriggerConfig.  This locks the capture to the square-wave
+        perturbation so continuous display stays stable.
+
+        trigger_level: Threshold in raw counts (0 = zero crossing).
+        trigger_edge: 0 = rising, 1 = falling.
+        trigger_delay: Pre/post-trigger as % of scope buffer.
         """
 
-    def capture_frame(self, timeout: float = 5.0) -> StepResponse:
+    def capture_frame(self, timeout: float = 5.0,
+                      abort_event: threading.Event | None = None) -> StepResponse:
         """
         Request scope data, poll until ready, return StepResponse.
+        If abort_event is set during polling, raises InterruptedError
+        for clean exit from continuous capture loops.
         """
 ```
 
@@ -535,8 +551,8 @@ python -m pyx2ctune.gui    # module entry point
 | PI Gains | Read current gains from board, set new Kp/Ki in engineering units |
 | Test Harness | Enter/exit test mode, operating mode and guard status display |
 | Perturbation | Axis selector, amplitude, half-period, Start/Stop buttons |
-| Capture | "Capture & Analyze" button triggers scope acquisition + metric computation |
-| Plot | Embedded matplotlib figure: current reference vs measured (top), voltage (bottom) |
+| Capture | "Single" one-shot capture; "Start"/"Stop" for continuous live capture |
+| Plot | Embedded matplotlib figure: current reference vs measured (top), voltage (bottom); line objects reused for fast continuous updates |
 | Metrics | Overshoot, rise time, settling time, steady-state error, step count |
 
 **Persistence:** Connection settings, file paths, gain parameters, perturbation
