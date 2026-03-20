@@ -18,7 +18,9 @@ logs/
 # IDE / editor
 .vscode/
 .cursor/
-.specstory/
+
+# SpecStory explanation file
+.specstory/.what-is-this.md
 
 # OS
 .DS_Store
