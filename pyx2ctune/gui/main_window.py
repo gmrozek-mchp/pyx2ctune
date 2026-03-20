@@ -253,8 +253,10 @@ class MainWindow(QMainWindow):
         self._worker.force_voltage_entered.connect(ol.on_test_mode_entered)
         self._worker.harness_status_read.connect(ol.on_status_read)
 
-        # Speed readback
+        # Speed readback → all tabs
         self._worker.measured_speed_read.connect(ct.on_speed_read)
+        self._worker.measured_speed_read.connect(vt.on_speed_read)
+        self._worker.measured_speed_read.connect(ol.on_speed_read)
 
         # Worker capture lifecycle
         self._worker.capture_started.connect(self._on_capture_started)
@@ -327,6 +329,9 @@ class MainWindow(QMainWindow):
         )
 
     def _on_disconnect(self) -> None:
+        self._worker.request_stop_continuous()
+        self._worker.cancel_capture()
+        self._worker.submit(Command.EXIT_TEST_MODE)
         self._worker.submit(Command.DISCONNECT)
 
     def _on_connected(self, session) -> None:
@@ -342,6 +347,7 @@ class MainWindow(QMainWindow):
             Command.READ_GAINS,
             axis=self._current_tab.current_axis(),
         )
+        self._worker.submit(Command.READ_VELOCITY_GAINS)
         self._speed_timer.start()
 
     def _on_disconnected(self) -> None:
@@ -429,8 +435,11 @@ class MainWindow(QMainWindow):
     def _on_vel_set_command(self, rpm: float) -> None:
         self._worker.submit(Command.SET_VELOCITY_COMMAND, rpm=rpm)
 
-    def _on_vel_enter_test(self) -> None:
-        self._worker.submit(Command.ENTER_VELOCITY_OVERRIDE_MODE)
+    def _on_vel_enter_test(self, velocity_rpm: float) -> None:
+        self._worker.submit(
+            Command.ENTER_VELOCITY_OVERRIDE_MODE,
+            velocity_rpm=velocity_rpm,
+        )
 
     def _on_vel_start_perturbation(self, amplitude_rpm: float,
                                    halfperiod_ms: float) -> None:
@@ -600,11 +609,13 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         self._save_settings()
+        self._speed_timer.stop()
         self._worker.request_stop_continuous()
+        self._worker.cancel_capture()
         if self._session is not None:
             self._worker.submit(Command.EXIT_TEST_MODE)
             self._worker.submit(Command.DISCONNECT)
         self._worker.stop()
         self._worker_thread.quit()
-        self._worker_thread.wait(3000)
+        self._worker_thread.wait(5000)
         super().closeEvent(event)

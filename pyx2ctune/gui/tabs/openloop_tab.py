@@ -61,8 +61,9 @@ class OpenLoopTab(QWidget):
         grp = QGroupBox("Operating Mode")
         layout = QVBoxLayout(grp)
 
+        # Status row 1: test harness
         status_layout = QHBoxLayout()
-        status_layout.addWidget(QLabel("Current mode:"))
+        status_layout.addWidget(QLabel("Mode:"))
         self._mode_label = QLabel("--")
         self._mode_label.setFont(_MONO)
         status_layout.addWidget(self._mode_label)
@@ -73,6 +74,20 @@ class OpenLoopTab(QWidget):
         status_layout.addWidget(self._guard_label)
         status_layout.addStretch()
         layout.addLayout(status_layout)
+
+        # Status row 2: motor state and speed
+        motor_layout = QHBoxLayout()
+        motor_layout.addWidget(QLabel("State:"))
+        self._state_label = QLabel("--")
+        self._state_label.setFont(_MONO)
+        motor_layout.addWidget(self._state_label)
+        motor_layout.addSpacing(16)
+        motor_layout.addWidget(QLabel("Speed:"))
+        self._speed_label = QLabel("--")
+        self._speed_label.setFont(_MONO)
+        motor_layout.addWidget(self._speed_label)
+        motor_layout.addStretch()
+        layout.addLayout(motor_layout)
 
         layout.addSpacing(4)
 
@@ -264,9 +279,21 @@ class OpenLoopTab(QWidget):
         self._mode_label.setText("--")
         self._guard_label.setText("Inactive")
 
+    def on_speed_read(self, rpm: float, state: str) -> None:
+        self._state_label.setText(state)
+        if state in ("RUNNING", "TEST_ENABLE", "STOPPING"):
+            if rpm >= 0:
+                self._speed_label.setText(f"{rpm:.0f} RPM (FWD)")
+            else:
+                self._speed_label.setText(f"{rpm:.0f} RPM (REV)")
+        else:
+            self._speed_label.setText("--")
+
     def on_disconnected(self) -> None:
         self._mode_label.setText("--")
         self._guard_label.setText("--")
+        self._state_label.setText("--")
+        self._speed_label.setText("--")
         self._id_spin.setValue(0)
         self._iq_spin.setValue(0)
         self._vd_spin.setValue(0)

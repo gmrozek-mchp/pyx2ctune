@@ -253,7 +253,11 @@ class SessionWorker(QObject):
 
     def _do_disconnect(self) -> None:
         if self._session is not None:
-            self.status.emit("Disconnecting...")
+            self.status.emit("Stopping motor and disconnecting...")
+            try:
+                self._session.test_harness.exit_test_mode()
+            except Exception:
+                pass
             self._session.disconnect()
             self._session = None
             self.status.emit("Disconnected")

@@ -33709,3 +33709,978 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 _**Agent (claude-4.6-opus-high-thinking)**_
 
 Speed now only displays when the motor is actually in `RUNNING`, `TEST_ENABLE`, or `STOPPING` state. Otherwise it shows `--`.
+
+---
+
+_**User**_
+
+current loop tuning tab looking good enough for now. Let's move on to next step in the plan. Include what we've learned refining the current loop tab.
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+The user wants to move on to the next step in the plan. Let me recall what the overall plan was. The plan involved a tabbed GUI with three tabs: Current Loop, Velocity Loop, and Open Loop. The current loop tab has been refined with several improvements. Now the user wants to apply similar improvements to the other tabs.
+
+Let me check the current state of the velocity tab and open loop tab to understand what needs to be done, and review the plan from the conversation summary.
+
+The plan phases were:
+1. Phase 1: Restructure MainWindow with QTabWidget, extract current loop into CurrentLoopTab
+2. Phase 2: Create VelocityTuning module, VelocityLoopTab, worker commands, capture/plotting for velocity
+
+
+3. Phase 3: Extend TestHarness, create OpenLoopTab
+
+All three phases are marked complete, but I've made several refinements to the current loop tab that need to be applied to the velocity and open loop tabs. The velocity tab already has trigger level in engineering units and trigger channel displayed as info, but it's missing the speed display with state and direction, and the blanking speed when motor not running. The velocity override mode is specific to the current tab. Let me examine what the velocity and open loop tabs currently look like to determine what refinements to apply.
+
+Actually, I should reconsider what the user means by "next step in the plan." Looking back at the broader project plan for supporting MCAF test harness use cases, the three-phase tab implementation was the main deliverable and it's all done. The next step is likely either applying the current loop tab refinements to the other tabs, or moving on to other unimplemented features. Let me think through which refinements from the current loop tab should be propagated to the velocity loop tab specifically. I need to apply the same refinements we made to the current loop tab—motor state display, speed readout, and speed blanking—to both the velocity loop and open loop tabs. Let me check which signals are already wired up and what's missing, starting with whether the speed polling is connected to those other tabs.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Let me review the current state of the velocity and open loop tabs to understand what refinements from the current loop tab need to be applied.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/tabs/velocity_tab.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/tabs/openloop_tab.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me also check the main_window signal connections to understand the full picture:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now I have the full picture. Here's what the velocity tab and open loop tab are missing compared to the refined current loop tab:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Add motor state + speed display to velocity tab test harness panel (like current tab)",
+      "id": "vel-state-speed",
+      "status": "in_progress"
+    },
+    {
+      "content": "Fix velocity tab enter_test to use correct sequencing (guard -\u003e override -\u003e velocity cmd -\u003e force RUN)",
+      "id": "vel-enter-test-fix",
+      "status": "pending"
+    },
+    {
+      "content": "Read velocity gains on connection (like current tab reads current gains)",
+      "id": "vel-read-gains-on-connect",
+      "status": "pending"
+    },
+    {
+      "content": "Add motor state + speed display to open loop tab",
+      "id": "ol-state-speed",
+      "status": "pending"
+    },
+    {
+      "content": "Connect measured_speed_read signal to velocity and open loop tabs",
+      "id": "wire-speed-all-tabs",
+      "status": "pending"
+    },
+    {
+      "content": "Check for linter errors",
+      "id": "lint-check",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Fix worker dispatch to pass **kw to _do_enter_velocity_override_mode",
+      "id": "fix-dispatch",
+      "status": "completed"
+    },
+    {
+      "content": "Add get_measured_velocity to VelocityTuning and worker command",
+      "id": "speed-read",
+      "status": "completed"
+    },
+    {
+      "content": "Add measured speed label to current tab test harness panel with periodic polling",
+      "id": "speed-display",
+      "status": "completed"
+    },
+    {
+      "content": "Check for linter errors",
+      "id": "lint-check",
+      "status": "completed"
+    }
+  ],
+  "success": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Here's what I need to apply from the current loop tab learnings:
+
+1. **Motor state + speed display** on velocity and open loop tabs
+2. **Velocity tab enter_test sequencing** — same race condition fix (guard -> override -> cmd -> RUN)
+3. **Read velocity gains on connection** (current tab already auto-reads gains)
+
+Let me start implementing:
+
+**Velocity Tab — add state/speed display and fix enter_test:**
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/tabs/velocity_tab.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Add `on_speed_read` and reset state/speed on disconnect:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/tabs/velocity_tab.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now fix the velocity tab's enter_test — it currently calls `enter_velocity_override_mode()` on the test harness, which has the old sequencing. The velocity tab's "Enable Velocity Override" flow goes through `_on_vel_enter_test` in main_window. Let me check:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "contextAfter": 5,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "_on_vel_enter_test"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "_on_vel_enter_test",
+  "topFiles": [
+    {
+      "matchCount": 12,
+      "uri": "pyx2ctune/gui/main_window.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 2
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+The velocity tab's enter test just submits `ENTER_VELOCITY_OVERRIDE_MODE` with no velocity parameter. For the velocity tab, the velocity command is set separately via the "Velocity Command" panel. But the same race condition exists — the velocity command is likely set before the override flag. However, the velocity tab's flow is slightly different: the user sets velocity command separately, then enters test mode. So the override needs to be active first.
+
+Actually, looking at this more carefully: in the velocity tab flow, the user would:
+1. Click "Enable Velocity Override" (sets override flag)
+2. Set velocity command (separate button)
+
+So the sequencing is handled manually by the user. But `enter_velocity_override_mode()` now also calls `force_state(RUN)`, which is correct for the velocity tab too. The issue is that the worker's `_do_enter_velocity_override_mode` was fixed for the current tab to do the guard/override/cmd/RUN sequence inline, but the velocity tab still goes through `Command.ENTER_VELOCITY_OVERRIDE_MODE` without a velocity_rpm.
+
+Let me check if the velocity tab should pass its velocity command through:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/tabs/velocity_tab.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+For the velocity tab, the velocity command spinbox value should be sent along with "Enable Velocity Override" so it all happens atomically. Let me update it to pass the velocity command:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/tabs/velocity_tab.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/tabs/velocity_tab.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update `main_window.py` to forward the velocity:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Add motor state + speed display to velocity tab test harness panel (like current tab)",
+      "id": "vel-state-speed",
+      "status": "completed"
+    },
+    {
+      "content": "Fix velocity tab enter_test to use correct sequencing (guard -\u003e override -\u003e velocity cmd -\u003e force RUN)",
+      "id": "vel-enter-test-fix",
+      "status": "completed"
+    },
+    {
+      "content": "Read velocity gains on connection (like current tab reads current gains)",
+      "id": "vel-read-gains-on-connect",
+      "status": "pending"
+    },
+    {
+      "content": "Add motor state + speed display to open loop tab",
+      "id": "ol-state-speed",
+      "status": "pending"
+    },
+    {
+      "content": "Connect measured_speed_read signal to velocity and open loop tabs",
+      "id": "wire-speed-all-tabs",
+      "status": "pending"
+    },
+    {
+      "content": "Check for linter errors",
+      "id": "lint-check",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Add motor state + speed display to velocity tab test harness panel (like current tab)",
+      "id": "vel-state-speed",
+      "status": "in_progress"
+    },
+    {
+      "content": "Fix velocity tab enter_test to use correct sequencing (guard -\u003e override -\u003e velocity cmd -\u003e force RUN)",
+      "id": "vel-enter-test-fix",
+      "status": "pending"
+    },
+    {
+      "content": "Read velocity gains on connection (like current tab reads current gains)",
+      "id": "vel-read-gains-on-connect",
+      "status": "pending"
+    },
+    {
+      "content": "Add motor state + speed display to open loop tab",
+      "id": "ol-state-speed",
+      "status": "pending"
+    },
+    {
+      "content": "Connect measured_speed_read signal to velocity and open loop tabs",
+      "id": "wire-speed-all-tabs",
+      "status": "pending"
+    },
+    {
+      "content": "Check for linter errors",
+      "id": "lint-check",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now add velocity gains auto-read on connection. Let me check the current on_connected flow:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Add motor state + speed display to velocity tab test harness panel (like current tab)",
+      "id": "vel-state-speed",
+      "status": "completed"
+    },
+    {
+      "content": "Fix velocity tab enter_test to use correct sequencing (guard -\u003e override -\u003e velocity cmd -\u003e force RUN)",
+      "id": "vel-enter-test-fix",
+      "status": "completed"
+    },
+    {
+      "content": "Read velocity gains on connection (like current tab reads current gains)",
+      "id": "vel-read-gains-on-connect",
+      "status": "completed"
+    },
+    {
+      "content": "Add motor state + speed display to open loop tab",
+      "id": "ol-state-speed",
+      "status": "in_progress"
+    },
+    {
+      "content": "Connect measured_speed_read signal to velocity and open loop tabs",
+      "id": "wire-speed-all-tabs",
+      "status": "pending"
+    },
+    {
+      "content": "Check for linter errors",
+      "id": "lint-check",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Add motor state + speed display to velocity tab test harness panel (like current tab)",
+      "id": "vel-state-speed",
+      "status": "completed"
+    },
+    {
+      "content": "Fix velocity tab enter_test to use correct sequencing (guard -\u003e override -\u003e velocity cmd -\u003e force RUN)",
+      "id": "vel-enter-test-fix",
+      "status": "completed"
+    },
+    {
+      "content": "Read velocity gains on connection (like current tab reads current gains)",
+      "id": "vel-read-gains-on-connect",
+      "status": "pending"
+    },
+    {
+      "content": "Add motor state + speed display to open loop tab",
+      "id": "ol-state-speed",
+      "status": "pending"
+    },
+    {
+      "content": "Connect measured_speed_read signal to velocity and open loop tabs",
+      "id": "wire-speed-all-tabs",
+      "status": "pending"
+    },
+    {
+      "content": "Check for linter errors",
+      "id": "lint-check",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now add state/speed to the open loop tab:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/tabs/openloop_tab.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Add `on_speed_read` and reset on disconnect:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/tabs/openloop_tab.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now connect the `measured_speed_read` signal to all three tabs:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Add motor state + speed display to velocity tab test harness panel (like current tab)",
+      "id": "vel-state-speed",
+      "status": "completed"
+    },
+    {
+      "content": "Fix velocity tab enter_test to use correct sequencing (guard -\u003e override -\u003e velocity cmd -\u003e force RUN)",
+      "id": "vel-enter-test-fix",
+      "status": "completed"
+    },
+    {
+      "content": "Read velocity gains on connection (like current tab reads current gains)",
+      "id": "vel-read-gains-on-connect",
+      "status": "completed"
+    },
+    {
+      "content": "Add motor state + speed display to open loop tab",
+      "id": "ol-state-speed",
+      "status": "completed"
+    },
+    {
+      "content": "Connect measured_speed_read signal to velocity and open loop tabs",
+      "id": "wire-speed-all-tabs",
+      "status": "completed"
+    },
+    {
+      "content": "Check for linter errors",
+      "id": "lint-check",
+      "status": "in_progress"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Add motor state + speed display to velocity tab test harness panel (like current tab)",
+      "id": "vel-state-speed",
+      "status": "completed"
+    },
+    {
+      "content": "Fix velocity tab enter_test to use correct sequencing (guard -\u003e override -\u003e velocity cmd -\u003e force RUN)",
+      "id": "vel-enter-test-fix",
+      "status": "completed"
+    },
+    {
+      "content": "Read velocity gains on connection (like current tab reads current gains)",
+      "id": "vel-read-gains-on-connect",
+      "status": "completed"
+    },
+    {
+      "content": "Add motor state + speed display to open loop tab",
+      "id": "ol-state-speed",
+      "status": "in_progress"
+    },
+    {
+      "content": "Connect measured_speed_read signal to velocity and open loop tabs",
+      "id": "wire-speed-all-tabs",
+      "status": "pending"
+    },
+    {
+      "content": "Check for linter errors",
+      "id": "lint-check",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "pyx2ctune/gui/tabs/velocity_tab.py",
+    "pyx2ctune/gui/tabs/openloop_tab.py",
+    "pyx2ctune/gui/main_window.py",
+    "pyx2ctune/gui/workers.py"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/tabs/velocity_tab.py"
+    },
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/tabs/openloop_tab.py"
+    },
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/main_window.py"
+    },
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/workers.py"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints"><details>
+<summary>Tool use: **read_lints**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Add motor state + speed display to velocity tab test harness panel (like current tab)",
+      "id": "vel-state-speed",
+      "status": "completed"
+    },
+    {
+      "content": "Fix velocity tab enter_test to use correct sequencing (guard -\u003e override -\u003e velocity cmd -\u003e force RUN)",
+      "id": "vel-enter-test-fix",
+      "status": "completed"
+    },
+    {
+      "content": "Read velocity gains on connection (like current tab reads current gains)",
+      "id": "vel-read-gains-on-connect",
+      "status": "completed"
+    },
+    {
+      "content": "Add motor state + speed display to open loop tab",
+      "id": "ol-state-speed",
+      "status": "completed"
+    },
+    {
+      "content": "Connect measured_speed_read signal to velocity and open loop tabs",
+      "id": "wire-speed-all-tabs",
+      "status": "completed"
+    },
+    {
+      "content": "Check for linter errors",
+      "id": "lint-check",
+      "status": "completed"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Add motor state + speed display to velocity tab test harness panel (like current tab)",
+      "id": "vel-state-speed",
+      "status": "completed"
+    },
+    {
+      "content": "Fix velocity tab enter_test to use correct sequencing (guard -\u003e override -\u003e velocity cmd -\u003e force RUN)",
+      "id": "vel-enter-test-fix",
+      "status": "completed"
+    },
+    {
+      "content": "Read velocity gains on connection (like current tab reads current gains)",
+      "id": "vel-read-gains-on-connect",
+      "status": "completed"
+    },
+    {
+      "content": "Add motor state + speed display to open loop tab",
+      "id": "ol-state-speed",
+      "status": "completed"
+    },
+    {
+      "content": "Connect measured_speed_read signal to velocity and open loop tabs",
+      "id": "wire-speed-all-tabs",
+      "status": "completed"
+    },
+    {
+      "content": "Check for linter errors",
+      "id": "lint-check",
+      "status": "in_progress"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Here's a summary of the refinements applied across all tabs:
+
+**All three tabs now have consistent motor state + speed display:**
+- Two-row status area: Row 1 shows Mode/Guard (test harness), Row 2 shows State/Speed (live motor)
+- Speed displays RPM with direction (FWD/REV) and blanks when motor isn't running
+- Speed poll signal (`measured_speed_read`) now connected to all three tabs
+
+**Velocity Tab fixes:**
+- **Enter test sequencing**: "Enable Velocity Override" now sends the velocity command spinbox value along with the request, using the same corrected sequence (guard → override → velocity cmd → force RUN) that was debugged on the current tab
+- **Signal updated**: `enter_test_requested` now carries velocity RPM so it works atomically
+- **Auto-read velocity gains on connection**: Just like current gains, velocity gains are now read automatically when the session connects
+
+**Open Loop Tab:**
+- Added motor state + speed display to the Operating Mode panel
+
+---
+
+_**User**_
+
+on any exit test mode, stop, exit application, etc. we should make sure that the motor is stopped and put back to normal operating mode
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+Status: **loading**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+Status: **loading**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
