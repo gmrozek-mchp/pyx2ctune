@@ -2,11 +2,14 @@
 
 Uses pyX2Cscope's scope channel API to capture waveform data from the
 target firmware and packages it into a StepResponse dataclass for analysis.
+Supports triggered acquisition on the current reference for stable
+continuous display during square-wave perturbation testing.
 """
 
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -88,17 +91,29 @@ class ScopeCapture:
         self,
         axis: str = "q",
         sample_time: int = 1,
+        trigger: bool = True,
+        trigger_level: float = 0,
+        trigger_edge: int = 0,
+        trigger_delay: int = 0,
     ) -> None:
         """Set up scope channels for current loop step response capture.
 
         Configures three channels: measured current, reference current,
-        and voltage output for the specified axis.
+        and voltage output for the specified axis.  When ``trigger=True``,
+        the scope triggers on the reference signal (idqCmd) so the display
+        remains locked to the square-wave perturbation.
 
         Args:
             axis: "q" or "d" (which current axis to capture).
             sample_time: Scope prescaler. 1 = every ISR sample (highest
                 resolution). Higher values extend capture duration at
                 lower resolution.
+            trigger: If True, trigger on the current reference signal.
+            trigger_level: Trigger threshold in raw counts (default 0,
+                which triggers on the zero crossing of the square wave).
+            trigger_edge: 0 = rising (default), 1 = falling.
+            trigger_delay: Pre/post-trigger delay as a percentage of the
+                scope buffer size.  0 = trigger at start of buffer.
         """
         axis = axis.lower()
         if axis not in _CURRENT_LOOP_VARS:
@@ -113,17 +128,43 @@ class ScopeCapture:
             x2c.add_scope_channel(var)
             logger.debug("Added scope channel: %s (%s)", var_name, role)
 
+        if trigger:
+            from pyx2cscope.x2cscope import TriggerConfig
+
+            ref_var = self._session.get_variable(var_names["reference"])
+            config = TriggerConfig(
+                variable=ref_var,
+                trigger_level=trigger_level,
+                trigger_mode=1,
+                trigger_delay=trigger_delay,
+                trigger_edge=trigger_edge,
+            )
+            x2c.set_scope_trigger(config)
+            logger.info(
+                "Scope trigger on %s: level=%s, edge=%s, delay=%d",
+                var_names["reference"],
+                trigger_level,
+                "rising" if trigger_edge == 0 else "falling",
+                trigger_delay,
+            )
+        else:
+            x2c.reset_scope_trigger()
+
         x2c.set_sample_time(sample_time)
         self._configured_axis = axis
         self._configured_vars = var_names
         self._sample_time = sample_time
 
         logger.info(
-            "Scope configured for %s-axis current loop (sample_time=%d)",
-            axis, sample_time,
+            "Scope configured for %s-axis current loop (sample_time=%d, trigger=%s)",
+            axis, sample_time, trigger,
         )
 
-    def capture_frame(self, timeout: float = 5.0) -> StepResponse:
+    def capture_frame(
+        self,
+        timeout: float = 5.0,
+        abort_event: threading.Event | None = None,
+    ) -> StepResponse:
         """Capture a single frame of scope data.
 
         Requests data acquisition, polls until complete, and returns
@@ -131,12 +172,16 @@ class ScopeCapture:
 
         Args:
             timeout: Maximum time to wait for data in seconds.
+            abort_event: Optional threading.Event.  If set while polling,
+                an InterruptedError is raised so callers (e.g. continuous
+                capture loops) can exit cleanly.
 
         Returns:
             StepResponse with time axis and captured signals.
 
         Raises:
             TimeoutError: If scope data is not ready within timeout.
+            InterruptedError: If abort_event is set during polling.
             RuntimeError: If scope is not configured.
         """
         if self._configured_axis is None:
@@ -152,6 +197,8 @@ class ScopeCapture:
         start = time.monotonic()
         poll_interval = 0.02
         while not x2c.is_scope_data_ready():
+            if abort_event is not None and abort_event.is_set():
+                raise InterruptedError("Capture aborted")
             if time.monotonic() - start > timeout:
                 raise TimeoutError(
                     f"Scope data not ready after {timeout}s. "

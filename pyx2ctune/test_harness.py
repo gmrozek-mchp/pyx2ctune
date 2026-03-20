@@ -69,6 +69,8 @@ _VAR_OPERATING_MODE = "motor.testing.operatingMode"
 _VAR_OVERRIDES = "motor.testing.overrides"
 _VAR_FORCE_STATE = "motor.testing.forceStateChange"
 _VAR_SQWAVE_VALUE = "motor.testing.sqwave.value"
+_VAR_IDQCMDRAW_D = "motor.idqCmdRaw.d"
+_VAR_IDQCMDRAW_Q = "motor.idqCmdRaw.q"
 
 
 class TestHarness:
@@ -223,17 +225,22 @@ class TestHarness:
     def enter_current_test_mode(self) -> None:
         """Enter OM_FORCE_CURRENT mode safely.
 
-        Follows the procedure from MCAF section 4.5.15.2:
+        Follows the procedure from MCAF section 4.5.15.2 / 4.5.15.6:
           1. Enable guard
           2. Set operatingMode = OM_DISABLED
-          3. Set operatingMode = OM_FORCE_CURRENT
+          3. Zero baseline dq current commands (idqCmdRaw)
+          4. Set operatingMode = OM_FORCE_CURRENT
 
-        The motor will be in current control mode with static dq references
-        that can be changed via diagnostic tools or the CurrentTuning module.
+        In OM_FORCE_CURRENT the velocity loop and flux control are inactive,
+        so idqCmdRaw.d/.q retain stale values from the previous operating
+        state.  Zeroing them ensures the perturbation signal is the only
+        current reference (MCAF docs: "Set desired dq current" step).
         """
         self.enable_guard()
         self.set_operating_mode(OperatingMode.DISABLED)
         time.sleep(0.05)
+        self._session.write_variable(_VAR_IDQCMDRAW_D, 0)
+        self._session.write_variable(_VAR_IDQCMDRAW_Q, 0)
         self.set_operating_mode(OperatingMode.FORCE_CURRENT)
         logger.info("Entered current test mode (OM_FORCE_CURRENT)")
 

@@ -6,6 +6,7 @@ worker thread so the GUI stays responsive and UART access is serialized.
 
 from __future__ import annotations
 
+import threading
 import traceback
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -25,6 +26,9 @@ class Command(Enum):
     STOP_PERTURBATION = auto()
     CONFIGURE_SCOPE = auto()
     CAPTURE = auto()
+    CAPTURE_CONTINUOUS_START = auto()
+    CAPTURE_CONTINUOUS_STOP = auto()
+    _CONTINUOUS_FRAME = auto()
 
 
 @dataclass
@@ -50,6 +54,8 @@ class SessionWorker(QObject):
     perturbation_stopped = pyqtSignal()
     scope_configured = pyqtSignal()
     capture_done = pyqtSignal(object, object)  # StepResponse, StepMetrics
+    continuous_started = pyqtSignal()
+    continuous_stopped = pyqtSignal()
     error = pyqtSignal(str, str)            # (command_name, error_message)
     status = pyqtSignal(str)                # status bar text
     busy_changed = pyqtSignal(bool)         # True when working
@@ -61,6 +67,10 @@ class SessionWorker(QObject):
         self._mutex = QMutex()
         self._condition = QWaitCondition()
         self._running = True
+        self._continuous_stop = threading.Event()
+        self._continuous_active = False
+        self._continuous_frame_count = 0
+        self._continuous_timeout = 10.0
 
     @property
     def session(self):
@@ -71,6 +81,10 @@ class SessionWorker(QObject):
         self._queue.append(WorkItem(command, kwargs))
         self._condition.wakeOne()
         self._mutex.unlock()
+
+    def request_stop_continuous(self) -> None:
+        """Signal the continuous capture loop to stop (thread-safe)."""
+        self._continuous_stop.set()
 
     def stop(self) -> None:
         self._mutex.lock()
@@ -91,14 +105,20 @@ class SessionWorker(QObject):
             item = self._queue.pop(0)
             self._mutex.unlock()
 
-            self.busy_changed.emit(True)
+            is_bg = item.command == Command._CONTINUOUS_FRAME
+            if not is_bg:
+                self.busy_changed.emit(True)
             try:
                 self._dispatch(item)
             except Exception:
                 tb = traceback.format_exc()
                 self.error.emit(item.command.name, tb)
+                if is_bg and self._continuous_active:
+                    self._continuous_active = False
+                    self.continuous_stopped.emit()
             finally:
-                self.busy_changed.emit(False)
+                if not is_bg:
+                    self.busy_changed.emit(False)
 
     def _dispatch(self, item: WorkItem) -> None:
         cmd = item.command
@@ -124,6 +144,12 @@ class SessionWorker(QObject):
             self._do_configure_scope(**kw)
         elif cmd == Command.CAPTURE:
             self._do_capture(**kw)
+        elif cmd == Command.CAPTURE_CONTINUOUS_START:
+            self._do_start_continuous(**kw)
+        elif cmd == Command.CAPTURE_CONTINUOUS_STOP:
+            self.request_stop_continuous()
+        elif cmd == Command._CONTINUOUS_FRAME:
+            self._do_continuous_frame()
 
     # ── Command implementations ───────────────────────────────────────
 
@@ -220,3 +246,66 @@ class SessionWorker(QObject):
             f"OS={metrics.overshoot:.1%}  Tr={metrics.rise_time_us:.0f}\u00b5s"
         )
         self.capture_done.emit(response, metrics)
+
+    def _do_start_continuous(self, timeout: float = 10.0) -> None:
+        """Begin cooperative continuous capture.
+
+        Clears the stop event, emits the started signal, and queues the
+        first frame.  Subsequent frames re-queue themselves so that other
+        commands (set gains, etc.) can be interleaved.
+        """
+        self._continuous_stop.clear()
+        self._continuous_active = True
+        self._continuous_frame_count = 0
+        self._continuous_timeout = timeout
+        self.continuous_started.emit()
+        self.status.emit("Continuous capture running...")
+        self.submit(Command._CONTINUOUS_FRAME)
+
+    def _do_continuous_frame(self) -> None:
+        """Capture a single scope frame and re-queue if not stopped."""
+        if not self._continuous_active or self._continuous_stop.is_set():
+            if self._continuous_active:
+                self._continuous_active = False
+                self.status.emit(
+                    f"Continuous capture stopped "
+                    f"({self._continuous_frame_count} frames)"
+                )
+                self.continuous_stopped.emit()
+            return
+
+        from pyx2ctune.analysis import compute_metrics
+
+        try:
+            response = self._session.capture.capture_frame(
+                timeout=self._continuous_timeout,
+                abort_event=self._continuous_stop,
+            )
+        except InterruptedError:
+            self._continuous_active = False
+            self.status.emit(
+                f"Continuous capture stopped "
+                f"({self._continuous_frame_count} frames)"
+            )
+            self.continuous_stopped.emit()
+            return
+
+        metrics = compute_metrics(response)
+        self._continuous_frame_count += 1
+        self.status.emit(
+            f"Frame {self._continuous_frame_count}  "
+            f"OS={metrics.overshoot:.1%}  "
+            f"Tr={metrics.rise_time_us:.0f}\u00b5s  "
+            f"Ts={metrics.settling_time_us:.0f}\u00b5s"
+        )
+        self.capture_done.emit(response, metrics)
+
+        if not self._continuous_stop.is_set():
+            self.submit(Command._CONTINUOUS_FRAME)
+        else:
+            self._continuous_active = False
+            self.status.emit(
+                f"Continuous capture stopped "
+                f"({self._continuous_frame_count} frames)"
+            )
+            self.continuous_stopped.emit()
