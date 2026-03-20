@@ -47,15 +47,9 @@ Pre-built executables for Windows, macOS, and Linux are available on the
 [Releases](https://github.com/gmrozek-mchp/pyx2ctune/releases) page (no Python
 installation required).
 
-**macOS note:** Because the app is not signed with an Apple Developer certificate,
-macOS Gatekeeper will block it on first launch. After extracting the `.tar.gz`,
-open Terminal and run:
-
-```bash
-xattr -cr pyx2ctune.app
-```
-
-Then double-click the app as usual, or right-click and select **Open**.
+**macOS note:** Open the `.dmg`, drag `pyx2ctune` to the Applications folder,
+then right-click the app in Applications and select **Open** on first launch
+(required because the app is not signed with an Apple Developer certificate).
 
 ### Jupyter Notebook
 

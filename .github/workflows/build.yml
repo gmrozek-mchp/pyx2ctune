@@ -50,12 +50,14 @@ jobs:
       - name: Build application
         run: pyinstaller pyx2ctune.spec
 
-      - name: Sign and package (macOS .app bundle)
+      - name: Package (macOS DMG)
         if: runner.os == 'macOS'
         run: |
-          codesign --force --deep -s - dist/pyx2ctune.app
-          cd dist
-          tar czf ${{ matrix.artifact }}.tar.gz pyx2ctune.app
+          mkdir -p dist/dmg
+          cp -R dist/pyx2ctune.app dist/dmg/
+          ln -s /Applications dist/dmg/Applications
+          hdiutil create -volname pyx2ctune -srcfolder dist/dmg \
+            -ov -format UDZO dist/${{ matrix.artifact }}.dmg
 
       - name: Package (Linux)
         if: runner.os == 'Linux'
@@ -74,7 +76,10 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact }}
-          path: dist/${{ matrix.artifact }}.*
+          path: |
+            dist/${{ matrix.artifact }}.tar.gz
+            dist/${{ matrix.artifact }}.zip
+            dist/${{ matrix.artifact }}.dmg
 
   release:
     needs: build
@@ -96,3 +101,4 @@ jobs:
           files: |
             artifacts/**/*.zip
             artifacts/**/*.tar.gz
+            artifacts/**/*.dmg
