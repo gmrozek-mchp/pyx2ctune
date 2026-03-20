@@ -22170,4 +22170,641 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 _**Agent (claude-4.6-opus-high-thinking)**_
 
 <think><details><summary>Thought Process</summary>
-The analysis module works with the raw data (whatever units it's in). The overshoot, rise</details></think>
+The analysis module works with the raw data (whatever units it's in). The overshoot, rise time, settling time, and steady-state error are all computed as ratios or time deltas, so they work regardless of whether the data is in counts or engineering units. The step_size would change from counts to Amps, but it's just for informational purposes.
+
+The cleanest approach is to convert the data to engineering units during capture, so the `StepResponse` holds data in Amps and Volts. This way both plotting and analysis automatically work with real units.
+
+I need:
+1. `mcapi.fullscale.current` (44.08 A) for current scaling: `amps = (counts / 32768) * fullscale_current`
+
+
+2. `mcapi.fullscale.voltage` (75.9 V) for voltage scaling: `volts = (counts / 32768) * fullscale_voltage`
+
+I'll update `ScopeCapture.capture_frame()` to convert the data to engineering units using the session's ParameterDB and store the scaling info in metadata so the plotting code knows what units to use. Then I'll update `plotting.py` to display "A" and "V" instead of "counts". Converting during capture means the analysis will also work in engineering units, so metrics like overshoot will be computed correctly.
+
+Let me also check if the GUI's plot_widget.py has its own axis labels that need updating.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/plot_widget.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Convert captured data to engineering units (A, V) in ScopeCapture",
+      "id": "capture-convert",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update axis labels in plotting.py and plot_widget.py to show A/V",
+      "id": "plot-labels",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Add current/timing scaling methods to ParameterDB or CurrentTuning",
+      "id": "param-scaling",
+      "status": "completed"
+    },
+    {
+      "content": "Update setup_step_test to accept engineering units",
+      "id": "setup-step-eng",
+      "status": "completed"
+    },
+    {
+      "content": "Update GUI to use Amps and ms for perturbation settings",
+      "id": "gui-units",
+      "status": "completed"
+    }
+  ],
+  "success": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+The best approach is to convert the raw Q15 counts to Amps and Volts during capture, using `mcapi.fullscale.current` and `mcapi.fullscale.voltage` from parameters.json. The analysis module works with ratios and time deltas, so it's unit-agnostic.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/capture.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the `StepResponse` dataclass to track the units.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/capture.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update `capture_frame` to convert to engineering units when parameters are available.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/capture.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Convert captured data to engineering units (A, V) in ScopeCapture",
+      "id": "capture-convert",
+      "status": "completed"
+    },
+    {
+      "content": "Update axis labels in plotting.py and plot_widget.py to show A/V",
+      "id": "plot-labels",
+      "status": "in_progress"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Convert captured data to engineering units (A, V) in ScopeCapture",
+      "id": "capture-convert",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update axis labels in plotting.py and plot_widget.py to show A/V",
+      "id": "plot-labels",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the plotting code to use the unit labels from `StepResponse`.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/plotting.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the GUI's `plot_widget.py`.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/plot_widget.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/plot_widget.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me check for any linter errors across the modified files.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "pyx2ctune/capture.py",
+    "pyx2ctune/plotting.py",
+    "pyx2ctune/gui/plot_widget.py"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "pyx2ctune/capture.py"
+    },
+    {
+      "relativeWorkspacePath": "pyx2ctune/plotting.py"
+    },
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/plot_widget.py"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints"><details>
+<summary>Tool use: **read_lints**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Convert captured data to engineering units (A, V) in ScopeCapture",
+      "id": "capture-convert",
+      "status": "completed"
+    },
+    {
+      "content": "Update axis labels in plotting.py and plot_widget.py to show A/V",
+      "id": "plot-labels",
+      "status": "completed"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Convert captured data to engineering units (A, V) in ScopeCapture",
+      "id": "capture-convert",
+      "status": "completed"
+    },
+    {
+      "content": "Update axis labels in plotting.py and plot_widget.py to show A/V",
+      "id": "plot-labels",
+      "status": "in_progress"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Let me also verify the notebook plotting picks up the changes properly.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/notebooks/current_loop_tuning.ipynb",
+  "pattern": "counts"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/notebooks/current_loop_tuning.ipynb",
+  "pattern": "counts",
+  "topFiles": [
+    {
+      "matchCount": 8,
+      "uri": "notebooks/current_loop_tuning.ipynb"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 8
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Good -- the notebook uses `plot_step_response` from `pyx2ctune.plotting`, so it will automatically pick up the unit labels. The "counts" references in the notebook are just gain display text, which is correct (showing both the engineering value and the underlying Q-format counts).
+
+Let me do a final review of the changed files.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/capture.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Everything looks clean. Here's a summary of the changes:
+
+**`pyx2ctune/capture.py`** — The `ScopeCapture.capture_frame()` method now converts raw Q15 counts to engineering units using fullscale values from `parameters.json`:
+- **Current** (measured & reference): `(counts / 32768) × mcapi.fullscale.current` → Amps
+- **Voltage**: `(counts / 32768) × mcapi.fullscale.voltage` → Volts
+- Two new fields on `StepResponse` — `current_units` and `voltage_units` — track which units the data is in (`"A"` / `"V"` when parameters are available, `"counts"` as fallback).
+
+**`pyx2ctune/plotting.py`** — Axis labels now read from `response.current_units` and `response.voltage_units` (e.g., "Iq (A)" and "Vq (V)" instead of "Iq (counts)").
+
+**`pyx2ctune/gui/plot_widget.py`** — Same unit-aware axis labels in the GUI plot, plus the empty-state labels now say "Current" / "Voltage" without hardcoded "counts".
+
+The analysis module (`analysis.py`) is unaffected — it works with ratios and time deltas which are unit-agnostic. If `parameters.json` isn't loaded, everything falls back to raw counts gracefully.
+
+---
+
+_**User**_
+
+please run gui
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+The user wants me to run the GUI application. Let me check if there's already a terminal running it.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: ls /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/</summary>
+
+```bash
+ls /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/
+```
+
+```
+18647.txt
+384129.txt
+390051.txt
+6.txt
+648798.txt
+928780.txt
+956920.txt
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: head -n 10 /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/*.txt</summary>
+
+```bash
+head -n 10 /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/*.txt
+```
+
+```
+==&gt; /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/18647.txt &lt;==
+---
+pid: 92788
+cwd: "/Users/greg/projects/microchip/pyx2ctune"
+command: "/Users/greg/projects/microchip/pyx2ctune/dist/pyx2ctune.app/Contents/MacOS/pyx2ctune 2&gt;&amp;1"
+started_at: 2026-03-20T00:16:29.320Z
+running_for_ms: 20594    
+---
+
+---
+exit_code: 0
+
+==&gt; /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/384129.txt &lt;==
+---
+pid: 92623
+cwd: "/Users/greg/projects/microchip/pyx2ctune"
+command: "cd /Users/greg/projects/microchip/pyx2ctune &amp;&amp; open dist/pyx2ctune.app 2&gt;&amp;1 &amp;&amp; sleep 5 &amp;&amp; cat /var/log/system.log 2&gt;/dev/null | tail -20; echo \"---\"; /Users/greg/projects/microchip/pyx2ctune/dist/pyx2ctune/pyx2ctune 2&gt;&amp;1"
+started_at: 2026-03-20T00:15:42.771Z
+running_for_ms: 43045    
+---
+Mar 19 16:39:16 Laboratory syslogd[126]: ASL Sender Statistics
+Mar 19 16:50:42 Laboratory syslogd[126]: ASL Sender Statistics
+Mar 19 17:00:46 Laboratory syslogd[126]: ASL Sender Statistics
+
+==&gt; /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/390051.txt &lt;==
+---
+pid: 92527
+cwd: "/Users/greg/projects/microchip/pyx2ctune"
+command: "cd /Users/greg/projects/microchip/pyx2ctune &amp;&amp; source .venv/bin/activate &amp;&amp; python -m pyx2ctune.gui 2&gt;&amp;1"
+started_at: 2026-03-20T00:15:20.284Z
+running_for_ms: 40023    
+---
+
+---
+exit_code: 0
+
+==&gt; /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/6.txt &lt;==
+---
+pid: 87462
+cwd: /Users/greg/projects/microchip/pyx2ctune
+---
+greg@Laboratory pyx2ctune %             
+__pycache__/           jsonpointer*           jupyter-labhub*        pip3.12*               python@
+debugpy*               jsonschema*            jupyter-migrate*       pybabel*               python3@
+debugpy-adapter*       jupyter*               jupyter-nbconvert*     pyftmerge*             python3.12@
+f2py*                  jupyter-dejavu*        jupyter-run*           pyftsubset*            pyuic5*
+flask*                 jupyter-events*        jupyter-server*        pygmentize*            pyx2cscope*
+
+==&gt; /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/648798.txt &lt;==
+---
+pid: 81271
+cwd: "/Users/greg/projects/microchip/pyx2ctune"
+command: "cd /Users/greg/projects/microchip/pyx2ctune &amp;&amp; .venv/bin/jupyter lab"
+started_at: 2026-03-19T20:45:35.062Z
+running_for_ms: 6887983  
+---
+[I 2026-03-19 15:45:37.589 ServerApp] jupyter_lsp | extension was successfully linked.
+[I 2026-03-19 15:45:37.591 ServerApp] jupyter_server_terminals | extension was successfully linked.
+[I 2026-03-19 15:45:37.592 ServerApp] jupyterlab | extension was successfully linked.
+
+==&gt; /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/928780.txt &lt;==
+---
+pid: 87934
+cwd: "/Users/greg/projects/microchip/pyx2ctune"
+command: "cd /Users/greg/projects/microchip/pyx2ctune &amp;&amp; source .venv/bin/activate &amp;&amp; python -m pyx2ctune.gui 2&gt;&amp;1"
+started_at: 2026-03-19T23:17:44.333Z
+running_for_ms: 170032   
+---
+
+---
+exit_code: 0
+
+==&gt; /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/956920.txt &lt;==
+---
+pid: 87542
+cwd: "/Users/greg/projects/microchip/pyx2ctune"
+command: "cd /Users/greg/projects/microchip/pyx2ctune &amp;&amp; source .venv/bin/activate &amp;&amp; python -m pyx2ctune.gui 2&gt;&amp;1"
+started_at: 2026-03-19T23:05:17.680Z
+running_for_ms: 385160   
+---
+
+---
+exit_code: 0
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+No GUI currently running. Starting it now.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/greg/projects/microchip/pyx2ctune && source .venv/bin/activate && python -m pyx2ctune.gui 2>&1</summary>
+
+```bash
+cd /Users/greg/projects/microchip/pyx2ctune && source .venv/bin/activate && python -m pyx2ctune.gui 2>&1
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: sleep 3 && cat /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/582906.txt</summary>
+
+```bash
+sleep 3 && cat /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/582906.txt
+```
+
+```
+---
+pid: 98861
+cwd: "/Users/greg/projects/microchip/pyx2ctune"
+command: "cd /Users/greg/projects/microchip/pyx2ctune &amp;&amp; source .venv/bin/activate &amp;&amp; python -m pyx2ctune.gui 2&gt;&amp;1"
+started_at: 2026-03-20T01:40:37.137Z
+running_for_ms: 5004     
+---
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+The GUI is running — no errors on startup. It should be visible on your screen now.
