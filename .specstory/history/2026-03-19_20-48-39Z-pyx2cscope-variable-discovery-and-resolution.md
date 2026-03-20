@@ -532,4 +532,52 @@ Flow:
 
 `get_variable()` does a direct lookup in the parser’s maps:
 
-```185:211:/Users/greg/projects/microchip/p
+```185:211:/Users/greg/projects/microchip/pyx2ctune/.venv/lib/python3.12/site-packages/pyx2cscope/variable/variable_factory.py
+    def get_variable(self, name: str, sfr: bool = False) -> Variable | None:
+        """Retrieve a Variable object based on its name.
+        ...
+        """
+        try:
+            variable_info = self.parser.get_var_info(name, sfr=sfr)
+            if variable_info is None:
+                logging.error(f"Variable '{name}' not found!")
+                return None
+            return self.get_variable_raw(variable_info)
+        except Exception as e:
+            ...
+```
+
+```71:82:/Users/greg/projects/microchip/pyx2ctune/.venv/lib/python3.12/site-packages/pyx2cscope/parser/elf_parser.py
+    def get_var_info(self, name: str, sfr: bool = False) -> Optional[VariableInfo]:
+        """Return the VariableInfo associated with a given variable name, or None if not found.
+        ...
+        """
+        return self.register_map.get(name) if sfr else self.variable_map.get(name)
+```
+
+So it uses an exact string lookup in `variable_map` (or `register_map` for SFRs). There is no runtime parsing of dot-notation; the names are precomputed during ELF parsing.
+
+Struct members are stored with full dot-notation names. In `_process_structure_type`:
+
+```333:352:/Users/greg/projects/microchip/pyx2ctune/.venv/lib/python3.12/site-packages/pyx2cscope/parser/generic_parser.py
+    def _process_structure_type(self, die, parent_name: str, offset=0):
+        """Recursively extracts structure members from a DWARF DIE, including arrays."""
+        members = {}
+        for child_die in die.iter_children():
+            member = {}
+            if child_die.tag == "DW_TAG_member":
+                member_offset, bit_size, bit_offset = self._get_member_offset(child_die)
+                if member_offset is None:
+                    continue
+                member_name = parent_name
+                name_attr = child_die.attributes.get("DW_AT_name")
+                if name_attr:
+                    member_name += "." + name_attr.value.decode("utf-8")
+                self._process_end_die(member, child_die, member_name, offset + member_offset)
+                ...
+```
+
+So for `motor.iqCtrl.kp`:
+
+- `motor` → `parent_name = "motor"`
+- `motor.iqCtrl` → `member_name = "motor" + "." + "iqCtrl

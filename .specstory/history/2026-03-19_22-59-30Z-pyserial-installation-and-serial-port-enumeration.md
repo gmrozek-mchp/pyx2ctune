@@ -664,3 +664,50 @@ Status: **completed**
 <summary>Tool use: **ripgrep_raw_search**</summary>
 
 </details></tool-use>
+
+_**Agent (composer-1.5)**_
+
+<think><details><summary>Thought Process</summary>
+**Summarizing findings**
+
+I've summarized the key findings about pyserial and pyX2Cscope serial port enumeration capabilities. </details></think>
+
+_**Agent (composer-1.5)**_
+
+
+---
+
+## Findings
+
+### 1. pyserial in venv
+
+**pyserial 3.5** is installed in `/Users/greg/projects/microchip/pyx2ctune/.venv`.
+
+### 2. `serial.tools.list_ports` availability
+
+`serial.tools.list_ports` is available and works. A quick test:
+
+```python
+import serial.tools.list_ports
+list(serial.tools.list_ports.comports())
+```
+
+returns `ListPortInfo` objects (e.g. 3 ports on this system).
+
+### 3. Serial port enumeration in pyX2Cscope
+
+pyX2Cscope does **not** expose a public API for listing serial ports. It uses `serial.tools.list_ports` only inside its GUIs:
+
+| Location | Usage |
+|----------|--------|
+| `gui/web/app.py` | `list_serial_ports()` view uses `serial.tools.list_ports.comports()` and returns `[port.device for port in ports]` as JSON via `/serial-ports` |
+| `gui/watchView/minimal_gui.py` | Uses `serial.tools.list_ports.comports()` and `[port.device for port in ...]` |
+| `gui/qt/controllers/connection_manager.py` | Same pattern |
+
+The main `X2CScope` class and `pyx2cscope` package root do not provide a function like `list_serial_ports()` or similar. The `utils.py` `get_com_port()` function reads from `config.ini`; it does not enumerate ports.
+
+### Summary
+
+- **pyserial**: installed (3.5)
+- **`serial.tools.list_ports`**: available and usable
+- **pyX2Cscope**: no scripting API for port enumeration; use `serial.tools.list_ports.comports()` directly in scripts

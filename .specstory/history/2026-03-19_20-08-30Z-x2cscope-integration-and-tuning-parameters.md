@@ -856,3 +856,153 @@ _**Agent (composer-1.5)**_
 <summary>Tool use: **read_file_v2**</summary>
 
 </details></tool-use>
+
+_**Agent (composer-1.5)**_
+
+
+Here’s a concise report of the X2Cscope integration and tuning setup in this project.
+
+---
+
+## 1. X2Cscope-related files
+
+| File | Purpose |
+|------|---------|
+| `mcc_generated_files/motorBench/library/x2cscope/X2Cscope.h` | X2Cscope API (LCM/Microchip) |
+| `mcc_generated_files/motorBench/library/x2cscope/libx2cscope-dspic-elf.a` | Prebuilt dsPIC library |
+| `mcc_generated_files/motorBench/diagnostics.c` | X2Cscope integration and UART hooks |
+
+---
+
+## 2. parameters.json
+
+Path: `motorbench/mclv-48v-300w/mclv-48v-300w.X/mcc_generated_files/motorBench/aux-files/parameters.json`
+
+**Metadata:**
+- Build: R9/RC31 (commit 132024, 2026 Feb 13)
+
+**Parameter structure (per entry):**
+- `define_name` – C preprocessor symbol (e.g. `KII`, `KIP`, `MCAF_MOTOR_RS`)
+- `key` – hierarchical key (e.g. `foc.kii`, `foc.kip`, `motor.rs`)
+- `intended_value` – numeric value
+- `q` – fixed-point Q format (e.g. 15, 16)
+- `scale` – scaling factor for conversion
+- `units` – physical unit (e.g. `"V/A/s"`, `"rad/s"`)
+
+**Example tuning parameters:**
+
+| Key | Description | Value |
+|-----|-------------|-------|
+| `foc.kii` | Current loop integral gain | 1268.17 V/A/s |
+| `foc.kip` | Current loop proportional gain | 0.614 V/A |
+| `foc.kwi` | Velocity loop integral gain | 0.150 A/rad |
+| `foc.kwp` | Velocity loop proportional gain | 0.0098 A/(rad/s) |
+| `motor.rs` | Stator resistance | 0.569 Ω |
+| `motor.ke` | Back-EMF constant | 0.0284 V/(rad/s) |
+
+There are ~120 parameters covering ADC, FOC, motor, startup, PLL, stall detection, etc.
+
+---
+
+## 3. X2Cscope integration and UART
+
+**Integration flow:**
+1. `MCAF_DiagnosticsInit()` → `HAL_UART_Initialize()` → `X2Cscope_Init()`
+2. `X2Cscope_Init()` registers UART callbacks via `X2Cscope_HookUARTFunctions()`
+3. Main loop: `MCAF_DiagnosticsStepMain()` → `X2Cscope_Communicate()`
+4. ISR: `MCAF_DiagnosticsStepIsr()` → `X2Cscope_Update()`
+
+**UART configuration:**
+
+| Setting | Value |
+|---------|-------|
+| Peripheral | UART1 (MCC_UART) |
+| TX pin | RD14 |
+| RX pin | RD13 |
+| HAL functions | `HAL_UART_Write`, `HAL_UART_Read`, `HAL_UART_IsRxReady`, `HAL_UART_IsTxReady` |
+
+**Baud rate mismatch:**
+- MotorBench data model (`CoreDataModel.yaml`, `scdata.setup.communications`): **625000**
+- MCC UART config (`TransformData.yaml`): **115200**
+- `uart1.c` uses `U1BRG = 0x364` → ~115207 baud
+
+So the MotorBench model expects 625 kbaud, but the generated UART driver is set to 115200. X2Cscope may need 625 kbaud; the MCC UART config would need to be updated to match.
+
+**Buffer:**
+- `X2C_BUFFER_SIZE`: 4900 bytes
+- Section: `x2cscope_data_buf`
+- `X2C_APP_VERSION`: 0x0800
+
+---
+
+## 4. YAML structure in motorbench/log/
+
+**CoreDataModel.yaml**
+- `meta` – timestamp
+- `motor` – Tfr, B, Lq, poleCount, J, L, R, Ld, Ke, velocity, current
+- `controller` – empty
+- `metadata` – schema, motorBench, MCC
+- `operating_range` – velocity limits
+- `scdata.setup` – communications (baudrate: 625000), analysis, calibration
+- `autotune_result` – current and velocity PI gains
+- `drive` – metadata, iout, vdc, estimator, configuration
+- `config.ui.content` – UI/config options, including `diagnostics-method: "x2cscope"`
+
+**AutoTuneVelocityResult.yaml**
+```yaml
+meta: { timeStamp: ... }
+Kp: 0.009803028794430853
+VelocityPhaseLag: 10.0
+VelocityPhaseMargin: 65.0
+Wc: 87.00730872927669
+Ki: 0.15039548023316693
+```
+
+**AutoTuneCurrentResult.yaml**
+```yaml
+meta: { timeStamp: ... }
+CurrentPhaseMargin: 80.0
+Kp: 0.6138998464638903
+CurrentPhaseLag: 45.0
+Wc: 2065.7653960488465
+Ki: 1268.173059464804
+```
+
+**Other YAMLs:** `TransformData.yaml`, `McafData.yaml`, `BoardDataModel.yaml`
+
+---
+
+## 5. Python tooling
+
+No `.py` files were found in the workspace. MotorBench is referenced in logs and metadata, but any Python scripts it uses are not present in this repo.
+
+---
+
+## 6. ELF and debug symbols
+
+- Expected debug ELF path:  
+  `motorbench/mclv-48v-300w/mclv-48v-300w.X/dist/default/debug/mclv-48v-300w.X.debug.elf`
+- No ELF files were found under `dist/` (project may not be built).
+- `data_model_snapshot.c` embeds a JSON snapshot in section `diagnostics_cinfo, info`; this is used by X2Cscope/diagnostics tools to read model and variable metadata from the ELF.
+
+---
+
+## 7. How tunable variables are exposed
+
+1. **parameters.json** – maps `key` → `define_name` and `intended_value` for code generation.
+2. **Parameter headers** – e.g. `foc_params.h`, `motor_params.h` in `mcc_generated_files/motorBench/parameters/`.
+3. **`MCAF_data_model_snapshot`** – JSON in the ELF with:
+   - Motor and controller data
+   - `normfactor_associations` linking C symbols (e.g. `MCAF_MOTOR_DATA.idCtrl.outMax`, `MCAF_U_CURRENT`) to units and Q formats
+4. **report.html** – normalization factors for scope variables (e.g. `idCtrl.integrator`, `omegaCtrl.outMax`).
+5. **X2Cscope** – uses the ELF snapshot and `x2cscope_data_buf` to scope and tune variables over UART.
+
+---
+
+## Summary
+
+- X2Cscope is wired through UART1 (RD13/RD14) via HAL callbacks.
+- MotorBench expects 625 kbaud; MCC UART is configured for 115200.
+- Tuning parameters are defined in `parameters.json` and exposed via generated headers and the ELF snapshot.
+- AutoTune results are stored in YAML under `motorbench/log/`.
+- No Python scripts are in this workspace; the project name suggests a planned Python + X2Cscope tuning workflow.
