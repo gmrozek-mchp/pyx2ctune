@@ -168,14 +168,14 @@ class MainWindow(QMainWindow):
         self._kp_spin.setDecimals(4)
         self._kp_spin.setSingleStep(0.1)
         self._kp_spin.setSuffix("  V/A")
-        self._kp_spin.setValue(0.614)
+        self._kp_spin.setValue(0.0)
 
         self._ki_spin = QDoubleSpinBox()
         self._ki_spin.setRange(0.0, 100000.0)
         self._ki_spin.setDecimals(1)
         self._ki_spin.setSingleStep(100.0)
         self._ki_spin.setSuffix("  V/A/s")
-        self._ki_spin.setValue(1268.0)
+        self._ki_spin.setValue(0.0)
 
         set_layout.addRow("New Kp:", self._kp_spin)
         set_layout.addRow("New Ki:", self._ki_spin)
@@ -222,16 +222,16 @@ class MainWindow(QMainWindow):
         form.addRow("Axis:", self._axis_combo)
 
         self._amplitude_spin = QDoubleSpinBox()
-        self._amplitude_spin.setRange(0.01, 50.0)
-        self._amplitude_spin.setValue(0.5)
+        self._amplitude_spin.setRange(0.0, 50.0)
+        self._amplitude_spin.setValue(0.0)
         self._amplitude_spin.setDecimals(3)
         self._amplitude_spin.setSingleStep(0.1)
         self._amplitude_spin.setSuffix("  A")
         form.addRow("Amplitude:", self._amplitude_spin)
 
         self._halfperiod_spin = QDoubleSpinBox()
-        self._halfperiod_spin.setRange(0.05, 500.0)
-        self._halfperiod_spin.setValue(5.0)
+        self._halfperiod_spin.setRange(0.0, 500.0)
+        self._halfperiod_spin.setValue(0.0)
         self._halfperiod_spin.setDecimals(2)
         self._halfperiod_spin.setSingleStep(0.5)
         self._halfperiod_spin.setSuffix("  ms")
@@ -396,6 +396,11 @@ class MainWindow(QMainWindow):
         self._set_ui_state(connected=True)
         self._mode_label.setText("--")
         self._guard_label.setText("Inactive")
+
+        defaults = session.current.get_default_perturbation()
+        self._amplitude_spin.setValue(defaults["amplitude_a"])
+        self._halfperiod_spin.setValue(defaults["halfperiod_ms"])
+
         self._worker.submit(Command.STOP_PERTURBATION)
         self._worker.submit(Command.EXIT_TEST_MODE)
         self._worker.submit(
@@ -409,6 +414,10 @@ class MainWindow(QMainWindow):
         self._guard_label.setText("--")
         self._cur_kp_label.setText("--")
         self._cur_ki_label.setText("--")
+        self._kp_spin.setValue(0.0)
+        self._ki_spin.setValue(0.0)
+        self._amplitude_spin.setValue(0.0)
+        self._halfperiod_spin.setValue(0.0)
 
     # ── Slots: Gains ──────────────────────────────────────────────────
 

@@ -47,6 +47,7 @@ _PARAM_KII = "foc.kii"
 # parameters.json keys for perturbation unit conversion
 _PARAM_FULLSCALE_CURRENT = "mcapi.fullscale.current"
 _PARAM_ISR_DIVIDER = "timing.mcafIsrSubsampleDivider"
+_PARAM_MAX_CURRENT_CMD = "sat_pi.currentMaximumCommand"
 
 
 @dataclass
@@ -310,6 +311,25 @@ class CurrentTuning:
             "fullscale_current_a": ifs,
             "isr_period_s": isr_period,
             "isr_freq_hz": 1.0 / isr_period,
+        }
+
+    def get_default_perturbation(self) -> dict:
+        """Return suggested perturbation defaults based on parameters.json.
+
+        Amplitude is set to 25% of the maximum current command.
+        Half-period defaults to 5.0 ms (100 Hz square wave).
+        """
+        params = self._session.params
+        amplitude_a = 0.5
+        if params is not None:
+            try:
+                max_cmd = params.get_info(_PARAM_MAX_CURRENT_CMD).intended_value
+                amplitude_a = round(max_cmd * 0.25, 3)
+            except KeyError:
+                pass
+        return {
+            "amplitude_a": amplitude_a,
+            "halfperiod_ms": 5.0,
         }
 
     # ── Perturbation Control ──────────────────────────────────────────

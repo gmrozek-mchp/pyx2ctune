@@ -21404,3 +21404,701 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 <summary>Tool use: **edit_file_v2**</summary>
 
 </details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me check if there are any markdown cells in the notebook that reference the old units.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "context": 1,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/notebooks/current_loop_tuning.ipynb",
+  "pattern": "counts|PWM cycle"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/notebooks/current_loop_tuning.ipynb",
+  "pattern": "counts|PWM cycle",
+  "topFiles": [
+    {
+      "matchCount": 16,
+      "uri": "notebooks/current_loop_tuning.ipynb"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 8
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Those remaining "counts" references are fine -- they're in the gain read/write cells where showing the underlying fixed-point counts alongside engineering units is useful diagnostic info. That's not perturbation-related.
+
+The notebook is updated. The perturbation cell now uses `0.5 A` and `5.0 ms` in both source and saved output.
+
+---
+
+_**User**_
+
+what is default value for pertubation settings if nothing local saved
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+From the GUI spinbox initialization in `main_window.py`:
+
+- **Amplitude**: 0.5 A
+- **Half-period**: 5.0 ms (which gives a 100 Hz square wave)
+
+The `_restore_settings` method only overwrites these if it finds saved values -- the `if amp:` / `if hp:` guards skip the restore when `QSettings` returns 0 (no saved value), so the spinbox defaults stand.
+
+However, there's a subtle bug: if the user intentionally saves a very small value, `if amp:` would be falsy for 0.0 and skip the restore. But since the spinbox minimums are 0.01 A and 0.05 ms, this won't happen in practice.
+
+Are you happy with 0.5 A / 5.0 ms as defaults, or would you like different values?
+
+---
+
+_**User**_
+
+yes that is good default.
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Good, 0.5 A / 5.0 ms it stays.
+
+---
+
+_**User**_
+
+can we blank out control gains before connection? We don't really want to show incorrect information
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "context": 3,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "_kp_spin|_ki_spin|Kp:|Ki:"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "_kp_spin|_ki_spin|Kp:|Ki:",
+  "topFiles": [
+    {
+      "matchCount": 46,
+      "uri": "pyx2ctune/gui/main_window.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 20
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+The "current gains" labels already show `--` on startup. The issue is the `_kp_spin` and `_ki_spin` input fields show hardcoded values (0.614 V/A and 1268.0 V/A/s) before connecting. Let me blank those out and populate them only after gains are read from the board.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now both the labels (`--`) and the input spinboxes (0.0) will start blank/zeroed before connection. Once connected, the auto `READ_GAINS` populates everything with real values from the board.
+
+---
+
+_**User**_
+
+I wonder if pertubation current shoudl start out blank as well. On connection, can we determine an appropriate value based on parameters.json
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+The user wants the perturbation amplitude to start blank (0.0) and be populated with a sensible default on connection based on parameters.json. Let me think about what a good default would be.
+
+From parameters.json, we have:
+- `mcapi.fullscale.current = 44.08 A` - full scale current
+- `sat_pi.currentMaximumCommand = 2.2 A` - maximum current command
+- `startup.mcafStartupCurrent = 1.65 A` - startup current
+
+A good default perturbation amplitude should be small enough to be safe but large enough to produce a measurable response. Typical choices:
+- A fraction of the maximum current command (e.g., 10-25% of `currentMaximumCommand`)
+
+
+- Something like 0.2-0.5 A for a motor with 2.2 A max command
+
+For halfperiod, 5.0 ms is a reasonable default that doesn't depend on the motor parameters much - it's about capturing the current loop response which typically settles in 1-5 ms. I'll initialize amplitude at 0.0 and halfperiod at 5.0 ms, then on connection read `sat_pi.currentMaximumCommand` and set amplitude to roughly 25% of that value, with a fallback if the parameter isn't available.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Good idea. We can derive a safe default from `sat_pi.currentMaximumCommand` in parameters.json -- something like 25% of the max current command. Let me check what's available.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: python3 -c "
+import json
+with open('/Users/greg/projects/microchip/pyx2ctune/motorbench/mclv-48v-300w/mclv-48v-300w.X/mcc_generated_files/motorBench/aux-files/parameters.json') as f:
+    data = json.load(f)
+for p in data['parameters']:
+    key = p['key']
+    if any(x in key.lower() for x in ['currentmax', 'startup.mcafstartup', 'fullscale.current']):
+        print(f'{key:45s} val={p.get(\"intended_value\")}  units={p.get(\"units\")}  desc={str(p.get(\"description\",\"\"))[:60]}')
+" 2>&1</summary>
+
+```bash
+python3 -c "
+import json
+with open('/Users/greg/projects/microchip/pyx2ctune/motorbench/mclv-48v-300w/mclv-48v-300w.X/mcc_generated_files/motorBench/aux-files/parameters.json') as f:
+    data = json.load(f)
+for p in data['parameters']:
+    key = p['key']
+    if any(x in key.lower() for x in ['currentmax', 'startup.mcafstartup', 'fullscale.current']):
+        print(f'{key:45s} val={p.get(\"intended_value\")}  units={p.get(\"units\")}  desc={str(p.get(\"description\",\"\"))[:60]}')
+" 2>&1
+```
+
+```
+mcapi.fullscale.current                       val=44.08  units=None  desc=A
+sat_pi.currentMaximumCommand                  val=2.2  units=A  desc=Maximum current command to current controller
+startup.mcafStartupCurrent                    val=1.65  units=A  desc=motor current from end of current rampup phase to end of sta
+startup.mcafStartupCurrentInitial             val=0  units=A  desc=motor current at beginning of startup
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+`sat_pi.currentMaximumCommand = 2.2 A` is the max current command. 25% of that is 0.55 A, which is close to our 0.5 A default -- a sensible perturbation level. Let me add a method to `CurrentTuning` that suggests defaults, and wire it into the GUI on connection.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/current_tuning.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/current_tuning.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now add a method that returns suggested perturbation defaults.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/current_tuning.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/current_tuning.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the worker to emit perturbation defaults on connect, and the GUI to receive them.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/workers.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+The simplest approach is to have the `connected` signal carry the session object (which it already does), and then in the `_on_connected` handler in the main window, pull the defaults from the session. No new signal needed.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "context": 15,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "def _on_connected"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "def _on_connected",
+  "topFiles": [
+    {
+      "matchCount": 31,
+      "uri": "pyx2ctune/gui/main_window.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 1
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now set the initial spinbox values to 0.0 so they're blank before connection (amplitude is already 0.0 from the previous change, let me also zero out halfperiod).
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "context": 2,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "_halfperiod_spin.setValue"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "_halfperiod_spin.setValue",
+  "topFiles": [
+    {
+      "matchCount": 15,
+      "uri": "pyx2ctune/gui/main_window.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 3
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Also zero out the amplitude range minimum so it can start at 0.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "context": 1,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "_amplitude_spin.setRange\""
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "_amplitude_spin.setRange\"",
+  "topFiles": [],
+  "totalFiles": 0,
+  "totalMatches": 0
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "context": 1,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "_amplitude_spin.setRange"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "_amplitude_spin.setRange",
+  "topFiles": [
+    {
+      "matchCount": 3,
+      "uri": "pyx2ctune/gui/main_window.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 1
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now on disconnect, reset them back to zero as well.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "context": 8,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "def _on_disconnected"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "def _on_disconnected",
+  "topFiles": [
+    {
+      "matchCount": 17,
+      "uri": "pyx2ctune/gui/main_window.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 1
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Done. Here's the behavior now:
+
+- **Before connection**: All control fields show 0.0 (gains, amplitude, halfperiod) -- no misleading values
+- **On connection**: Perturbation amplitude is set to **25% of `sat_pi.currentMaximumCommand`** from parameters.json (0.55 A for your board), halfperiod to 5.0 ms, and gains are read from the board
+- **On disconnect**: Everything resets to 0.0
+
+---
+
+_**User**_
+
+is there anything on recommended current tuning level here [Current Loop Tuning (section 5.1.6)](https://microchiptech.github.io/mcaf-doc/9.0.1/algorithms/foc/tuning.html)
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="web_fetch">
+<details>
+<summary>Tool use: **web_fetch**</summary>
+
+
+Parameters:
+
+```json
+{
+  "url": "https://microchiptech.github.io/mcaf-doc/9.0.1/algorithms/foc/tuning.html"
+}
+```
+Result:
+
+```json
+{
+  "markdown": "5.1.6. Current loop tuning — MCAF R9 RC31 documentation (docver 9.0.1)\n\n# 5.1.6. Current loop tuning¶\n\nThis section provides guidance on the following aspects of tuning the current loop in FOC:\n\nWhat constitutes a well-tuned current controller?\n\nHow do I adjust the current control loop gains in MCAF?\n\nHow can I use autotuning in the Tune page of motorBench® Development Suite to make gain tuning easier?\n\nAre the default current control loop tuning criteria in motorBench® Development Suite good enough to meet the requirements of most systems?\n\n## 5.1.6.1. Background¶\n\nAs mentioned in the [FOC component](https://microchiptech.github.io/mcaf-doc/9.0.1/components/foc.html#foc) section on [current control](https://microchiptech.github.io/mcaf-doc/9.0.1/components/foc.html#current-control), MCAF uses a pair of PI controllers with saturation and antiwindup. The PI control gains are proportional gain \\(k_{ip}\\) and integral gain \\(k_{ii}\\).\n\nCurrent loop tuning in FOC can be a challenging task, for a number of related reasons:\n\nControl variables of interest (d-axis and q-axis currents) are not directly measurable with test equipment, and exist only as software variables within the microcontroller\n\nAside from directly assessing step responses of dq-frame currents, evaluating control performance is an unclear task\n\nControl problems are not readily apparent\n\na motor may be rotating very smoothly but still exhibiting poor current control behavior\n\nobservable effects are usually audible but are unclear indicators such as clicks, clunks, chatter, hiss, or screeching\n\nsinusoidal distortion when measuring phase currents may be viewed as a disproportionate concern\n\nFOC is a 2 × 2 [MIMO](https://microchiptech.github.io/mcaf-doc/9.0.1/appendix/glossary.html#term-MIMO) control system with some subtleties (inductive cross-coupling and saturation behavior for all [PMSM](https://microchiptech.github.io/mcaf-doc/9.0.1/appendix/glossary.html#term-PMSM), with anisotropic behavior for motors with [rotor saliency](https://microchiptech.github.io/mcaf-doc/9.0.1/appendix/glossary.html#term-rotor-saliency) or fast mechanical time constants)\n\nThe good news is that tuning a current controller with FOC is usually forgiving and does not have to be optimal, and the control gains calculated in motorBench® Development Suite are usually acceptable and conservative.\n\n## 5.1.6.2. Evaluating control performance¶\n\nSeveral goals of the current controller are listed below:\n\nReference tracking — make the measured current follow the current reference input with zero steady-state error.\n\nTorque generated by the motor is proportional to the Q-axis current \\(I_q\\), so controlling \\(I_q\\) controls the torque.\n\nD-axis current \\(I_d\\) modulates the airgap flux. For [SPM](https://microchiptech.github.io/mcaf-doc/9.0.1/appendix/glossary.html#term-SPM) motors, the torque per ampere is maximized by \\(I_d = 0\\), but for [IPM](https://microchiptech.github.io/mcaf-doc/9.0.1/appendix/glossary.html#term-IPM) motors, a nonzero value of \\(I_d \u003c 0\\) can be used to increase efficiency, as calculated by the [MTPA](https://microchiptech.github.io/mcaf-doc/9.0.1/algorithms/flux_control/mtpa.html#algorithm-mtpa) equations. Any PMSM can also utilize \\(I_d \u003c 0\\) to counteract part of the back-emf and extend the operating velocity range, when required, through [flux weakening](https://microchiptech.github.io/mcaf-doc/9.0.1/algorithms/flux_control/flux_weakening.html#algorithm-flux-weakening).\n\nAn important quantity for reference tracking is the control bandwidth, along with time-domain metrics such as rise time and settling time, shown in Figure 5.18.\n\nOvershoot management — we don’t want undesirable transient behavior following a step change in reference current; we want it to settle quickly and avoid reaching excessive values. Overshoot can be described quantitatively as a normalized fraction; for example, if a reference current step from -1 A to 1 A (a change of 2 A) leads to a maximum current during the transient of 1.3A, then the overshoot is equal to \\((1.3 - 1)/(1 - (-1)) = 0.15\\).\n\nAn example of overshoot is shown in Figure 5.18.\n\nFigure 5.18 Example of time-domain metrics for the step response of the mildly interesting transfer function \\(H(s) = \\dfrac{-400s+40000}{s^4+11s^3+720s^2+5200s+40000}\\). Rise time measures the time needed to transition from 10% of the step change to 90% of the step change. Settling time measures the time until the step response stays within a given bound, here ±5%.¶\n\nDisturbance rejection — noise, back-emf harmonics, and dead-time distortion are effects that perturb the motor current. A well-tuned current control loop will keep the current error small. Disturbance rejection can be characterized quantitatively by a stiffness transfer function \\(H(s) = \\partial V/\\partial I\\) that represents the voltage disturbance required to make a particular change in current. [1] In closed loop at frequencies much lower than the current loop bandwidth, this stiffness can be very large, but in open loop and at high frequencies it is the per-phase impedance \\((R+j\\omega_e L)\\) of the stator.\n\nStability — we want oscillations in current to decay and not persist or grow. An important quantity for stability is phase margin \\(\\phi_m\\).\n\nMore specifically, the tuning goals are to constrain error, constrain overshoot, and maximize bandwidth:\n\nCurrent control error can cause vibration and audible noise within the motor. In extreme cases it can add excess thermal dissipation, damage components (if the overcurrent is not detected), or cause nuisance faults (if the overcurrent is detected).\n\nPhase margin should be selected to keep overshoot small. Acceptable values of overshoot are typically in the 0-10% range. This depends on the application as well as the frequency content of the current reference. The worst-case step of full negative current to full positive current is not necessarily something that occurs in a real application, but if it is, causing false overcurrent faults should be avoided. For example, a motor drive that can accept reference currents up to 10 A that undergoes a worst-case step from -10 A to +10 A and has a 10% overshoot would reach a maximum current of +12 A. There should be enough design margin between this maximum current and the minimum overcurrent threshold to allow room for noise while still avoiding false overcurrent faults.\n\nCurrent control bandwidth should generally be maximized as long as it does not degrade stability or introduce excessive noise into the motor current. Typical 3dB current bandwidth of industrial motor drives are 5% – 15% of the PWM frequency, or 1 – 3 kHz for a 20 kHz PWM. This is desirable even if the overall motor control bandwidth of position or velocity is slow, for example a pump or fan operating at constant velocity. It improves disturbance rejection and reduces the duration of overcurrent events.\n\nApplications that do require fast acceleration (robotics and e-mobility, for example) are constrained by the performance of the current loop; the velocity loop bandwidth is generally 5 – 10 times lower than the current loop bandwidth.\n\n## 5.1.6.3. Examples of poorly-tuned and well-tuned current loops¶\n\nThe best way to evaluate current loop performance is with a step response test at constant velocity. The easiest way of doing this with MCAF is to use the [square-wave perturbation of the test harness](https://microchiptech.github.io/mcaf-doc/9.0.1/components/testharness.html#test-perturbation)(see [Square wave velocity command disturbances to a velocity controller with fixed velocity command](https://microchiptech.github.io/mcaf-doc/9.0.1/components/testharness.html#test-velctrl-idqpert)) with one of the following:\n\nclamping the rotor to prevent movement\n\nrunning the motor with open-loop commutation, using a fixed commutation angle (see section on commutation issues)\n\ncontrolling the motor to run at constant velocity, with a low-bandwidth velocity loop. (This lets the motor accelerate or decelerate slightly; rotor inertia will smooth out velocity.)\n\nA square wave perturbation in the 20 Hz – 200 Hz range is recommended: for 20 kHz control rate, this corresponds to values of&#96;motor.testing.sqwave.halfPeriod&#96; between 500 and 50. In general the period of the square wave should be just long enough for transients to complete.\n\nNote: Pay special attention to motor commutation. Sensorless position estimators add their own sources of error to commutation angle, and may not be practical to use at zero speed to test current loop tuning. Except where noted, all graphs in this section show data from a motor using a [quadrature encoder](https://microchiptech.github.io/mcaf-doc/9.0.1/algorithms/qei.html#algorithm-qei) for commutation. See the last section on commutation issues for more information.\n\nOperation with open-loop commutation may also be required for current loop tuning if [the normal MCAF startup sequence](https://microchiptech.github.io/mcaf-doc/9.0.1/algorithms/startup.html#algorithm-startup) fails to run or transition properly into closed-loop commutation.\n\n### 5.1.6.3.1. Current loop tuning at zero velocity¶\n\nFigure 5.19 shows an example of the current loop step response of the [Nidec Hurst DMA0204024B101](https://www.microchip.com/DevelopmentTools/ProductDetails/AC300022) motor operated with MCAF on the [dsPICDEM® MCLV‑2 Development Board](https://www.microchip.com/DevelopmentTools/ProductDetails/dm330021-2), with default tuning in motorBench® Development Suite.\n\nFigure 5.19 Case 0: Current loop step response with phase margin \\(\\phi_m = 80^\\circ\\) and PI phase lag at crossover \\(\\phi_z = 45^\\circ\\) (\\(K_p =\\) 0.414 V/A, \\(K_i =\\) 613 V/As). All cases in this section have dead time reduced from 2 μs to 1.2 μs to minimize the effects of dead-time distortion. Step-response graphs included in this section all contain values for phase margin, PI phase lag at crossover (see section on performance criteria for a definition), and crossover frequency \\(\\omega_c\\) in the graph title.¶\n\nThis current loop has a low bandwidth — so low that current does not reach its steady-state value because the velocity is allowed to vary, and the changing back-emf, which results from changes in velocity, acts as a disturbance to the current loop. To avoid this effect, the product of mechanical time constant \\(\\tau_{m1} = \\frac{2JR_s}{3K_e{}^2}\\) and current loop bandwidth should be much greater than 1. For the Nidec Hurst DMA0204024B101, the mechanical time constant \\(\\tau_{m1} =\\) 3.25 ms, and in this particular instance (Case 0) the product \\(\\omega_c\\tau_{m1}\\) = 4.8, not high enough to mitigate the effect of changing back-emf.\n\nSeveral other cases, with the same motor and board, are summarized in Table 5.1.\n\ncase\n\n\\(\\phi_m\\)\n\n\\(\\phi_z\\)\n\n\\(\\omega_c\\) (rad/s)\n\n\\(f_c\\) (Hz)\n\n\\(K_p\\) (V/A)\n\n\\(K_i\\) (V/As)\n\n0\n\n80.0°\n\n45.0°\n\n1478\n\n235\n\n0.414\n\n613\n\n1\n\n70.0°\n\n25.0°\n\n3709\n\n590\n\n1.226\n\n2121\n\n2\n\n45.0°\n\n12.0°\n\n12759\n\n2031\n\n4.487\n\n12168\n\n3\n\n30.0°\n\n5.0°\n\n19662\n\n3129\n\n7.038\n\n12107\n\n4\n\n55.0°\n\n3.0°\n\n12458\n\n1983\n\n4.473\n\n2920\n\n5\n\n80.0°\n\n45.0°\n\n1355\n\n216\n\n0.418\n\n566\n\n| Table 5.1 Tuning parameters for six different cases.¶ |\n| --- |\n\nThe next case (1), shown in Figure 5.20, has slightly lower phase margin and PI phase at crossover, which results in higher bandwidth and a better step response. This looks similar to Case 0 in shape, but the time scale here is 2.5× faster.\n\nFigure 5.20 Case 1: Current loop step response with \\(\\phi_m = 70^\\circ,\\;\\phi_z = 25^\\circ\\) (\\(K_p =\\) 1.226 V/A, \\(K_i =\\) 2121 V/As).¶\n\nThe early part of the step response (during the first 100 μs or so) is dominated by the proportional gain \\(K_p\\). This causes a rapid pulse in voltage. As the current approaches its reference value and the error decreases, the response becomes dominated by the integral term; the integral gain \\(K_i\\) determines how fast this transition occurs.\n\nThe response of Case 1 can still be improved.\n\nCase 2, in Figure 5.21, shows a well-tuned current loop. This has fast bandwidth of about \\(f_s/10\\) (where \\(f_s\\) is the sampling and control rate) and a reasonably good step response without overshoot. Improving bandwidth beyond \\(f_s/10\\) can be done, but is tricky and requires careful attention to discrete-time design as well as the sample-to-output delay.\n\nAgain, note the initial voltage impulse beyond the final value required to maintain current at its reference value.\n\nFigure 5.21 Case 2: Well-tuned current loop step response with \\(\\phi_m = 45^\\circ,\\;\\phi_z = 12^\\circ\\) (\\(K_p =\\) 4.487 V/A, \\(K_i =\\) 12168 V/As).¶\n\nCase 3, in Figure 5.22, shows a current loop with gains that are too high, causing excessive overshoot. Here the overshoot is only about 12%, but if we operate at nonzero velocities the overshoot will get worse.\n\nFigure 5.22 Case 3: High-gain current loop step response with \\(\\phi_m = 30^\\circ,\\;\\phi_z = 5^\\circ\\) (\\(K_p =\\) 7.038 V/A, \\(K_i =\\) 12107 V/As).¶\n\nCase 4, in Figure 5.23, shows a current loop with about the same proportional gain \\(K_p\\) but a much lower integral gain. The proportional gain yields a very good short-term response, but the low integral gain causes a much slower settling time towards the final value.\n\nFigure 5.23 Case 4: Current loop step response with \\(\\phi_m = 55^\\circ,\\;\\phi_z = 3^\\circ\\) (\\(K_p =\\) 4.473 V/A, \\(K_i =\\) 2920 V/As).¶\n\nFinally, Case 5, in Figure 5.24, shows the same phase margin and PI phase lag at crossover as Case 0, but with an external inertial load added to increase the rotor inertia by about a factor of 3. Current loop tuning doesn’t change much, but note the improved settling of the current loop caused by the reduction in velocity fluctuation.\n\nFigure 5.24 Case 5: Current loop step response with \\(\\phi_m = 80^\\circ,\\;\\phi_z = 45^\\circ\\) but with \\(J \\approx 3J_0\\) (\\(K_p =\\) 0.418 V/A, \\(K_i =\\) 566 V/As)¶\n\n### 5.1.6.3.2. Current loop tuning at nonzero velocity¶\n\nAt low velocities, the current loop step response does not change much.\n\nAs the rotor velocity increases, there are cross-axis coupling effects between the d- and q-axes that change the step response somewhat. [2] For this reason, it is important to verify current loop tuning at the upper end of the velocity range. Avoiding voltage saturation is important for the purposes of tuning, so either use an elevated DC link voltage, or choose a velocity that is about 80-90% of maximum velocity.\n\nBelow are the step responses of cases 1 – 3 at 1200 RPM and 2400 RPM.\n\nIn the low-gain controller cases of Figure 5.25 and Figure 5.26, the voltage disturbances of dead-time distortion and back-emf harmonics can cause moderate error, compared to the step response seen at zero velocity.\n\nFigure 5.25 Case 1: Current loop step response of low-gain controller with \\(\\phi_m = 70^\\circ,\\;\\phi_z = 25^\\circ\\) (\\(K_p =\\) 1.226 V/A, \\(K_i =\\) 2121 V/As) at 1200 RPM.¶\n\nFigure 5.26 Case 1: Current loop step response of low-gain controller with \\(\\phi_m = 70^\\circ,\\;\\phi_z = 25^\\circ\\) (\\(K_p =\\) 1.226 V/A, \\(K_i =\\) 2121 V/As) at 2400 RPM.¶\n\nIn the well-tuned case of Figure 5.27 and Figure 5.28, the increased gain improves disturbance rejection, reducing the error from the current reference.\n\nFigure 5.27 Case 2: Well-tuned current loop step response with \\(\\phi_m = 45^\\circ,\\;\\phi_z = 12^\\circ\\) (\\(K_p =\\) 4.487 V/A, \\(K_i =\\) 12168 V/As) at 1200 RPM.¶\n\nFigure 5.28 Case 2: Well-tuned current loop step response with \\(\\phi_m = 45^\\circ,\\;\\phi_z = 12^\\circ\\) (\\(K_p =\\) 4.487 V/A, \\(K_i =\\) 12168 V/As) at 2400 RPM.¶\n\nIn the high-gain case of Figure 5.29 and Figure 5.30, the current overshoot increases with increasing velocity, reaching 20% overshoot at 2400 RPM. This is undesirable and may become worse than shown here due to several causes:\n\npart-to-part variations in the motor parameters\n\npart-to-part variations in current sense circuitry in the drive electronics\n\nresistance and back-emf changes with temperature\n\ninductance changes with iron saturation\n\nIn short: if at all possible, avoid overshoot and leave design margin for parameter tolerances.\n\nFigure 5.29 Case 3: High-gain current loop step response with \\(\\phi_m = 30^\\circ,\\;\\phi_z = 5^\\circ\\) (\\(K_p =\\) 7.038 V/A, \\(K_i =\\) 12107 V/As) at 1200 RPM.¶\n\nFigure 5.30 Case 3: High-gain current loop step response with \\(\\phi_m = 30^\\circ,\\;\\phi_z = 5^\\circ\\) (\\(K_p =\\) 7.038 V/A, \\(K_i =\\) 12107 V/As) at 2400 RPM.¶\n\n### 5.1.6.3.3. Effects of sample-to-update delay¶\n\nA critical bottleneck in providing stable high-bandwidth current loops is the sample-to-update delay \\(T_{su}\\). This is the delay between the instant the ADC inputs are sampled, and the instant the duty cycle of the transistors changes based on the values of those sampled inputs.\n\nReducing the delay \\(T_{su}\\) allows for a more stable current loop at a given bandwidth, or a higher bandwidth for equivalent stability. The difference is most pronounced at high bandwidths (5% or more of the sampling frequency, e.g. 1 kHz and greater for a 20 kHz sampling-and-update rate)\n\nUse of [double-update PWM](https://microchiptech.github.io/mcaf-doc/9.0.1/components/hal.html#hal-pwm-update-options) is recommended, to help reduce sample-to-update delay.\n\n## 5.1.6.4. Tuning criteria and motorBench® Development Suite¶\n\n### 5.1.6.4.1. Performance criteria definitions¶\n\nThe autotuning feature of motorBench® Development Suite allows adjustment of two performance criteria for both the current and velocity loops:\n\nPhase margin \\(\\phi_m\\) is the difference between -180° and the phase of open-loop gain transfer function at the crossover frequency \\(\\omega_c\\), where the open-loop gain has magnitude 1. This represents design margin from the point of instability. Decreased phase margin generally raises both proportional gain \\(K_p\\) and integral gain \\(K_i\\). This can increase the maximum achievable bandwidth and improve the performance of reference tracking and disturbance rejection, but at the cost of decreased stability.\n\nPI phase lag at crossover \\(\\phi_z = \\tan^{-1} K_i/K_p\\omega_c\\) is the phase lag of the PI controller at the crossover frequency. Decreased PI phase lag at crossover decreases the corner frequency (or “zero”) of the PI controller, decreasing integral gain \\(K_i\\) and increasing proportional gain \\(K_p\\). With a fixed phase margin, this generally increases the current loop bandwidth, but at the cost of decreased gain at low frequencies, which reduces the controller’s disturbance rejection.\n\nWhile phase margin may be familiar to engineers with a rudimentary knowledge of control systems, PI phase lag at crossover may not. Figure 5.31 shows a Bode plot of the current loop transfer functions for the Nidec Hurst DMA0204024B101, with the following elements:\n\nThe plant transfer function G(s), representing voltage-to-current gain, is drawn in a thin dash-dot line\n\nPI controller transfer functions K(s), representing current-to-voltage gain, are drawn in dashed lines\n\nOpen-loop gain transfer functions G(s)K(s) are drawn in solid lines\n\nThe transfer functions are evaluated and marked with a small dot at the crossover frequency. Note that in Figure 5.31, the open-loop gain transfer function has a phase of -105°, in order to meet the phase margin constraint of 75°.\n\nThe PI controller zero, which is the frequency where proportional and integral gain are equal and the phase is -45°, is marked with an open circle. The ratio of the PI controller zero to the crossover frequency is \\(\\tan \\phi_z\\), so that low values of PI phase lag at crossover push the controller zero to very low frequencies.\n\nFigure 5.31 Bode plot of selected PI phase lags at crossover, with a phase margin of 75°.¶\n\n### 5.1.6.4.2. Bode plots of example cases¶\n\nFigure 5.32 shows a Bode plot of the examples for cases 0 – 4 discussed earlier in this section.\n\nCases 2 (\\(\\phi_m = 45^\\circ,\\;\\phi_z = 12^\\circ\\)) and 3 (\\(\\phi_m = 30^\\circ,\\;\\phi_z = 5^\\circ\\)) have the highest low-frequency open-loop gain, but the the lower phase margin of case 3 renders it undesirable.\n\nFigure 5.32 Bode plot of current loop transfer functions for example cases discussed in this section¶\n\n### 5.1.6.4.3. Default values of performance criteria¶\n\nThe default values chosen for the current loop in motorBench® Development Suite versions 1.15 – 2.35, namely \\(\\phi_m = 80^\\circ,\\;\\phi_z = 45^\\circ\\), are stable for a very wide range of motors. They are also extremely conservative, and result in a current loop bandwidth that is rather low.\n\nMicrochip staff is re-evaluating these default values for a higher-performance recommendation. In the interim, if careful step-response testing is possible, consider reducing phase margin to the 50° – 70° range and reducing PI phase lag at crossover to the 8° – 20° range. Do not decrease these values below the defaults without testing. PI phase lags below 5° are not recommended without careful study.\n\nAutotuning uses these performance criteria, rather than PI gains or loop bandwidth, as a normalized specification that is somewhat applicable across a wide range of motor and drive combinations. Are the exact values for phase margin and PI phase lag at crossover for the Nidec Hurst DMA0204024B101 shown here in the well-tuned case (\\(\\phi_m = 45^\\circ,\\;\\phi_z = 12^\\circ\\)) applicable to all motors? No. Each motor and drive combination has different characteristics, and there are often subtle second-order effects that may warrant higher or lower settings.\n\nIf you have a motor that seems difficult to tune, please [contact Microchip](https://microchiptech.github.io/mcaf-doc/9.0.1/faq.html#faq-support) so that we can improve our recommendations.\n\n## 5.1.6.5. Adjusting current control gains in MCAF¶\n\nThe best way to adjust current control gains in MCAF is to change the performance criteria (phase margin \\(\\phi_m\\) and PI phase lag at crossover \\(\\phi_z\\)) in the Tune page of motorBench® Development Suite. This may require repeated iterations of code generation, however.\n\nTo fine-tune the current loop more quickly, it is possible to change the current loop gains at runtime directly, by changing the proportional and integral gains of both d-axis and q-axis current loops, using a real-time diagnostic tool to adjust the MCAF variables shown in Listing 5.1.\n\nListing 5.1 ¶\n\n&#96;&#96;&#96;\nmotor.idCtrl.kp\r\nmotor.idCtrl.ki\r\nmotor.iqCtrl.kp\r\nmotor.iqCtrl.ki\r\n\n&#96;&#96;&#96;\n\n(Note that there are also runtime shift counts with the same variable names as the gains, preceded by an&#96;n&#96;, for example&#96;motor.idCtrl.nkp&#96; for the shift count corresponding to&#96;.kp&#96;. If the desired gain would overflow (above 32767 counts), then subtract one from the shift count and divide the gain counts by two.&#96;.kp = 38000, .nkp = 15&#96;, which is not representable, is equivalent to&#96;.kp = 19000, .nkp = 14&#96;, which is representable.)\n\nThe recommended approach is as follows:\n\nMake a copy of the initial gains generated by motorBench® Development Suite, found in&#96;foc_params.h&#96;\n\nAdjust current loop gains at runtime, using a real-time diagnostic tool to perform step-response testing. The most important software variables to watch are\n\n&#96;motor.idq.q&#96;— Q-axis current\n\n&#96;motor.idqCmd.q&#96;— Q-axis current reference\n\n&#96;motor.vdq.q&#96;— Q-axis voltage output from PI controller\n\nDetermine desired software gains empirically\n\nCompute real-world gains corresponding to the software gains\n\nAdjust \\(\\phi_m\\) and \\(\\phi_z\\) in the Tune page of motorBench® Development Suite to produce gains that are close to the desired real-world gains. (At this time, entry of PI gains in the Tune page is not possible, but it may be considered in future versions.)\n\n### 5.1.6.5.1. Example¶\n\nListing 5.2 shows an example set of gains in&#96;foc_params.h&#96; generated by motorBench® Development Suite.\n\nListing 5.2 foc_params.h¶\n\n&#96;&#96;&#96;\n//************** PI Coefficients **************\r\n//// Current loop\r\n// phase margin = 80 deg\r\n// PI phase at crossover = 45.000 deg\r\n// crossover frequency = 1.478 k rad/s (235.238 Hz)\r\n/* Current loop proportional gain */\r\n#define KIP                                  2263      // Q15(  0.06906) = +414.36768 mV/A        = +414.42006 mV/A        - 0.0126%\r\n#define KIP_Q                                  15\r\n/* Current loop integral gain */\r\n#define KII                                   167      // Q15(  0.00510) = +611.57227 V/A/s       = +612.53173 V/A/s       - 0.1566%\r\n#define KII_Q                                  15\r\n\n&#96;&#96;&#96;\n\nSuppose that a well-tuned current loop response can be obtained using a real-time diagnostic tool with the following software gains:\n\n&#96;motor.idCtrl.kp = motor.iqCtrl.kp = 24500&#96;\n\n&#96;motor.idCtrl.ki = motor.iqCtrl.ki =  3300&#96;\n\nThe engineering units can be computed by adjusting the original gain in engineering units by the ratio of new to old software values:\n\n\\(K_p\\) = (24500/2263) × 0.41437 = 4.4861 V/A\n\n\\(K_i\\) = (3300/167) × 611.57 = 12085 V/As\n\nThen adjust phase margin \\(\\phi_m\\) and PI phase lag at crossover \\(\\phi_z\\) of the current loop in the Tune page of motorBench® Development Suite to get close to these values. (Again, decreasing phase margin should increase both \\(K_p\\) and \\(K_i\\); decreasing PI phase lag at crossover increases \\(K_p\\) and decreases \\(K_i\\).)\n\n## 5.1.6.6. Commutation angle issues during current loop tuning¶\n\nCommutation angle accuracy is not particularly critical during current loop tuning, as long as the total error is manageable. Typically a commutation angle error of 15° electrical is acceptable for field-oriented control. High-frequency content (oscillation in the commutation angle) will show up as a disturbance orthogonal to the current vector; in the normal case where D-axis current is approximately zero and the current vector is primarily along the Q-axis, then the D-axis current will show oscillations from commutation angle errors, whereas similar oscillations in the Q-axis current will be much smaller.\n\nIf possible, perform step-response tuning using a quadrature encoder for commutation. Use a tracking loop time constant that is relatively slow: 5 ms is a good default choice.\n\nIf a quadrature encoder is not available, then operation at zero speed may not be possible with closed-loop commutation. (The [AN1292 PLL estimator](https://microchiptech.github.io/mcaf-doc/9.0.1/algorithms/pll.html#algorithm-pll) is generally stable at zero speed, but cannot provide useful torque, whereas the ATPLL has stability issues around zero speed.) If this is the case, use open-loop commutation instead, by taking the following steps using the test harness and a real-time diagnostic tool:\n\nturn on the [commutation override](https://microchiptech.github.io/mcaf-doc/9.0.1/components/testharness.html#test-overrides-commutation)\n\nuse a fixed commutation angle by setting&#96;motor.testing.overrideOmegaElectrical = 0&#96;, which controls the commutation frequency.\n\nAt zero speed, mechanically clamping the rotor can be helpful, but is not necessary, and will not suppress small high-frequency vibrations.\n\nOperation at nonzero speed to check current loop tuning should be done with closed-loop commutation. Again, a quadrature encoder is recommended, but a sensorless estimator may be used for commutation as long as the velocity is large enough for good performance.\n\n### 5.1.6.6.1. Example using the AN1292 PLL¶\n\nSimilar current loop evaluation can be done using the AN1292 PLL at zero speed in closed-loop commutation. Figure 5.33, Figure 5.34, and Figure 5.35 show current loop evaluation of the Nidec Hurst DMA0204024B101 motor with the well-tuned current loop gains (\\(\\phi_m = 45^\\circ,\\;\\phi_z = 12^\\circ\\)) that were used earlier in this section. To keep the current reference from changing quickly, the velocity loop bandwidth was lowered to around 2.2 Hz from the default tuning, by choosing \\(\\phi_m = 70^\\circ,\\;\\phi_z = 20^\\circ\\). (This is not necessary in general — it just makes current loop tuning easier to avoid unnecessary distractions, and a higher-bandwidth velocity loop can be used after current loop tuning is complete.)\n\nSteps in the current reference at 1 ms intervals are visible due to angle and velocity uncertainty from the estimator, but otherwise the current loop tuning behaves almost identically to the case where a quadrature encoder is used for commutation angle.\n\nFigure 5.33 Case 2 with PLL: Well-tuned current loop step response with \\(\\phi_m = 45^\\circ,\\;\\phi_z = 12^\\circ\\) (\\(K_p =\\) 4.487 V/A, \\(K_i =\\) 12168 V/As) at 0 RPM. Velocity tuning has \\(\\phi_m = 70^\\circ,\\;\\phi_z = 20^\\circ\\).¶\n\nFigure 5.34 Case 2 with PLL: Well-tuned current loop step response with \\(\\phi_m = 45^\\circ,\\;\\phi_z = 12^\\circ\\) (\\(K_p =\\) 4.487 V/A, \\(K_i =\\) 12168 V/As) at 1200 RPM. Velocity tuning has \\(\\phi_m = 70^\\circ,\\;\\phi_z = 20^\\circ\\).¶\n\nFigure 5.35 Case 2 with PLL: Well-tuned current loop step response with \\(\\phi_m = 45^\\circ,\\;\\phi_z = 12^\\circ\\) (\\(K_p =\\) 4.487 V/A, \\(K_i =\\) 12168 V/As) at 2400 RPM. Velocity tuning has \\(\\phi_m = 70^\\circ,\\;\\phi_z = 20^\\circ\\).¶\n\n## 5.1.6.7. References¶",
+  "url": "https://microchiptech.github.io/mcaf-doc/9.0.1/algorithms/foc/tuning.html"
+}
+```
+User decision: **accepted**
+
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="web_fetch"><details>
+<summary>Tool use: **web_fetch**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/agent-tools/1e7b2e9a-6d15-4c40-8cd6-943ef8046a67.txt</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Great find. The MCAF documentation has specific guidance on perturbation settings:
+
+**Perturbation frequency (halfperiod):**
+> "A square wave perturbation in the 20 Hz – 200 Hz range is recommended: for 20 kHz control rate, this corresponds to values of `motor.testing.sqwave.halfPeriod` between 500 and 50. In general the period of the square wave should be just long enough for transients to complete."
+
+That means:
+- 50 cycles = 2.5 ms halfperiod = 200 Hz (fastest recommended)
+- 500 cycles = 25 ms halfperiod = 20 Hz (slowest recommended)
+- Our default of 100 cycles = 5 ms = 100 Hz is right in the sweet spot
+
+**Perturbation amplitude:** The doc doesn't specify an explicit amplitude recommendation, but the examples all use step responses that go between negative and positive current values (e.g., -1 A to +1 A). The amplitude is the half-swing, so a 0.5 A amplitude gives a ±0.5 A (1 A total) step, which is very reasonable relative to the 2.2 A max current command.
+
+So our defaults (0.55 A from 25% of max command, 5.0 ms halfperiod) are well within the recommended range. No changes needed -- the current implementation is solid.
