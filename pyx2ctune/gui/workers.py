@@ -193,7 +193,10 @@ class SessionWorker(QObject):
         self.perturbation_started.emit()
 
     def _do_stop_perturbation(self) -> None:
-        self._session.current.stop_perturbation()
+        try:
+            self._session.current.stop_perturbation()
+        except Exception:
+            pass
         self.status.emit("Perturbation stopped")
         self.perturbation_stopped.emit()
 

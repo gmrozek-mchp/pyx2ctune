@@ -392,6 +392,11 @@ class MainWindow(QMainWindow):
         self._set_ui_state(connected=True)
         self._mode_label.setText("--")
         self._guard_label.setText("Inactive")
+        self._worker.submit(Command.STOP_PERTURBATION)
+        self._worker.submit(Command.EXIT_TEST_MODE)
+        self._worker.submit(
+            Command.READ_GAINS, axis=self._axis_combo.currentText(),
+        )
 
     def _on_disconnected(self) -> None:
         self._session = None
