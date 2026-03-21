@@ -337,7 +337,7 @@ class OpenLoopTab(QWidget):
         self._guard_label.setText(
             "Active" if mode_name != "NORMAL" else "Inactive",
         )
-        from mctoolbox.mcaf.test_harness import OverrideFlag
+        from pymcaf.constants import OverrideFlag
         for key, cb in self._override_checks.items():
             flag = OverrideFlag[key.upper()]
             cb.setChecked(bool(overrides & flag))

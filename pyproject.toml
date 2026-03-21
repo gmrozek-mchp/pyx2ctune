@@ -32,7 +32,7 @@ dev = [
 mctoolbox-gui = "mctoolbox.gui:main"
 
 [tool.setuptools.packages.find]
-include = ["mctoolbox*"]
+include = ["pymcaf*", "mctoolbox*"]
 
 [tool.setuptools.package-data]
 "mctoolbox.wizards" = ["*.yaml", "*.yml"]

@@ -14,7 +14,7 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, QThread, pyqtSignal, pyqtSlot, QMutex, QWaitCondition
 
-from mctoolbox.mcaf.test_harness import ForceState
+from pymcaf.constants import ForceState
 
 
 class Command(Enum):
@@ -226,7 +226,7 @@ class SessionWorker(QObject):
         from mctoolbox.mcaf.session import TuningSession
 
         self.status.emit(f"Connecting to {port}...")
-        session = TuningSession(
+        session = TuningSession.from_x2cscope(
             port=port,
             elf_file=elf_file,
             baud_rate=baud_rate,

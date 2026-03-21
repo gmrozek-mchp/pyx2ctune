@@ -55,8 +55,8 @@ class VelocityTuning(_interfaces.LoopTuner):
     """Velocity loop PI gain tuning interface.
 
     Reads and writes PI gains for the velocity controller, converting
-    between engineering units and firmware fixed-point counts using
-    the ParameterDB.
+    between engineering units and firmware fixed-point counts via the
+    pymcaf Connection.
     """
 
     def __init__(self, session: TuningSession):
@@ -66,25 +66,19 @@ class VelocityTuning(_interfaces.LoopTuner):
 
     def get_gains(self, **kwargs: Any) -> VelocityGains:
         """Read velocity PI gains from firmware."""
-        kp_counts = int(self._session.read_variable(_GAIN_VARS["kp"]))
-        ki_counts = int(self._session.read_variable(_GAIN_VARS["ki"]))
-        nkp = int(self._session.read_variable(_GAIN_VARS["nkp"]))
-        nki = int(self._session.read_variable(_GAIN_VARS["nki"]))
+        conn = self._session.conn
 
-        params = self._session.params
-        if params is not None:
-            kp_info = params.get_info(_PARAM_KWP)
-            ki_info = params.get_info(_PARAM_KWI)
-            kp_eng = (kp_counts / (1 << (15 - nkp))) * kp_info.scale
-            ki_eng = (ki_counts / (1 << (15 - nki))) * ki_info.scale
-        else:
-            kp_eng = float(kp_counts)
-            ki_eng = float(ki_counts)
+        kp_eng, kp_counts, kp_q = conn.read_pi_gain(
+            _GAIN_VARS["kp"], _GAIN_VARS["nkp"], _PARAM_KWP,
+        )
+        ki_eng, ki_counts, ki_q = conn.read_pi_gain(
+            _GAIN_VARS["ki"], _GAIN_VARS["nki"], _PARAM_KWI,
+        )
 
         result = VelocityGains(
             kp=kp_eng, ki=ki_eng,
             kp_counts=kp_counts, ki_counts=ki_counts,
-            kp_shift=15 - nkp, ki_shift=15 - nki,
+            kp_shift=kp_q, ki_shift=ki_q,
         )
         logger.info(
             "Read velocity gains: Kp=%.6f %s (counts=%d, Q%d), "
@@ -106,42 +100,38 @@ class VelocityTuning(_interfaces.LoopTuner):
         Returns:
             VelocityGains reflecting the values actually written.
         """
+        conn = self._session.conn
+
         if units == "counts":
             kp_counts = int(kp)
             ki_counts = int(ki)
-            nkp = None
-            nki = None
+            self._session.write_variable(_GAIN_VARS["kp"], kp_counts)
+            self._session.write_variable(_GAIN_VARS["ki"], ki_counts)
+
+            actual_nkp = int(self._session.read_variable(_GAIN_VARS["nkp"]))
+            actual_nki = int(self._session.read_variable(_GAIN_VARS["nki"]))
+            kp_q = 15 - actual_nkp
+            ki_q = 15 - actual_nki
+
         elif units == "engineering":
-            kp_counts, nkp = self._engineering_to_counts_with_shift(
-                _PARAM_KWP, kp,
+            kp_counts, nkp = conn.write_pi_gain(
+                _GAIN_VARS["kp"], _GAIN_VARS["nkp"], _PARAM_KWP, kp,
             )
-            ki_counts, nki = self._engineering_to_counts_with_shift(
-                _PARAM_KWI, ki,
+            ki_counts, nki = conn.write_pi_gain(
+                _GAIN_VARS["ki"], _GAIN_VARS["nki"], _PARAM_KWI, ki,
             )
+            kp_q = 15 - nkp
+            ki_q = 15 - nki
         else:
             raise ValueError(
                 f"units must be 'engineering' or 'counts', got {units!r}"
             )
 
-        self._session.write_variable(_GAIN_VARS["kp"], kp_counts)
-        self._session.write_variable(_GAIN_VARS["ki"], ki_counts)
-        if nkp is not None:
-            self._session.write_variable(_GAIN_VARS["nkp"], nkp)
-        if nki is not None:
-            self._session.write_variable(_GAIN_VARS["nki"], nki)
-
-        actual_nkp = nkp if nkp is not None else int(
-            self._session.read_variable(_GAIN_VARS["nkp"])
-        )
-        actual_nki = nki if nki is not None else int(
-            self._session.read_variable(_GAIN_VARS["nki"])
-        )
-
         result = VelocityGains(
             kp=kp if units == "engineering" else float(kp_counts),
             ki=ki if units == "engineering" else float(ki_counts),
             kp_counts=kp_counts, ki_counts=ki_counts,
-            kp_shift=15 - actual_nkp, ki_shift=15 - actual_nki,
+            kp_shift=kp_q, ki_shift=ki_q,
         )
         logger.info(
             "Set velocity gains: Kp=%.6f %s (counts=%d, Q%d), "
@@ -151,42 +141,11 @@ class VelocityTuning(_interfaces.LoopTuner):
         )
         return result
 
-    def _engineering_to_counts_with_shift(
-        self, param_key: str, value: float,
-    ) -> tuple[int, int]:
-        """Convert an engineering value to counts with overflow-safe shifting."""
-        params = self._session.params
-        if params is None:
-            raise RuntimeError(
-                "ParameterDB required for engineering unit conversion."
-            )
-
-        info = params.get_info(param_key)
-        nkp = 15 - info.q
-        effective_q = 15 - nkp
-        counts = round(value / info.scale * (1 << effective_q))
-
-        while not (-32768 <= counts <= 32767) and effective_q > 0:
-            nkp += 1
-            effective_q = 15 - nkp
-            counts = round(value / info.scale * (1 << effective_q))
-
-        if not (-32768 <= counts <= 32767):
-            raise ValueError(
-                f"Cannot represent {value} {info.units} for {param_key!r} "
-                f"in int16 (tried nkp up to {nkp}, Q{effective_q})"
-            )
-
-        return counts, nkp
-
     # ── Velocity Command ──────────────────────────────────────────────
 
     @property
     def fullscale_velocity_rpm(self) -> float | None:
         """Return the full-scale velocity in RPM from parameters.json, or None."""
-        return self._fullscale_velocity_rpm()
-
-    def _fullscale_velocity_rpm(self) -> float | None:
         params = self._session.params
         if params is None:
             return None
@@ -197,17 +156,13 @@ class VelocityTuning(_interfaces.LoopTuner):
 
     def rpm_to_counts(self, rpm: float) -> int:
         """Convert RPM to Q15 velocity counts."""
-        fs = self._fullscale_velocity_rpm()
-        if fs is None:
-            raise RuntimeError("ParameterDB required for RPM conversion.")
-        return round(rpm / fs * 32768)
+        conn = self._session.conn
+        return conn.engineering_to_q15(rpm, _PARAM_FULLSCALE_VELOCITY)
 
     def counts_to_rpm(self, counts: int) -> float:
         """Convert Q15 velocity counts to RPM."""
-        fs = self._fullscale_velocity_rpm()
-        if fs is None:
-            return float(counts)
-        return (counts / 32768) * fs
+        conn = self._session.conn
+        return conn.q15_to_engineering(counts, _PARAM_FULLSCALE_VELOCITY)
 
     def set_velocity_command(self, rpm: float) -> None:
         """Set the velocity command in RPM.
@@ -294,7 +249,7 @@ class VelocityTuning(_interfaces.LoopTuner):
         Half-period defaults to 50 ms (10 Hz square wave).
         """
         amplitude_rpm = 100.0
-        fs = self._fullscale_velocity_rpm()
+        fs = self.fullscale_velocity_rpm
         if fs is not None:
             amplitude_rpm = round(fs * 0.05, 1)
         return {

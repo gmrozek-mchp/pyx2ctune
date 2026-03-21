@@ -1,7 +1,7 @@
 """Scope data acquisition for step response capture (MCAF implementation).
 
-Uses pyX2Cscope's scope channel API to capture waveform data from the
-target firmware and packages it into a StepResponse dataclass for analysis.
+Uses the pymcaf scope interface to capture waveform data from the target
+firmware and packages it into a StepResponse dataclass for analysis.
 Supports triggered acquisition on the current reference for stable
 continuous display during square-wave perturbation testing.
 """
@@ -74,7 +74,7 @@ _VIEW_CONFIGS = {
 class ScopeCapture(_interfaces.WaveformCapture):
     """Scope data acquisition manager.
 
-    Configures pyX2Cscope scope channels for current loop analysis,
+    Configures scope channels for various loop analysis views,
     captures frames, and returns StepResponse objects.
     """
 
@@ -130,26 +130,21 @@ class ScopeCapture(_interfaces.WaveformCapture):
 
         var_names, loop_type, axis = _VIEW_CONFIGS[view]
 
-        x2c = self._session.x2c
-        x2c.clear_all_scope_channel()
+        scope = self._session.conn.scope
 
+        scope.clear_channels()
         for role, var_name in var_names.items():
-            var = self._session.get_variable(var_name)
-            x2c.add_scope_channel(var)
+            scope.add_channel(var_name)
             logger.debug("Added scope channel: %s (%s)", var_name, role)
 
         if trigger:
-            from pyx2cscope.x2cscope import TriggerConfig
-
-            ref_var = self._session.get_variable(var_names["reference"])
-            config = TriggerConfig(
-                variable=ref_var,
-                trigger_level=trigger_level,
-                trigger_mode=1,
-                trigger_delay=trigger_delay,
-                trigger_edge=trigger_edge,
+            scope.set_trigger(
+                var_names["reference"],
+                level=trigger_level,
+                mode=1,
+                delay=trigger_delay,
+                edge=trigger_edge,
             )
-            x2c.set_scope_trigger(config)
             logger.info(
                 "Scope trigger on %s: level=%s, edge=%s, delay=%d",
                 var_names["reference"],
@@ -158,9 +153,9 @@ class ScopeCapture(_interfaces.WaveformCapture):
                 trigger_delay,
             )
         else:
-            x2c.reset_scope_trigger()
+            scope.reset_trigger()
 
-        x2c.set_sample_time(sample_time)
+        scope.set_sample_time(sample_time)
         self._configured_axis = axis
         self._configured_vars = var_names
         self._sample_time = sample_time
@@ -209,12 +204,13 @@ class ScopeCapture(_interfaces.WaveformCapture):
 
         logger.info("Capture requested (%s-axis, timeout=%.1fs)", self._configured_axis, timeout)
 
-        x2c = self._session.x2c
-        x2c.request_scope_data()
+        scope = self._session.conn.scope
+
+        scope.request_data()
 
         start = time.monotonic()
         poll_interval = 0.02
-        while not x2c.is_scope_data_ready():
+        while not scope.is_data_ready():
             if abort_event is not None and abort_event.is_set():
                 raise InterruptedError("Capture aborted")
             if time.monotonic() - start > timeout:
@@ -228,7 +224,7 @@ class ScopeCapture(_interfaces.WaveformCapture):
         elapsed = time.monotonic() - start
         logger.info("Scope data ready after %.2fs", elapsed)
 
-        channel_data = x2c.get_scope_channel_data(valid_data=True)
+        channel_data = scope.get_channel_data()
 
         var_names = self._configured_vars
         loop = self._loop_type
@@ -261,90 +257,43 @@ class ScopeCapture(_interfaces.WaveformCapture):
         ref_units = "counts"
         meas_units = "counts"
         out_units = "counts"
-        params = self._session.params
+
+        conn = self._session.conn
 
         if loop == "velocity":
-            if params is not None:
-                try:
-                    vfs = params.get_info(
-                        _PARAM_FULLSCALE_VELOCITY,
-                    ).intended_value
-                    measured_data = (measured_data / 32768.0) * vfs
-                    reference_data = (reference_data / 32768.0) * vfs
-                    ref_units = meas_units = "RPM"
-                except KeyError:
-                    pass
-                try:
-                    ifs = params.get_info(
-                        _PARAM_FULLSCALE_CURRENT,
-                    ).intended_value
-                    output_data = (output_data / 32768.0) * ifs
-                    out_units = "A"
-                    current_units = "A"
-                except KeyError:
-                    pass
+            measured_data, reference_data, meas_units, ref_units = (
+                self._try_scale_q15(measured_data, reference_data, _PARAM_FULLSCALE_VELOCITY, "RPM", conn)
+            )
+            output_data, out_units = self._try_scale_single(
+                output_data, _PARAM_FULLSCALE_CURRENT, "A", conn,
+            )
+            current_units = out_units
         elif loop == "open_voltage":
-            if params is not None:
-                try:
-                    vfs = params.get_info(
-                        _PARAM_FULLSCALE_VOLTAGE,
-                    ).intended_value
-                    measured_data = (measured_data / 32768.0) * vfs
-                    reference_data = (reference_data / 32768.0) * vfs
-                    voltage_units = "V"
-                    ref_units = meas_units = "V"
-                except KeyError:
-                    pass
-                try:
-                    ifs = params.get_info(
-                        _PARAM_FULLSCALE_CURRENT,
-                    ).intended_value
-                    output_data = (output_data / 32768.0) * ifs
-                    out_units = "A"
-                    current_units = "A"
-                except KeyError:
-                    pass
+            measured_data, reference_data, meas_units, ref_units = (
+                self._try_scale_q15(measured_data, reference_data, _PARAM_FULLSCALE_VOLTAGE, "V", conn)
+            )
+            voltage_units = meas_units
+            output_data, out_units = self._try_scale_single(
+                output_data, _PARAM_FULLSCALE_CURRENT, "A", conn,
+            )
+            current_units = out_units
         elif loop == "open_current":
-            if params is not None:
-                try:
-                    ifs = params.get_info(
-                        _PARAM_FULLSCALE_CURRENT,
-                    ).intended_value
-                    measured_data = (measured_data / 32768.0) * ifs
-                    reference_data = (reference_data / 32768.0) * ifs
-                    current_units = "A"
-                    ref_units = meas_units = "A"
-                except KeyError:
-                    pass
-                try:
-                    vfs = params.get_info(
-                        _PARAM_FULLSCALE_VELOCITY,
-                    ).intended_value
-                    output_data = (output_data / 32768.0) * vfs
-                    out_units = "RPM"
-                except KeyError:
-                    pass
+            measured_data, reference_data, meas_units, ref_units = (
+                self._try_scale_q15(measured_data, reference_data, _PARAM_FULLSCALE_CURRENT, "A", conn)
+            )
+            current_units = meas_units
+            output_data, out_units = self._try_scale_single(
+                output_data, _PARAM_FULLSCALE_VELOCITY, "RPM", conn,
+            )
         else:
-            if params is not None:
-                try:
-                    ifs = params.get_info(
-                        _PARAM_FULLSCALE_CURRENT,
-                    ).intended_value
-                    measured_data = (measured_data / 32768.0) * ifs
-                    reference_data = (reference_data / 32768.0) * ifs
-                    current_units = "A"
-                    ref_units = meas_units = "A"
-                except KeyError:
-                    pass
-                try:
-                    vfs = params.get_info(
-                        _PARAM_FULLSCALE_VOLTAGE,
-                    ).intended_value
-                    output_data = (output_data / 32768.0) * vfs
-                    voltage_units = "V"
-                    out_units = "V"
-                except KeyError:
-                    pass
+            measured_data, reference_data, meas_units, ref_units = (
+                self._try_scale_q15(measured_data, reference_data, _PARAM_FULLSCALE_CURRENT, "A", conn)
+            )
+            current_units = meas_units
+            output_data, out_units = self._try_scale_single(
+                output_data, _PARAM_FULLSCALE_VOLTAGE, "V", conn,
+            )
+            voltage_units = out_units
 
         gains = {}
         try:
@@ -403,6 +352,46 @@ class ScopeCapture(_interfaces.WaveformCapture):
             },
         )
 
+    # ── Unit conversion helpers ───────────────────────────────────────
+
+    @staticmethod
+    def _try_scale_q15(
+        measured: np.ndarray,
+        reference: np.ndarray,
+        fullscale_param: str,
+        unit_label: str,
+        conn,
+    ) -> tuple[np.ndarray, np.ndarray, str, str]:
+        """Scale a pair of Q15 arrays to engineering units if possible."""
+        params = conn.params
+        if params is not None:
+            try:
+                fs = params.get_info(fullscale_param).intended_value
+                measured = (measured / 32768.0) * fs
+                reference = (reference / 32768.0) * fs
+                return measured, reference, unit_label, unit_label
+            except KeyError:
+                pass
+        return measured, reference, "counts", "counts"
+
+    @staticmethod
+    def _try_scale_single(
+        data: np.ndarray,
+        fullscale_param: str,
+        unit_label: str,
+        conn,
+    ) -> tuple[np.ndarray, str]:
+        """Scale a single Q15 array to engineering units if possible."""
+        params = conn.params
+        if params is not None:
+            try:
+                fs = params.get_info(fullscale_param).intended_value
+                data = (data / 32768.0) * fs
+                return data, unit_label
+            except KeyError:
+                pass
+        return data, "counts"
+
     # ── Trigger level conversion ─────────────────────────────────────
 
     def trigger_level_to_q15(
@@ -425,9 +414,8 @@ class ScopeCapture(_interfaces.WaveformCapture):
             "velocity": _PARAM_FULLSCALE_VELOCITY,
         }
         param_name = param_map.get(fullscale_key, fullscale_key)
-        params = self._session.params
-        if params is not None:
-            fs = params.get_fullscale(param_name)
-            if fs > 0:
-                return round(value / fs * 32768)
-        return round(value)
+        conn = self._session.conn
+        try:
+            return conn.engineering_to_q15(value, param_name)
+        except (RuntimeError, ValueError):
+            return round(value)

@@ -12,8 +12,17 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from enum import IntEnum
 from typing import TYPE_CHECKING
+
+from pymcaf.constants import (
+    GUARD_KEY_RESET,
+    GUARD_KEY_VALID,
+    GUARD_TIMEOUT_MAX,
+    MOTOR_STATES,
+    ForceState,
+    OperatingMode,
+    OverrideFlag,
+)
 
 from mctoolbox import interfaces as _interfaces
 
@@ -22,47 +31,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Guard constants
-GUARD_KEY_VALID = 0xD1A6
-GUARD_KEY_RESET = 0x0000
-GUARD_TIMEOUT_MAX = 0xFFFF
-
 # At 20kHz ISR, 0xFFFF counts = ~3.27 seconds.  Refresh well before expiry.
 _GUARD_REFRESH_INTERVAL_S = 1.5
-
-
-class OperatingMode(IntEnum):
-    """MCAF test harness operating modes (motor.testing.operatingMode).
-
-    From test_harness.h: MCAF_OPERATING_MODE enum.
-    """
-
-    DISABLED = 0
-    FORCE_VOLTAGE_DQ = 1
-    FORCE_CURRENT = 2
-    NORMAL = 3
-
-
-class ForceState(IntEnum):
-    """Forced state transitions (motor.testing.forceStateChange)."""
-
-    NONE = 0
-    RUN = 1
-    STOP = 2
-    STOP_NOW = 3
-
-
-class OverrideFlag(IntEnum):
-    """Override bitfield positions in motor.testing.overrides."""
-
-    VELOCITY_COMMAND = 0x0001
-    COMMUTATION = 0x0002
-    DC_LINK_COMPENSATION = 0x0004
-    STALL_DETECTION = 0x0008
-    STARTUP_PAUSE = 0x0010
-    FLUX_CONTROL = 0x0020
-    ZERO_SEQUENCE_MODULATION = 0x0040
-
 
 # Firmware variable paths
 _VAR_GUARD_KEY = "systemData.testing.guard.key"
@@ -81,18 +51,6 @@ _VAR_MOTOR_STATE = "motor.state"
 _PARAM_FULLSCALE_CURRENT = "mcapi.fullscale.current"
 _PARAM_FULLSCALE_VOLTAGE = "mcapi.fullscale.voltage"
 _PARAM_FULLSCALE_VELOCITY = "mcapi.fullscale.velocity"
-
-MOTOR_STATES = {
-    0: "RESTART",
-    1: "STOPPED",
-    2: "STARTING",
-    3: "RUNNING",
-    4: "STOPPING",
-    5: "FAULT",
-    6: "TEST_DISABLE",
-    7: "TEST_ENABLE",
-    8: "TEST_RESTART",
-}
 
 
 class TestHarness(_interfaces.TestHarness):
@@ -217,7 +175,7 @@ class TestHarness(_interfaces.TestHarness):
         """Background thread that periodically refreshes the guard timeout."""
         while not self._guard_stop_event.wait(timeout=_GUARD_REFRESH_INTERVAL_S):
             try:
-                self._session.get_variable(_VAR_GUARD_TIMEOUT).set_value(GUARD_TIMEOUT_MAX)
+                self._session.write_variable(_VAR_GUARD_TIMEOUT, GUARD_TIMEOUT_MAX)
             except Exception:
                 logger.warning("Guard timeout refresh failed", exc_info=True)
 
@@ -399,15 +357,6 @@ class TestHarness(_interfaces.TestHarness):
         return d, q
 
     # ── Engineering-unit helpers ──────────────────────────────────────
-    # These methods perform the unit conversion that was previously
-    # done inline in the GUI worker.
-
-    def _get_fullscale(self, param_name: str) -> float:
-        """Read a fullscale value from parameters.json, or 0 if unavailable."""
-        params = self._session.params
-        if params is not None:
-            return params.get_fullscale(param_name)
-        return 0.0
 
     def set_commutation_frequency_rpm(self, rpm: float) -> int:
         """Set commutation frequency in RPM, returning the Q15 count written.
@@ -418,8 +367,8 @@ class TestHarness(_interfaces.TestHarness):
         Returns:
             The raw Q15 count actually written to firmware.
         """
-        fs = self._get_fullscale(_PARAM_FULLSCALE_VELOCITY)
-        counts = round(rpm / fs * 32768) if fs > 0 else 0
+        conn = self._session.conn
+        counts = conn.engineering_to_q15(rpm, _PARAM_FULLSCALE_VELOCITY)
         self.set_commutation_frequency(counts)
         logger.info("Set commutation frequency: %.1f RPM (%d counts)", rpm, counts)
         return counts
@@ -434,9 +383,9 @@ class TestHarness(_interfaces.TestHarness):
         Returns:
             Tuple of (d_counts, q_counts) actually written.
         """
-        fs = self._get_fullscale(_PARAM_FULLSCALE_CURRENT)
-        d_counts = round(d_amps / fs * 32768) if fs > 0 else 0
-        q_counts = round(q_amps / fs * 32768) if fs > 0 else 0
+        conn = self._session.conn
+        d_counts = conn.engineering_to_q15(d_amps, _PARAM_FULLSCALE_CURRENT)
+        q_counts = conn.engineering_to_q15(q_amps, _PARAM_FULLSCALE_CURRENT)
         self.set_dq_current(d_counts, q_counts)
         logger.info(
             "Set dq current: d=%.3f A (%d), q=%.3f A (%d)",
@@ -454,9 +403,9 @@ class TestHarness(_interfaces.TestHarness):
         Returns:
             Tuple of (d_counts, q_counts) actually written.
         """
-        fs = self._get_fullscale(_PARAM_FULLSCALE_VOLTAGE)
-        d_counts = round(d_volts / fs * 32768) if fs > 0 else 0
-        q_counts = round(q_volts / fs * 32768) if fs > 0 else 0
+        conn = self._session.conn
+        d_counts = conn.engineering_to_q15(d_volts, _PARAM_FULLSCALE_VOLTAGE)
+        q_counts = conn.engineering_to_q15(q_volts, _PARAM_FULLSCALE_VOLTAGE)
         self.set_dq_voltage(d_counts, q_counts)
         logger.info(
             "Set dq voltage: d=%.2f V (%d), q=%.2f V (%d)",

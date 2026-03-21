@@ -73,7 +73,7 @@ class CurrentTuning(_interfaces.LoopTuner):
 
     Reads and writes PI gains for the d-axis and q-axis current loops,
     converting between engineering units (V/A, V/A/s) and firmware
-    fixed-point counts using the ParameterDB.
+    fixed-point counts via the pymcaf Connection.
     """
 
     def __init__(self, session: TuningSession):
@@ -92,29 +92,23 @@ class CurrentTuning(_interfaces.LoopTuner):
         if axis not in _GAIN_VARS:
             raise ValueError(f"axis must be 'q' or 'd', got {axis!r}")
 
+        conn = self._session.conn
         vars_ = _GAIN_VARS[axis]
-        kp_counts = int(self._session.read_variable(vars_["kp"]))
-        ki_counts = int(self._session.read_variable(vars_["ki"]))
-        nkp = int(self._session.read_variable(vars_["nkp"]))
-        nki = int(self._session.read_variable(vars_["nki"]))
 
-        params = self._session.params
-        if params is not None:
-            kp_info = params.get_info(_PARAM_KIP)
-            ki_info = params.get_info(_PARAM_KII)
-            kp_eng = (kp_counts / (1 << (15 - nkp))) * kp_info.scale
-            ki_eng = (ki_counts / (1 << (15 - nki))) * ki_info.scale
-        else:
-            kp_eng = float(kp_counts)
-            ki_eng = float(ki_counts)
+        kp_eng, kp_counts, kp_q = conn.read_pi_gain(
+            vars_["kp"], vars_["nkp"], _PARAM_KIP,
+        )
+        ki_eng, ki_counts, ki_q = conn.read_pi_gain(
+            vars_["ki"], vars_["nki"], _PARAM_KII,
+        )
 
         result = CurrentGains(
             kp=kp_eng,
             ki=ki_eng,
             kp_counts=kp_counts,
             ki_counts=ki_counts,
-            kp_shift=15 - nkp,
-            ki_shift=15 - nki,
+            kp_shift=kp_q,
+            ki_shift=ki_q,
         )
         logger.info(
             "Read %s-axis gains: Kp=%.4f %s (counts=%d, Q%d), "
@@ -135,11 +129,11 @@ class CurrentTuning(_interfaces.LoopTuner):
         """Set current loop PI gains.
 
         When units="engineering", kp is in V/A and ki is in V/A/s.
-        The method converts to fixed-point counts using ParameterDB and
-        manages shift counts to handle potential overflow.
+        The method converts to fixed-point counts via the pymcaf
+        Connection, managing shift counts to handle potential overflow.
 
-        When units="counts", kp and ki are written directly as integer counts
-        (shift counts are not modified).
+        When units="counts", kp and ki are written directly as integer
+        counts (shift counts are not modified).
 
         Args:
             kp: Proportional gain.
@@ -150,46 +144,48 @@ class CurrentTuning(_interfaces.LoopTuner):
         Returns:
             CurrentGains reflecting the values actually written.
         """
+        conn = self._session.conn
+        target_axes = self._resolve_axes(axes)
+
         if units == "counts":
             kp_counts = int(kp)
             ki_counts = int(ki)
-            nkp = None
-            nki = None
+            for axis in target_axes:
+                vars_ = _GAIN_VARS[axis]
+                self._session.write_variable(vars_["kp"], kp_counts)
+                self._session.write_variable(vars_["ki"], ki_counts)
+
+            first = _GAIN_VARS[target_axes[0]]
+            actual_nkp = int(self._session.read_variable(first["nkp"]))
+            actual_nki = int(self._session.read_variable(first["nki"]))
+            kp_q = 15 - actual_nkp
+            ki_q = 15 - actual_nki
+
         elif units == "engineering":
-            kp_counts, nkp = self._engineering_to_counts_with_shift(
-                _PARAM_KIP, kp
-            )
-            ki_counts, nki = self._engineering_to_counts_with_shift(
-                _PARAM_KII, ki
-            )
+            kp_counts_result = ki_counts_result = 0
+            kp_q = ki_q = 0
+            for axis in target_axes:
+                vars_ = _GAIN_VARS[axis]
+                kp_counts_result, nkp = conn.write_pi_gain(
+                    vars_["kp"], vars_["nkp"], _PARAM_KIP, kp,
+                )
+                ki_counts_result, nki = conn.write_pi_gain(
+                    vars_["ki"], vars_["nki"], _PARAM_KII, ki,
+                )
+                kp_q = 15 - nkp
+                ki_q = 15 - nki
+            kp_counts = kp_counts_result
+            ki_counts = ki_counts_result
         else:
             raise ValueError(f"units must be 'engineering' or 'counts', got {units!r}")
-
-        target_axes = self._resolve_axes(axes)
-
-        for axis in target_axes:
-            vars_ = _GAIN_VARS[axis]
-            self._session.write_variable(vars_["kp"], kp_counts)
-            self._session.write_variable(vars_["ki"], ki_counts)
-            if nkp is not None:
-                self._session.write_variable(vars_["nkp"], nkp)
-            if nki is not None:
-                self._session.write_variable(vars_["nki"], nki)
-
-        actual_nkp = nkp if nkp is not None else int(
-            self._session.read_variable(_GAIN_VARS[target_axes[0]]["nkp"])
-        )
-        actual_nki = nki if nki is not None else int(
-            self._session.read_variable(_GAIN_VARS[target_axes[0]]["nki"])
-        )
 
         result = CurrentGains(
             kp=kp if units == "engineering" else float(kp_counts),
             ki=ki if units == "engineering" else float(ki_counts),
             kp_counts=kp_counts,
             ki_counts=ki_counts,
-            kp_shift=15 - actual_nkp,
-            ki_shift=15 - actual_nki,
+            kp_shift=kp_q,
+            ki_shift=ki_q,
         )
         logger.info(
             "Set current gains: Kp=%.4f %s (counts=%d, Q%d), "
@@ -199,39 +195,6 @@ class CurrentTuning(_interfaces.LoopTuner):
             axes,
         )
         return result
-
-    def _engineering_to_counts_with_shift(
-        self, param_key: str, value: float
-    ) -> tuple[int, int]:
-        """Convert an engineering value to counts, adjusting nkp if needed.
-
-        Returns:
-            (counts, nkp) tuple.
-        """
-        params = self._session.params
-        if params is None:
-            raise RuntimeError(
-                "ParameterDB required for engineering unit conversion. "
-                "Pass parameters_json to TuningSession."
-            )
-
-        info = params.get_info(param_key)
-        nkp = 15 - info.q
-        effective_q = 15 - nkp
-        counts = round(value / info.scale * (1 << effective_q))
-
-        while not (-32768 <= counts <= 32767) and effective_q > 0:
-            nkp += 1
-            effective_q = 15 - nkp
-            counts = round(value / info.scale * (1 << effective_q))
-
-        if not (-32768 <= counts <= 32767):
-            raise ValueError(
-                f"Cannot represent {value} {info.units} for {param_key!r} "
-                f"in int16 (tried nkp up to {nkp}, Q{effective_q})"
-            )
-
-        return counts, nkp
 
     @staticmethod
     def _resolve_axes(axes: str) -> list[str]:
@@ -247,9 +210,6 @@ class CurrentTuning(_interfaces.LoopTuner):
     @property
     def fullscale_current(self) -> float | None:
         """Return the full-scale current in Amps from parameters.json, or None."""
-        return self._fullscale_current()
-
-    def _fullscale_current(self) -> float | None:
         params = self._session.params
         if params is None:
             return None
@@ -269,20 +229,13 @@ class CurrentTuning(_interfaces.LoopTuner):
 
     def amps_to_counts(self, amps: float) -> int:
         """Convert a current amplitude in Amps to Q15 counts."""
-        ifs = self._fullscale_current()
-        if ifs is None:
-            raise RuntimeError(
-                "ParameterDB required for current unit conversion. "
-                "Pass parameters_json to TuningSession."
-            )
-        return round(amps / ifs * 32768)
+        conn = self._session.conn
+        return conn.engineering_to_q15(amps, _PARAM_FULLSCALE_CURRENT)
 
     def counts_to_amps(self, counts: int) -> float:
         """Convert Q15 counts to a current amplitude in Amps."""
-        ifs = self._fullscale_current()
-        if ifs is None:
-            return float(counts)
-        return (counts / 32768) * ifs
+        conn = self._session.conn
+        return conn.q15_to_engineering(counts, _PARAM_FULLSCALE_CURRENT)
 
     def ms_to_isr_cycles(self, ms: float) -> int:
         """Convert a half-period in milliseconds to ISR cycles."""
@@ -303,7 +256,7 @@ class CurrentTuning(_interfaces.LoopTuner):
 
     def get_perturbation_scaling(self) -> dict | None:
         """Return scaling info for GUI display, or None if parameters unavailable."""
-        ifs = self._fullscale_current()
+        ifs = self.fullscale_current
         isr_period = self._isr_period_s()
         if ifs is None or isr_period is None:
             return None
