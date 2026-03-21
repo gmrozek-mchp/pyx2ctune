@@ -291,3 +291,60 @@ Both workflows trigger on the same events (push to `main`, tags, PRs, manual dis
 _**User**_
 
 no. that's not what I meant. I want the tarball and deb available as separate downloads
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+The user wants the Linux build split into two separate workflow files - one that produces the tarball (.tar.gz) and one that produces the .deb package. Not splitting Linux from the other platforms.
+
+Let me re-read the original to understand the Linux packaging steps, then create two separate workflow files for the two Linux package formats.
+
+Wait, but they said "split linux build on github into two separate files" - they mean the two Linux artifacts (tarball and deb) should be separate downloadable artifacts, not necessarily separate workflow files. Or do they mean separate workflow files?
+
+Re-reading: "I want the tarball and deb available as separate downloads" - this means separate artifacts. Currently they're both uploaded under the single `pyx2ctune-linux` artifact name. The user wants them as two separate downloadable artifacts.
+ 
+In GitHub Actions, uploading multiple files under one artifact name bundles them into a single download. To make them independently downloadable, I need to upload them as separate artifacts with different names. I'll update the Linux workflow to upload the tarball and deb as two distinct artifacts, then adjust the release job to handle both. I should also restore the Linux matrix entry in the main build workflow since the user didn't ask for that to be split out. I need to revert the workflow changes and restructure the Linux artifact uploads so the tarball and deb file are separate downloads within the same build workflow.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Got it — you want the `.tar.gz` and `.deb` as separate downloadable artifacts, not separate workflow files. Let me revert the split and instead upload them as two distinct artifacts.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="delete_file">
+<details><summary>Tool use: **delete_file**</summary>
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="delete_file"><details>
+<summary>Tool use: **delete_file**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/.github/workflows/build.yml</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+The workflow is back in a single file. The Linux build now uploads two separate artifacts:
+
+- **`pyx2ctune-linux-tar`** — the `.tar.gz` portable archive
+- **`pyx2ctune-linux-deb`** — the `.deb` installer package
+
+Each is independently downloadable from the Actions run page. The release job still picks up both (along with macOS/Windows artifacts) via the `artifacts/**/*` globs.
