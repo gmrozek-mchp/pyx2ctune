@@ -253,3 +253,4 @@ class PlotWidget(QWidget):
         self._ax_voltage.clear()
         self._setup_empty()
         self._canvas.draw_idle()
+

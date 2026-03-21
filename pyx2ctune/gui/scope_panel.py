@@ -1,7 +1,9 @@
 """Shared scope panel with preset views, trigger controls, and capture buttons.
 
-Provides a unified capture interface used by all tabs. The View dropdown
-selects which firmware variables are captured and how units are displayed.
+Provides a unified capture interface used by all tabs. A tab bar at the
+top selects which firmware variables are captured and how units are displayed.
+Each tab has its own content page (via QStackedWidget) for view-specific
+controls, while sample time, trigger, and capture buttons are shared.
 Trigger level is automatically converted from engineering units to Q15
 counts based on the selected view's fullscale parameter.
 """
@@ -11,13 +13,14 @@ from __future__ import annotations
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QDoubleSpinBox,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
     QSpinBox,
+    QStackedWidget,
+    QTabBar,
     QVBoxLayout,
     QWidget,
 )
@@ -37,13 +40,13 @@ class ScopePanel(QWidget):
 
     capture_single_requested = pyqtSignal()
     continuous_start_requested = pyqtSignal()
-    continuous_stop_requested = pyqtSignal()
-    cancel_capture_requested = pyqtSignal()
+    stop_requested = pyqtSignal()
     view_changed = pyqtSignal(str)  # view_id
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._fullscale: dict[str, float] = {}
+        self._continuous = False
         # Per-view settings: view_id → (trigger_enabled, trigger_level, sample_time)
         self._view_settings: dict[str, tuple[bool, float, int]] = {}
         self._prev_view: str | None = None
@@ -58,13 +61,20 @@ class ScopePanel(QWidget):
         grp = QGroupBox("Scope")
         outer = QVBoxLayout(grp)
 
-        view_row = QHBoxLayout()
-        view_row.addWidget(QLabel("View:"))
-        self._view_combo = QComboBox()
-        for view_id, display, *_ in _VIEW_PRESETS:
-            self._view_combo.addItem(display, view_id)
-        view_row.addWidget(self._view_combo, stretch=1)
-        outer.addLayout(view_row)
+        self._view_tabs = QTabBar()
+        self._view_tabs.setExpanding(False)
+        self._view_stack = QStackedWidget()
+        self._view_pages: dict[str, QWidget] = {}
+        for i, (view_id, display, *_) in enumerate(_VIEW_PRESETS):
+            self._view_tabs.addTab(display)
+            self._view_tabs.setTabData(i, view_id)
+            page = QWidget()
+            page.setLayout(QVBoxLayout())
+            page.layout().setContentsMargins(0, 0, 0, 0)
+            self._view_stack.addWidget(page)
+            self._view_pages[view_id] = page
+        outer.addWidget(self._view_tabs)
+        outer.addWidget(self._view_stack)
 
         sample_row = QHBoxLayout()
         sample_row.addWidget(QLabel("Sample time:"))
@@ -101,36 +111,29 @@ class ScopePanel(QWidget):
         self._capture_btn.setMinimumHeight(36)
         btn_layout.addWidget(self._capture_btn)
 
-        self._continuous_start_btn = QPushButton("Start")
-        self._continuous_start_btn.setMinimumHeight(36)
-        font = self._continuous_start_btn.font()
+        self._run_btn = QPushButton("Run")
+        self._run_btn.setMinimumHeight(36)
+        font = self._run_btn.font()
         font.setBold(True)
-        self._continuous_start_btn.setFont(font)
-        btn_layout.addWidget(self._continuous_start_btn)
+        self._run_btn.setFont(font)
+        btn_layout.addWidget(self._run_btn)
 
-        self._continuous_stop_btn = QPushButton("Stop")
-        self._continuous_stop_btn.setMinimumHeight(36)
-        self._continuous_stop_btn.setEnabled(False)
-        btn_layout.addWidget(self._continuous_stop_btn)
-
-        self._cancel_btn = QPushButton("Cancel")
-        self._cancel_btn.setMinimumHeight(36)
-        self._cancel_btn.setEnabled(False)
-        btn_layout.addWidget(self._cancel_btn)
+        self._stop_btn = QPushButton("Stop")
+        self._stop_btn.setMinimumHeight(36)
+        self._stop_btn.setEnabled(False)
+        btn_layout.addWidget(self._stop_btn)
 
         outer.addLayout(btn_layout)
         return grp
 
     def _connect_internal(self) -> None:
-        self._view_combo.currentIndexChanged.connect(self._on_view_changed)
+        self._view_tabs.currentChanged.connect(self._view_stack.setCurrentIndex)
+        self._view_tabs.currentChanged.connect(self._on_view_changed)
         self._capture_btn.clicked.connect(self.capture_single_requested.emit)
-        self._continuous_start_btn.clicked.connect(
+        self._run_btn.clicked.connect(
             self.continuous_start_requested.emit,
         )
-        self._continuous_stop_btn.clicked.connect(
-            self.continuous_stop_requested.emit,
-        )
-        self._cancel_btn.clicked.connect(self.cancel_capture_requested.emit)
+        self._stop_btn.clicked.connect(self.stop_requested.emit)
 
     def _on_view_changed(self, index: int) -> None:
         if index < 0 or index >= len(_VIEW_PRESETS):
@@ -167,13 +170,27 @@ class ScopePanel(QWidget):
 
     def current_view(self) -> str:
         """Return the selected view ID (e.g. 'current_q', 'velocity')."""
-        return self._view_combo.currentData() or "current_q"
+        idx = self._view_tabs.currentIndex()
+        if 0 <= idx < self._view_tabs.count():
+            return self._view_tabs.tabData(idx) or "current_q"
+        return "current_q"
 
     def set_view(self, view_id: str) -> None:
         """Programmatically select a view by its ID."""
-        idx = self._view_combo.findData(view_id)
-        if idx >= 0:
-            self._view_combo.setCurrentIndex(idx)
+        for i in range(self._view_tabs.count()):
+            if self._view_tabs.tabData(i) == view_id:
+                self._view_tabs.setCurrentIndex(i)
+                return
+
+    def view_page(self, view_id: str) -> QWidget:
+        """Return the per-tab content page for *view_id*.
+
+        Callers can add view-specific widgets to the page's layout::
+
+            page = scope_panel.view_page("velocity")
+            page.layout().addWidget(my_custom_widget)
+        """
+        return self._view_pages[view_id]
 
     def sample_time(self) -> int:
         return self._sample_time_spin.value()
@@ -184,7 +201,7 @@ class ScopePanel(QWidget):
     def trigger_level_q15(self) -> float:
         """Return trigger level converted to raw Q15 counts."""
         value = self._trigger_level_spin.value()
-        idx = self._view_combo.currentIndex()
+        idx = self._view_tabs.currentIndex()
         if idx < 0 or idx >= len(_VIEW_PRESETS):
             return round(value)
         fs_key = _VIEW_PRESETS[idx][4]
@@ -195,11 +212,11 @@ class ScopePanel(QWidget):
 
     def set_connected(self, connected: bool) -> None:
         self._capture_btn.setEnabled(connected)
-        self._continuous_start_btn.setEnabled(connected)
-        self._continuous_stop_btn.setEnabled(False)
-        self._cancel_btn.setEnabled(False)
-        self._view_combo.setEnabled(connected)
+        self._run_btn.setEnabled(connected)
+        self._stop_btn.setEnabled(False)
         self._sample_time_spin.setEnabled(connected)
+        self._trigger_check.setEnabled(connected)
+        self._trigger_level_spin.setEnabled(connected)
 
     def on_connected(self, session) -> None:
         """Store fullscale values for trigger level conversion."""
@@ -225,29 +242,33 @@ class ScopePanel(QWidget):
         self._sample_time_spin.setValue(1)
 
     def on_capture_started(self) -> None:
-        if not self._continuous_stop_btn.isEnabled():
-            self._capture_btn.setEnabled(False)
-            self._cancel_btn.setEnabled(True)
+        self._capture_btn.setEnabled(False)
+        self._run_btn.setEnabled(False)
+        self._stop_btn.setEnabled(True)
 
     def on_capture_done(self) -> None:
-        if self._continuous_stop_btn.isEnabled():
+        if self._continuous:
             return
-        self._cancel_btn.setEnabled(False)
         self._capture_btn.setEnabled(True)
+        self._run_btn.setEnabled(True)
+        self._stop_btn.setEnabled(False)
 
     def on_capture_cancelled(self) -> None:
-        self._cancel_btn.setEnabled(False)
         self._capture_btn.setEnabled(True)
+        self._run_btn.setEnabled(True)
+        self._stop_btn.setEnabled(False)
 
     def on_continuous_started(self) -> None:
-        self._continuous_start_btn.setEnabled(False)
-        self._continuous_stop_btn.setEnabled(True)
+        self._continuous = True
         self._capture_btn.setEnabled(False)
+        self._run_btn.setEnabled(False)
+        self._stop_btn.setEnabled(True)
 
     def on_continuous_stopped(self) -> None:
-        self._continuous_start_btn.setEnabled(True)
-        self._continuous_stop_btn.setEnabled(False)
+        self._continuous = False
         self._capture_btn.setEnabled(True)
+        self._run_btn.setEnabled(True)
+        self._stop_btn.setEnabled(False)
 
     # ── Settings persistence ──────────────────────────────────────────
 

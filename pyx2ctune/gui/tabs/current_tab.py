@@ -244,8 +244,18 @@ class CurrentLoopTab(QWidget):
     def set_connected(self, connected: bool) -> None:
         self._read_gains_btn.setEnabled(connected)
         self._set_gains_btn.setEnabled(connected)
+        self._kp_spin.setEnabled(connected)
+        self._ki_spin.setEnabled(connected)
+
+        self._radio_vel_override.setEnabled(connected)
+        self._radio_force_current.setEnabled(connected)
+        self._vel_cmd_spin.setEnabled(connected)
         self._enter_test_btn.setEnabled(connected)
         self._exit_test_btn.setEnabled(connected)
+
+        self._axis_combo.setEnabled(connected)
+        self._amplitude_spin.setEnabled(connected)
+        self._halfperiod_spin.setEnabled(connected)
         self._start_perturb_btn.setEnabled(connected)
         self._stop_perturb_btn.setEnabled(connected)
 

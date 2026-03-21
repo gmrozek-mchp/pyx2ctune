@@ -224,9 +224,17 @@ class VelocityLoopTab(QWidget):
     def set_connected(self, connected: bool) -> None:
         self._read_gains_btn.setEnabled(connected)
         self._set_gains_btn.setEnabled(connected)
+        self._kwp_spin.setEnabled(connected)
+        self._kwi_spin.setEnabled(connected)
+
+        self._velocity_spin.setEnabled(connected)
         self._set_velocity_btn.setEnabled(connected)
+
         self._enter_test_btn.setEnabled(connected)
         self._exit_test_btn.setEnabled(connected)
+
+        self._amplitude_spin.setEnabled(connected)
+        self._halfperiod_spin.setEnabled(connected)
         self._start_perturb_btn.setEnabled(connected)
         self._stop_perturb_btn.setEnabled(connected)
 

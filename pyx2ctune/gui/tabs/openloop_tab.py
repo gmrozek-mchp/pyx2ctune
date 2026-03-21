@@ -276,10 +276,22 @@ class OpenLoopTab(QWidget):
         self._enter_current_btn.setEnabled(connected)
         self._exit_test_btn.setEnabled(connected)
         self._read_status_btn.setEnabled(connected)
+
+        for cb in self._override_checks.values():
+            cb.setEnabled(connected)
         self._apply_overrides_btn.setEnabled(connected)
+
+        self._omega_spin.setEnabled(connected)
         self._set_omega_btn.setEnabled(connected)
+
+        self._id_spin.setEnabled(connected)
+        self._iq_spin.setEnabled(connected)
         self._set_idq_btn.setEnabled(connected)
+
+        self._vd_spin.setEnabled(connected)
+        self._vq_spin.setEnabled(connected)
         self._set_vdq_btn.setEnabled(connected)
+
         self._force_run_btn.setEnabled(connected)
         self._force_stop_btn.setEnabled(connected)
         self._force_stop_now_btn.setEnabled(connected)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import serial.tools.list_ports
 from PyQt5.QtCore import Qt, QSettings, QThread, QTimer
 from PyQt5.QtGui import QFont
@@ -169,6 +170,12 @@ class MainWindow(QMainWindow):
             layout.addWidget(lbl, row, 1)
 
         layout.setColumnStretch(1, 1)
+
+        self._save_data_btn = QPushButton("Save Data\u2026")
+        self._save_data_btn.setEnabled(False)
+        next_row = len(labels)
+        layout.addWidget(self._save_data_btn, next_row, 0, 1, 2)
+
         return grp
 
     # ── Worker Setup ──────────────────────────────────────────────────
@@ -225,9 +232,11 @@ class MainWindow(QMainWindow):
         sp = self._scope_panel
         sp.capture_single_requested.connect(self._on_scope_single)
         sp.continuous_start_requested.connect(self._on_scope_continuous_start)
-        sp.continuous_stop_requested.connect(self._on_stop_continuous)
-        sp.cancel_capture_requested.connect(self._on_cancel_capture)
+        sp.stop_requested.connect(self._on_stop)
         sp.view_changed.connect(self._on_view_switched)
+
+        # Save data
+        self._save_data_btn.clicked.connect(self._on_save_data)
 
         # Worker results → current tab
         self._worker.connected.connect(self._on_connected)
@@ -491,11 +500,131 @@ class MainWindow(QMainWindow):
         )
         self._worker.submit(Command.CAPTURE_CONTINUOUS_START, timeout=10.0)
 
-    def _on_stop_continuous(self) -> None:
+    def _on_stop(self) -> None:
         self._worker.request_stop_continuous()
-
-    def _on_cancel_capture(self) -> None:
         self._worker.cancel_capture()
+
+    # ── Slots: data export ────────────────────────────────────────────
+
+    def _on_save_data(self) -> None:
+        view = self._scope_panel.current_view()
+        cached = self._view_cache.get(view)
+        if cached is None:
+            QMessageBox.information(
+                self, "No Data",
+                "No captured data for the current view.",
+            )
+            return
+
+        response, metrics = cached
+        default_name = f"pyx2ctune_{view}"
+        filters = (
+            "CSV Files (*.csv);;"
+            "NumPy Archive (*.npz);;"
+            "JSON (*.json)"
+        )
+        path, selected_filter = QFileDialog.getSaveFileName(
+            self, "Save Capture Data", default_name, filters,
+        )
+        if not path:
+            return
+
+        try:
+            if path.endswith(".npz"):
+                self._write_npz(path, response, metrics, view)
+            elif path.endswith(".json"):
+                self._write_json(path, response, metrics, view)
+            else:
+                if not path.endswith(".csv"):
+                    path += ".csv"
+                self._write_csv(path, response, metrics, view)
+            self._status_bar.showMessage(f"Data saved to {path}")
+        except OSError as exc:
+            QMessageBox.critical(
+                self, "Save Failed", f"Could not write file:\n\n{exc}",
+            )
+
+    @staticmethod
+    def _build_metadata(response, metrics, view: str) -> dict:
+        meta = {
+            "view": view,
+            "loop_type": response.loop_type,
+            "axis": response.axis,
+            "sample_time": response.sample_time,
+            "control_period_us": response.control_period_us,
+            "reference_units": response.reference_units or response.current_units,
+            "measured_units": response.measured_units or response.current_units,
+            "output_units": response.output_units or response.voltage_units,
+        }
+        if response.gains:
+            meta["gains"] = dict(response.gains)
+        if metrics is not None and metrics.n_steps > 0:
+            meta["metrics"] = {
+                "overshoot": float(metrics.overshoot),
+                "rise_time_us": float(metrics.rise_time_us),
+                "settling_time_us": float(metrics.settling_time_us),
+                "steady_state_error": float(metrics.steady_state_error),
+                "n_steps": int(metrics.n_steps),
+            }
+        return meta
+
+    @staticmethod
+    def _write_csv(path: str, response, metrics, view: str) -> None:
+        import csv
+
+        meta = MainWindow._build_metadata(response, metrics, view)
+
+        with open(path, "w", newline="") as f:
+            writer = csv.writer(f)
+
+            for key, val in meta.items():
+                if isinstance(val, dict):
+                    for k2, v2 in val.items():
+                        writer.writerow([f"# {key}.{k2}", v2])
+                else:
+                    writer.writerow([f"# {key}", val])
+
+            writer.writerow([
+                "time_us",
+                f"reference ({meta['reference_units']})",
+                f"measured ({meta['measured_units']})",
+                f"output ({meta['output_units']})",
+            ])
+
+            for i in range(len(response.time_us)):
+                writer.writerow([
+                    f"{response.time_us[i]:.2f}",
+                    f"{response.reference[i]:.6g}",
+                    f"{response.measured[i]:.6g}",
+                    f"{response.voltage[i]:.6g}",
+                ])
+
+    @staticmethod
+    def _write_npz(path: str, response, metrics, view: str) -> None:
+        import json as _json
+        meta = MainWindow._build_metadata(response, metrics, view)
+        np.savez(
+            path,
+            time_us=response.time_us,
+            reference=response.reference,
+            measured=response.measured,
+            output=response.voltage,
+            metadata=_json.dumps(meta),
+        )
+
+    @staticmethod
+    def _write_json(path: str, response, metrics, view: str) -> None:
+        import json as _json
+        meta = MainWindow._build_metadata(response, metrics, view)
+        data = {
+            **meta,
+            "time_us": response.time_us.tolist(),
+            "reference": response.reference.tolist(),
+            "measured": response.measured.tolist(),
+            "output": response.voltage.tolist(),
+        }
+        with open(path, "w") as f:
+            _json.dump(data, f, indent=2)
 
     # ── Slots: capture lifecycle ──────────────────────────────────────
 
@@ -515,6 +644,7 @@ class MainWindow(QMainWindow):
         view = self._scope_panel.current_view()
         self._view_cache[view] = (response, metrics)
         self._update_metrics(metrics)
+        self._save_data_btn.setEnabled(True)
 
     def _on_view_switched(self, view_id: str) -> None:
         """Restore cached plot/metrics when the user switches views."""
@@ -524,9 +654,11 @@ class MainWindow(QMainWindow):
             self._plot.clear()
             self._plot.update_plot(response, metrics)
             self._update_metrics(metrics)
+            self._save_data_btn.setEnabled(True)
         else:
             self._plot.clear()
             self._clear_metrics()
+            self._save_data_btn.setEnabled(False)
 
     def _update_metrics(self, metrics) -> None:
         if metrics.n_steps > 0:
