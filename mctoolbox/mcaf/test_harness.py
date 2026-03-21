@@ -15,8 +15,10 @@ import time
 from enum import IntEnum
 from typing import TYPE_CHECKING
 
+from mctoolbox import interfaces as _interfaces
+
 if TYPE_CHECKING:
-    from pyx2ctune.connection import TuningSession
+    from mctoolbox.mcaf.session import TuningSession
 
 logger = logging.getLogger(__name__)
 
@@ -74,9 +76,26 @@ _VAR_IDQCMDRAW_Q = "motor.idqCmdRaw.q"
 _VAR_OVERRIDE_OMEGA = "motor.testing.overrideOmegaElectrical"
 _VAR_VDQ_CMD_D = "motor.vdqCmd.d"
 _VAR_VDQ_CMD_Q = "motor.vdqCmd.q"
+_VAR_MOTOR_STATE = "motor.state"
+
+_PARAM_FULLSCALE_CURRENT = "mcapi.fullscale.current"
+_PARAM_FULLSCALE_VOLTAGE = "mcapi.fullscale.voltage"
+_PARAM_FULLSCALE_VELOCITY = "mcapi.fullscale.velocity"
+
+MOTOR_STATES = {
+    0: "RESTART",
+    1: "STOPPED",
+    2: "STARTING",
+    3: "RUNNING",
+    4: "STOPPING",
+    5: "FAULT",
+    6: "TEST_DISABLE",
+    7: "TEST_ENABLE",
+    8: "TEST_RESTART",
+}
 
 
-class TestHarness:
+class TestHarness(_interfaces.TestHarness):
     """Manages the MCAF runtime test harness.
 
     Handles guard key activation/refresh, operating mode transitions,
@@ -89,6 +108,67 @@ class TestHarness:
         self._guard_thread: threading.Thread | None = None
         self._guard_stop_event = threading.Event()
         self._guard_active = False
+
+    # ── ABC interface ──────────────────────────────────────────────────
+
+    def enter_test_mode(self, mode: str = "current") -> str:
+        """Enter a test operating mode by name.
+
+        Args:
+            mode: One of "current", "velocity_override", "force_voltage".
+
+        Returns:
+            The name of the operating mode actually entered.
+        """
+        dispatch = {
+            "current": self.enter_current_test_mode,
+            "velocity_override": self.enter_velocity_override_mode,
+            "force_voltage": self.enter_force_voltage_mode,
+        }
+        fn = dispatch.get(mode)
+        if fn is None:
+            raise ValueError(
+                f"Unknown test mode {mode!r}; "
+                f"choose from {list(dispatch)}"
+            )
+        fn()
+        return self.get_operating_mode().name
+
+    def exit_test_mode(self) -> None:
+        """Return to normal operation safely.
+
+        Steps:
+          1. Stop any active perturbation
+          2. Clear overrides
+          3. Set operatingMode = OM_NORMAL
+          4. Force state to STOP
+          5. Disable guard
+        """
+        try:
+            self._session.write_variable(_VAR_SQWAVE_VALUE, 0)
+        except Exception:
+            pass
+
+        try:
+            self.set_overrides(0)
+        except Exception:
+            pass
+
+        self.set_operating_mode(OperatingMode.NORMAL)
+        time.sleep(0.05)
+        self.force_state(ForceState.STOP)
+        self.disable_guard()
+        logger.info("Exited test mode, returned to OM_NORMAL")
+
+    def get_motor_state(self) -> _interfaces.MotorState:
+        """Read the current motor state machine state."""
+        value = int(self._session.read_variable(_VAR_MOTOR_STATE))
+        name = MOTOR_STATES.get(value, f"UNKNOWN({value})")
+        return _interfaces.MotorState(value=value, name=name)
+
+    @property
+    def guard_active(self) -> bool:
+        return self._guard_active
 
     # ── Guard Management ──────────────────────────────────────────────
 
@@ -109,7 +189,7 @@ class TestHarness:
         self._guard_stop_event.clear()
         self._guard_thread = threading.Thread(
             target=self._guard_refresh_loop,
-            name="pyx2ctune-guard-refresh",
+            name="mctoolbox-guard-refresh",
             daemon=True,
         )
         self._guard_thread.start()
@@ -140,10 +220,6 @@ class TestHarness:
                 self._session.get_variable(_VAR_GUARD_TIMEOUT).set_value(GUARD_TIMEOUT_MAX)
             except Exception:
                 logger.warning("Guard timeout refresh failed", exc_info=True)
-
-    @property
-    def guard_active(self) -> bool:
-        return self._guard_active
 
     # ── Operating Mode ────────────────────────────────────────────────
 
@@ -233,11 +309,6 @@ class TestHarness:
           2. Set operatingMode = OM_DISABLED
           3. Zero baseline dq current commands (idqCmdRaw)
           4. Set operatingMode = OM_FORCE_CURRENT
-
-        In OM_FORCE_CURRENT the velocity loop and flux control are inactive,
-        so idqCmdRaw.d/.q retain stale values from the previous operating
-        state.  Zeroing them ensures the perturbation signal is the only
-        current reference (MCAF docs: "Set desired dq current" step).
         """
         self.enable_guard()
         self.set_operating_mode(OperatingMode.DISABLED)
@@ -254,11 +325,6 @@ class TestHarness:
           1. Enable guard
           2. Set velocity command override flag
           3. Force motor to RUN state
-
-        The velocity command should be set before or immediately after
-        calling this method.  The motor stays in OM_NORMAL so the full
-        velocity loop remains active — the override only bypasses the
-        external potentiometer input.
         """
         self.enable_guard()
         self.set_override_flags(velocity_command=True)
@@ -332,28 +398,68 @@ class TestHarness:
         q = int(self._session.read_variable(_VAR_VDQ_CMD_Q))
         return d, q
 
-    def exit_test_mode(self) -> None:
-        """Return to normal operation safely.
+    # ── Engineering-unit helpers ──────────────────────────────────────
+    # These methods perform the unit conversion that was previously
+    # done inline in the GUI worker.
 
-        Steps:
-          1. Stop any active perturbation
-          2. Clear overrides
-          3. Set operatingMode = OM_NORMAL
-          4. Force state to STOP
-          5. Disable guard
+    def _get_fullscale(self, param_name: str) -> float:
+        """Read a fullscale value from parameters.json, or 0 if unavailable."""
+        params = self._session.params
+        if params is not None:
+            return params.get_fullscale(param_name)
+        return 0.0
+
+    def set_commutation_frequency_rpm(self, rpm: float) -> int:
+        """Set commutation frequency in RPM, returning the Q15 count written.
+
+        Args:
+            rpm: Desired commutation frequency in RPM.
+
+        Returns:
+            The raw Q15 count actually written to firmware.
         """
-        try:
-            self._session.write_variable(_VAR_SQWAVE_VALUE, 0)
-        except Exception:
-            pass
+        fs = self._get_fullscale(_PARAM_FULLSCALE_VELOCITY)
+        counts = round(rpm / fs * 32768) if fs > 0 else 0
+        self.set_commutation_frequency(counts)
+        logger.info("Set commutation frequency: %.1f RPM (%d counts)", rpm, counts)
+        return counts
 
-        try:
-            self.set_overrides(0)
-        except Exception:
-            pass
+    def set_dq_current_amps(self, d_amps: float, q_amps: float) -> tuple[int, int]:
+        """Set dq current command in Amps, returning the Q15 counts written.
 
-        self.set_operating_mode(OperatingMode.NORMAL)
-        time.sleep(0.05)
-        self.force_state(ForceState.STOP)
-        self.disable_guard()
-        logger.info("Exited test mode, returned to OM_NORMAL")
+        Args:
+            d_amps: D-axis current in Amps.
+            q_amps: Q-axis current in Amps.
+
+        Returns:
+            Tuple of (d_counts, q_counts) actually written.
+        """
+        fs = self._get_fullscale(_PARAM_FULLSCALE_CURRENT)
+        d_counts = round(d_amps / fs * 32768) if fs > 0 else 0
+        q_counts = round(q_amps / fs * 32768) if fs > 0 else 0
+        self.set_dq_current(d_counts, q_counts)
+        logger.info(
+            "Set dq current: d=%.3f A (%d), q=%.3f A (%d)",
+            d_amps, d_counts, q_amps, q_counts,
+        )
+        return d_counts, q_counts
+
+    def set_dq_voltage_volts(self, d_volts: float, q_volts: float) -> tuple[int, int]:
+        """Set dq voltage command in Volts, returning the Q15 counts written.
+
+        Args:
+            d_volts: D-axis voltage in Volts.
+            q_volts: Q-axis voltage in Volts.
+
+        Returns:
+            Tuple of (d_counts, q_counts) actually written.
+        """
+        fs = self._get_fullscale(_PARAM_FULLSCALE_VOLTAGE)
+        d_counts = round(d_volts / fs * 32768) if fs > 0 else 0
+        q_counts = round(q_volts / fs * 32768) if fs > 0 else 0
+        self.set_dq_voltage(d_counts, q_counts)
+        logger.info(
+            "Set dq voltage: d=%.2f V (%d), q=%.2f V (%d)",
+            d_volts, d_counts, q_volts, q_counts,
+        )
+        return d_counts, q_counts

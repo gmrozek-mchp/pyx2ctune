@@ -228,12 +228,9 @@ class ScopePanel(QWidget):
                 ("voltage", "mcapi.fullscale.voltage"),
                 ("velocity", "mcapi.fullscale.velocity"),
             ):
-                try:
-                    self._fullscale[key] = params.get_info(
-                        param_name,
-                    ).intended_value
-                except (KeyError, AttributeError):
-                    pass
+                fs = params.get_fullscale(param_name)
+                if fs > 0:
+                    self._fullscale[key] = fs
 
     def on_disconnected(self) -> None:
         self._fullscale = {}

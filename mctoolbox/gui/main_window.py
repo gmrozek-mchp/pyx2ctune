@@ -1,4 +1,4 @@
-"""Main application window for pyx2ctune GUI."""
+"""Main application window for mctoolbox GUI."""
 
 from __future__ import annotations
 
@@ -26,12 +26,13 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from pyx2ctune.gui.plot_widget import PlotWidget
-from pyx2ctune.gui.scope_panel import ScopePanel
-from pyx2ctune.gui.tabs.current_tab import CurrentLoopTab
-from pyx2ctune.gui.tabs.openloop_tab import OpenLoopTab
-from pyx2ctune.gui.tabs.velocity_tab import VelocityLoopTab
-from pyx2ctune.gui.workers import Command, SessionWorker
+from mctoolbox.gui.plot_widget import PlotWidget
+from mctoolbox.gui.scope_panel import ScopePanel
+from mctoolbox.gui.tabs.current_tab import CurrentLoopTab
+from mctoolbox.gui.tabs.openloop_tab import OpenLoopTab
+from mctoolbox.gui.tabs.velocity_tab import VelocityLoopTab
+from mctoolbox.gui.wizard import WizardPanel
+from mctoolbox.gui.workers import Command, SessionWorker
 
 _MONO = QFont()
 _MONO.setStyleHint(QFont.Monospace)
@@ -41,11 +42,11 @@ _MONO.setPointSize(10)
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("pyx2ctune -- Motor Tuning")
+        self.setWindowTitle("mctoolbox -- Motor Tuning")
         self.setMinimumSize(1100, 700)
 
         self._session = None
-        self._settings = QSettings("pyx2ctune", "pyx2ctune")
+        self._settings = QSettings("mctoolbox", "mctoolbox")
         self._view_cache: dict[str, tuple] = {}  # view_id → (response, metrics)
 
         self._build_ui()
@@ -91,11 +92,17 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(self._plot, stretch=3)
         right_layout.addWidget(self._build_metrics_panel(), stretch=0)
 
+        # Wizard sidebar (hidden by default)
+        self._wizard_panel = WizardPanel()
+        self._wizard_panel.hide()
+
+        splitter.addWidget(self._wizard_panel)
         splitter.addWidget(self._tabs)
         splitter.addWidget(right)
         splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
-        splitter.setSizes([360, 740])
+        splitter.setStretchFactor(1, 0)
+        splitter.setStretchFactor(2, 1)
+        splitter.setSizes([0, 360, 740])
 
         root.addWidget(splitter, stretch=1)
 
@@ -143,7 +150,11 @@ class MainWindow(QMainWindow):
         btn_layout = QHBoxLayout()
         self._connect_btn = QPushButton("Connect")
         self._disconnect_btn = QPushButton("Disconnect")
+        self._wizard_toggle_btn = QPushButton("Wizard")
+        self._wizard_toggle_btn.setCheckable(True)
+        self._wizard_toggle_btn.setFixedWidth(70)
         btn_layout.addStretch()
+        btn_layout.addWidget(self._wizard_toggle_btn)
         btn_layout.addWidget(self._connect_btn)
         btn_layout.addWidget(self._disconnect_btn)
         layout.addLayout(btn_layout, 0, 5, 1, 1)
@@ -278,6 +289,16 @@ class MainWindow(QMainWindow):
         self._worker.status.connect(self._status_bar.showMessage)
         self._worker.busy_changed.connect(self._on_busy_changed)
 
+        # Wizard panel
+        self._wizard_toggle_btn.toggled.connect(self._on_wizard_toggled)
+        self._wizard_panel.close_requested.connect(
+            lambda: self._wizard_toggle_btn.setChecked(False),
+        )
+        self._wizard_panel.set_worker(self._worker)
+        self._wizard_panel.engine.status_message.connect(
+            self._status_bar.showMessage,
+        )
+
     # ── UI State ──────────────────────────────────────────────────────
 
     def _set_ui_state(self, connected: bool) -> None:
@@ -294,6 +315,17 @@ class MainWindow(QMainWindow):
         self._velocity_tab.set_connected(connected)
         self._openloop_tab.set_connected(connected)
         self._scope_panel.set_connected(connected)
+
+    # ── Slots: Wizard ─────────────────────────────────────────────────
+
+    def _on_wizard_toggled(self, checked: bool) -> None:
+        self._wizard_panel.setVisible(checked)
+        if checked:
+            self._splitter.setSizes([340, 360, 740])
+        else:
+            sizes = self._splitter.sizes()
+            sizes[0] = 0
+            self._splitter.setSizes(sizes)
 
     # ── Slots: Connection ─────────────────────────────────────────────
 
@@ -354,6 +386,7 @@ class MainWindow(QMainWindow):
         self._velocity_tab.on_connected(session)
         self._openloop_tab.on_connected(session)
         self._scope_panel.on_connected(session)
+        self._wizard_panel.set_connected(True)
 
         self._worker.submit(Command.STOP_PERTURBATION)
         self._worker.submit(Command.EXIT_TEST_MODE)
@@ -373,6 +406,7 @@ class MainWindow(QMainWindow):
         self._velocity_tab.on_disconnected()
         self._openloop_tab.on_disconnected()
         self._scope_panel.on_disconnected()
+        self._wizard_panel.set_connected(False)
 
     def _poll_speed(self) -> None:
         if self._session is not None:
@@ -517,7 +551,7 @@ class MainWindow(QMainWindow):
             return
 
         response, metrics = cached
-        default_name = f"pyx2ctune_{view}"
+        default_name = f"mctoolbox_{view}"
         filters = (
             "CSV Files (*.csv);;"
             "NumPy Archive (*.npz);;"

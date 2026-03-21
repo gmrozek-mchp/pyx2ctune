@@ -110,6 +110,13 @@ class ParameterDB:
             )
         return counts
 
+    def get_fullscale(self, param_name: str) -> float:
+        """Read a fullscale value from parameters.json, or 0 if unavailable."""
+        try:
+            return self.get_info(param_name).intended_value
+        except (KeyError, AttributeError):
+            return 0.0
+
     def list_keys(self) -> list[str]:
         """Return all parameter keys."""
         return list(self._by_key.keys())

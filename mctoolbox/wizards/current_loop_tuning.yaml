@@ -1,0 +1,173 @@
+id: current_loop_tuning
+name: "Current Loop Tuning"
+description: >
+  Tune current loop PI gains using step response analysis,
+  per MCAF section 5.1.6.  Walks through connecting, reading
+  existing gains, entering test mode, setting gains, injecting
+  a square-wave perturbation, capturing the step response, and
+  evaluating metrics.
+
+steps:
+  - id: connect
+    title: "Connect to Target"
+    description: >
+      Establish a serial connection to the motor controller board.
+      Provide the serial port, firmware ELF file, and optionally
+      a motorBench parameters.json for engineering-unit conversion.
+    skip_if: connected
+    inputs:
+      - id: port
+        type: serial_port
+        label: "Serial Port"
+        persist: true
+      - id: elf_file
+        type: file_path
+        label: "ELF File"
+        filter: "ELF Files (*.elf);;All Files (*)"
+        persist: true
+      - id: baud_rate
+        type: integer
+        label: "Baud Rate"
+        default: 115200
+        range: [9600, 921600]
+        persist: true
+      - id: parameters_json
+        type: file_path
+        label: "Parameters JSON"
+        filter: "JSON Files (*.json);;All Files (*)"
+        required: false
+        persist: true
+    action:
+      command: CONNECT
+      args:
+        port: "$port"
+        elf_file: "$elf_file"
+        baud_rate: "$baud_rate"
+        parameters_json: "$parameters_json"
+    wait_for: connected
+
+  - id: read_gains
+    title: "Read Current Gains"
+    description: >
+      Read the current PI gains from firmware to see the starting
+      point.  Choose which axis (q or d) to tune.
+    requires: [connected]
+    inputs:
+      - id: axis
+        type: choice
+        label: "Axis"
+        options: ["q", "d"]
+        default: "q"
+        persist: true
+    action:
+      command: READ_GAINS
+      args:
+        axis: "$axis"
+    wait_for: gains_read
+    outputs:
+      - id: kp
+        from_signal: kp
+      - id: ki
+        from_signal: ki
+
+  - id: enter_test_mode
+    title: "Enter Test Mode"
+    description: >
+      Enable the test harness guard key and enter a test operating
+      mode.  The firmware will accept gain changes and perturbation
+      commands in this mode.
+    requires: [connected]
+    action:
+      command: ENTER_TEST_MODE
+    wait_for: test_mode_entered
+
+  - id: set_gains
+    title: "Set PI Gains"
+    description: >
+      Write new Kp and Ki values to the current controller.
+      Initial values are pre-filled from the firmware readback.
+    inputs:
+      - id: kp
+        type: float
+        label: "Kp"
+        suffix: " V/A"
+        range: [0, 100]
+        decimals: 4
+        step: 0.1
+        prefill: "$read_gains.kp"
+      - id: ki
+        type: float
+        label: "Ki"
+        suffix: " V/A/s"
+        range: [0, 100000]
+        decimals: 1
+        step: 100
+        prefill: "$read_gains.ki"
+    action:
+      command: SET_GAINS
+      args:
+        kp: "$kp"
+        ki: "$ki"
+    wait_for: gains_set
+
+  - id: start_perturbation
+    title: "Start Perturbation"
+    description: >
+      Configure the X2Cscope channels and start a symmetric
+      square-wave current perturbation for step response testing.
+    inputs:
+      - id: amplitude
+        type: float
+        label: "Amplitude"
+        suffix: " A"
+        range: [0, 50]
+        decimals: 3
+        step: 0.1
+        default: 0.5
+      - id: halfperiod
+        type: float
+        label: "Half-period"
+        suffix: " ms"
+        range: [0, 500]
+        decimals: 2
+        step: 0.5
+        default: 5.0
+    action:
+      sequence:
+        - command: CONFIGURE_SCOPE
+          args:
+            view: "current_$axis"
+        - command: START_PERTURBATION
+          args:
+            axis: "$axis"
+            amplitude: "$amplitude"
+            halfperiod: "$halfperiod"
+    wait_for: perturbation_started
+
+  - id: capture_analyze
+    title: "Capture & Analyze"
+    description: >
+      Capture the step response waveform and compute performance
+      metrics (overshoot, rise time, settling time).  The plot
+      updates automatically.
+    action:
+      command: CAPTURE
+      args:
+        timeout: 10.0
+    wait_for: capture_done
+    show_plot: true
+    iterate:
+      prompt: "Are you satisfied with the step response?"
+      goto_on_no: set_gains
+
+  - id: cleanup
+    title: "Clean Up"
+    description: >
+      Stop the perturbation and exit test mode, returning the
+      controller to normal operation.
+    action:
+      sequence:
+        - command: STOP_PERTURBATION
+        - command: EXIT_TEST_MODE
+    wait_for: test_mode_exited
+    auto_execute: true

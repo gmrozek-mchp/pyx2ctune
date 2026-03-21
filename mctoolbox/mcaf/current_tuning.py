@@ -11,10 +11,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from mctoolbox import interfaces as _interfaces
 
 if TYPE_CHECKING:
-    from pyx2ctune.connection import TuningSession
+    from mctoolbox.mcaf.session import TuningSession
 
 logger = logging.getLogger(__name__)
 
@@ -55,20 +57,18 @@ _PARAM_MAX_CURRENT_CMD = "sat_pi.currentMaximumCommand"
 
 
 @dataclass
-class CurrentGains:
+class CurrentGains(_interfaces.PIGains):
     """Current loop PI gains in engineering units."""
 
-    kp: float
-    ki: float
-    kp_counts: int
-    ki_counts: int
-    kp_shift: int
-    ki_shift: int
+    kp_counts: int = 0
+    ki_counts: int = 0
+    kp_shift: int = 0
+    ki_shift: int = 0
     kp_units: str = "V/A"
     ki_units: str = "V/A/s"
 
 
-class CurrentTuning:
+class CurrentTuning(_interfaces.LoopTuner):
     """Current loop PI gain tuning interface.
 
     Reads and writes PI gains for the d-axis and q-axis current loops,
@@ -79,7 +79,7 @@ class CurrentTuning:
     def __init__(self, session: TuningSession):
         self._session = session
 
-    def get_gains(self, axis: str = "q") -> CurrentGains:
+    def get_gains(self, axis: str = "q", **kwargs: Any) -> CurrentGains:
         """Read current PI gains from firmware and convert to engineering units.
 
         Args:
@@ -102,8 +102,6 @@ class CurrentTuning:
         if params is not None:
             kp_info = params.get_info(_PARAM_KIP)
             ki_info = params.get_info(_PARAM_KII)
-            # nkp/nki are post-shift counts: nkp=0 → Q15, nkp=1 → Q14, etc.
-            # See foc_params.h: QKNP = (15 - KIP_Q)
             kp_eng = (kp_counts / (1 << (15 - nkp))) * kp_info.scale
             ki_eng = (ki_counts / (1 << (15 - nki))) * ki_info.scale
         else:
@@ -132,6 +130,7 @@ class CurrentTuning:
         ki: float,
         units: str = "engineering",
         axes: str = "both",
+        **kwargs: Any,
     ) -> CurrentGains:
         """Set current loop PI gains.
 
@@ -206,12 +205,6 @@ class CurrentTuning:
     ) -> tuple[int, int]:
         """Convert an engineering value to counts, adjusting nkp if needed.
 
-        nkp is a post-shift: nkp=0 → Q15, nkp=1 → Q14, etc.
-        counts = value / scale * 2^(15 - nkp)
-
-        If counts overflows int16 at nkp=0 (Q15), increase nkp to reduce
-        the effective Q-format and allow larger values.
-
         Returns:
             (counts, nkp) tuple.
         """
@@ -223,7 +216,7 @@ class CurrentTuning:
             )
 
         info = params.get_info(param_key)
-        nkp = 15 - info.q  # default: QKNP = 15 - KIP_Q
+        nkp = 15 - info.q
         effective_q = 15 - nkp
         counts = round(value / info.scale * (1 << effective_q))
 
@@ -257,7 +250,6 @@ class CurrentTuning:
         return self._fullscale_current()
 
     def _fullscale_current(self) -> float | None:
-        """Return the full-scale current in Amps from parameters.json, or None."""
         params = self._session.params
         if params is None:
             return None
@@ -267,7 +259,6 @@ class CurrentTuning:
             return None
 
     def _isr_period_s(self) -> float | None:
-        """Return the ISR period in seconds from parameters.json, or None."""
         params = self._session.params
         if params is None:
             return None
@@ -343,6 +334,13 @@ class CurrentTuning:
 
     # ── Perturbation Control ──────────────────────────────────────────
 
+    def start_perturbation(self, **kwargs: Any) -> None:
+        """Start a square-wave perturbation for step response testing.
+
+        Accepts the same keyword arguments as setup_step_test().
+        """
+        self.setup_step_test(**kwargs)
+
     def setup_step_test(
         self,
         axis: str = "q",
@@ -351,11 +349,6 @@ class CurrentTuning:
         units: str = "engineering",
     ) -> None:
         """Configure and start a square-wave perturbation for step response testing.
-
-        Ensures the baseline dq current commands (idqCmdRaw) are zero so the
-        perturbation signal is the only current reference. This is critical in
-        OM_FORCE_CURRENT mode where the velocity loop and flux control are
-        inactive and idqCmdRaw retains stale values.
 
         Args:
             axis: "q" or "d" -- which current axis to perturb.

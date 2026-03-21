@@ -11,10 +11,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from mctoolbox import interfaces as _interfaces
 
 if TYPE_CHECKING:
-    from pyx2ctune.connection import TuningSession
+    from mctoolbox.mcaf.session import TuningSession
 
 logger = logging.getLogger(__name__)
 
@@ -38,20 +40,18 @@ _PARAM_ISR_DIVIDER = "timing.mcafIsrSubsampleDivider"
 
 
 @dataclass
-class VelocityGains:
+class VelocityGains(_interfaces.PIGains):
     """Velocity loop PI gains in engineering units."""
 
-    kp: float
-    ki: float
-    kp_counts: int
-    ki_counts: int
-    kp_shift: int
-    ki_shift: int
+    kp_counts: int = 0
+    ki_counts: int = 0
+    kp_shift: int = 0
+    ki_shift: int = 0
     kp_units: str = "A/(rad/s)"
     ki_units: str = "A/rad"
 
 
-class VelocityTuning:
+class VelocityTuning(_interfaces.LoopTuner):
     """Velocity loop PI gain tuning interface.
 
     Reads and writes PI gains for the velocity controller, converting
@@ -64,7 +64,7 @@ class VelocityTuning:
 
     # ── Gain Read / Write ─────────────────────────────────────────────
 
-    def get_gains(self) -> VelocityGains:
+    def get_gains(self, **kwargs: Any) -> VelocityGains:
         """Read velocity PI gains from firmware."""
         kp_counts = int(self._session.read_variable(_GAIN_VARS["kp"]))
         ki_counts = int(self._session.read_variable(_GAIN_VARS["ki"]))
@@ -95,7 +95,7 @@ class VelocityTuning:
         return result
 
     def set_gains(self, kp: float, ki: float,
-                  units: str = "engineering") -> VelocityGains:
+                  units: str = "engineering", **kwargs: Any) -> VelocityGains:
         """Set velocity loop PI gains.
 
         Args:
@@ -250,6 +250,13 @@ class VelocityTuning:
         if isr_period is None:
             return float(cycles)
         return cycles * isr_period * 1000.0
+
+    def start_perturbation(self, **kwargs: Any) -> None:
+        """Start a square-wave velocity perturbation.
+
+        Accepts the same keyword arguments as setup_velocity_perturbation().
+        """
+        self.setup_velocity_perturbation(**kwargs)
 
     def setup_velocity_perturbation(
         self,

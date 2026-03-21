@@ -1,9 +1,9 @@
 ---
-description: Project specification and design context for pyx2ctune
+description: Project specification and design context for mctoolbox
 alwaysApply: true
 ---
 
-# pyx2ctune Project Context
+# mctoolbox Project Context
 
 This project is a Python library for real-time tuning of Microchip MCAF motor control firmware via X2Cscope.
 

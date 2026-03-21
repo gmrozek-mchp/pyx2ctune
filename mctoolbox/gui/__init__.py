@@ -1,15 +1,15 @@
-"""pyx2ctune GUI -- PyQt5 application for current loop tuning."""
+"""mctoolbox GUI -- PyQt5 application for current loop tuning."""
 
 import sys
 
 from PyQt5.QtWidgets import QApplication
 
-from pyx2ctune.gui.main_window import MainWindow
+from mctoolbox.gui.main_window import MainWindow
 
 
 def main() -> None:
     app = QApplication(sys.argv)
-    app.setApplicationName("pyx2ctune")
+    app.setApplicationName("mctoolbox")
     app.setStyle("Fusion")
 
     window = MainWindow()

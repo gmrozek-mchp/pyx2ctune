@@ -15,11 +15,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact: pyx2ctune-linux
+            artifact: mctoolbox-linux
           - os: macos-latest
-            artifact: pyx2ctune-macos
+            artifact: mctoolbox-macos
           - os: windows-latest
-            artifact: pyx2ctune-windows
+            artifact: mctoolbox-windows
 
     runs-on: ${{ matrix.os }}
 
@@ -48,46 +48,46 @@ jobs:
           pip install pyinstaller
 
       - name: Build application
-        run: pyinstaller pyx2ctune.spec
+        run: pyinstaller mctoolbox.spec
 
       - name: Package (macOS DMG)
         if: runner.os == 'macOS'
         run: |
           mkdir -p dist/dmg
-          cp -R dist/pyx2ctune.app dist/dmg/
+          cp -R dist/mctoolbox.app dist/dmg/
           ln -s /Applications dist/dmg/Applications
-          hdiutil create -volname pyx2ctune -srcfolder dist/dmg \
+          hdiutil create -volname mctoolbox -srcfolder dist/dmg \
             -ov -format UDZO dist/${{ matrix.artifact }}.dmg
 
       - name: Package (Linux tar.gz)
         if: runner.os == 'Linux'
         run: |
           cd dist
-          tar czf ${{ matrix.artifact }}.tar.gz pyx2ctune/
+          tar czf ${{ matrix.artifact }}.tar.gz mctoolbox/
 
       - name: Package (Linux .deb)
         if: runner.os == 'Linux'
         run: |
           PKG=dist/deb-staging
           VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
-          mkdir -p $PKG/opt/pyx2ctune
-          cp -R dist/pyx2ctune/* $PKG/opt/pyx2ctune/
+          mkdir -p $PKG/opt/mctoolbox
+          cp -R dist/mctoolbox/* $PKG/opt/mctoolbox/
           mkdir -p $PKG/usr/local/bin
-          ln -s /opt/pyx2ctune/pyx2ctune $PKG/usr/local/bin/pyx2ctune
+          ln -s /opt/mctoolbox/mctoolbox $PKG/usr/local/bin/mctoolbox
           mkdir -p $PKG/usr/share/applications
-          cat > $PKG/usr/share/applications/pyx2ctune.desktop <<'DESKTOP'
+          cat > $PKG/usr/share/applications/mctoolbox.desktop <<'DESKTOP'
           [Desktop Entry]
-          Name=pyX2Ctune
+          Name=MCToolbox
           Comment=MCAF motor control tuning tool
-          Exec=/opt/pyx2ctune/pyx2ctune
+          Exec=/opt/mctoolbox/mctoolbox
           Terminal=false
           Type=Application
           Categories=Development;Engineering;
           DESKTOP
-          sed -i 's/^          //' $PKG/usr/share/applications/pyx2ctune.desktop
+          sed -i 's/^          //' $PKG/usr/share/applications/mctoolbox.desktop
           mkdir -p $PKG/DEBIAN
           cat > $PKG/DEBIAN/control <<EOF
-          Package: pyx2ctune
+          Package: mctoolbox
           Version: ${VERSION}
           Section: electronics
           Priority: optional
@@ -106,7 +106,7 @@ jobs:
         shell: pwsh
         run: |
           cd dist
-          Compress-Archive -Path pyx2ctune -DestinationPath ${{ matrix.artifact }}.zip
+          Compress-Archive -Path mctoolbox -DestinationPath ${{ matrix.artifact }}.zip
 
       - name: Upload artifact
         if: runner.os != 'Linux'

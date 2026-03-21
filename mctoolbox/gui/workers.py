@@ -1,6 +1,6 @@
 """Background worker for serial operations.
 
-All pyx2ctune library calls that touch the serial port run on a single
+All mctoolbox library calls that touch the serial port run on a single
 worker thread so the GUI stays responsive and UART access is serialized.
 """
 
@@ -14,19 +14,7 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, QThread, pyqtSignal, pyqtSlot, QMutex, QWaitCondition
 
-from pyx2ctune.test_harness import ForceState
-
-_MOTOR_STATES = {
-    0: "RESTART",
-    1: "STOPPED",
-    2: "STARTING",
-    3: "RUNNING",
-    4: "STOPPING",
-    5: "FAULT",
-    6: "TEST_DISABLE",
-    7: "TEST_ENABLE",
-    8: "TEST_RESTART",
-}
+from mctoolbox.mcaf.test_harness import ForceState
 
 
 class Command(Enum):
@@ -66,7 +54,7 @@ class WorkItem:
 
 
 class SessionWorker(QObject):
-    """Runs pyx2ctune operations on a background thread.
+    """Runs mctoolbox operations on a background thread.
 
     The main window posts commands via submit(); results arrive as signals.
     """
@@ -231,23 +219,11 @@ class SessionWorker(QObject):
         elif cmd == Command._CONTINUOUS_FRAME:
             self._do_continuous_frame()
 
-    # ── Helpers ────────────────────────────────────────────────────────
-
-    def _get_fullscale(self, param_name: str) -> float:
-        """Read a fullscale value from parameters.json, or 0 if unavailable."""
-        params = self._session.params if self._session else None
-        if params is not None:
-            try:
-                return params.get_info(param_name).intended_value
-            except (KeyError, AttributeError):
-                pass
-        return 0.0
-
     # ── Command implementations ───────────────────────────────────────
 
     def _do_connect(self, port: str, elf_file: str,
                     baud_rate: int, parameters_json: str | None) -> None:
-        from pyx2ctune.connection import TuningSession
+        from mctoolbox.mcaf.session import TuningSession
 
         self.status.emit(f"Connecting to {port}...")
         session = TuningSession(
@@ -400,32 +376,23 @@ class SessionWorker(QObject):
 
     def _do_set_commutation_freq(self, rpm: float) -> None:
         self.status.emit(f"Setting commutation frequency: {rpm:.1f} RPM...")
-        fs = self._get_fullscale("mcapi.fullscale.velocity")
-        counts = round(rpm / fs * 32768) if fs > 0 else 0
-        self._session.test_harness.set_commutation_frequency(counts)
+        counts = self._session.test_harness.set_commutation_frequency_rpm(rpm)
         self.status.emit(f"Commutation frequency: {rpm:.1f} RPM ({counts} counts)")
         self.commutation_freq_set.emit()
 
     def _do_set_dq_current(self, d: float, q: float) -> None:
         self.status.emit(f"Setting dq current: d={d:.3f} A, q={q:.3f} A...")
-        fs = self._get_fullscale("mcapi.fullscale.current")
-        d_counts = round(d / fs * 32768) if fs > 0 else 0
-        q_counts = round(q / fs * 32768) if fs > 0 else 0
-        self._session.test_harness.set_dq_current(d_counts, q_counts)
+        self._session.test_harness.set_dq_current_amps(d, q)
         self.status.emit(f"DQ current: d={d:.3f} A, q={q:.3f} A")
         self.dq_current_set.emit()
 
     def _do_set_dq_voltage(self, d: float, q: float) -> None:
         self.status.emit(f"Setting dq voltage: d={d:.2f} V, q={q:.2f} V...")
-        fs = self._get_fullscale("mcapi.fullscale.voltage")
-        d_counts = round(d / fs * 32768) if fs > 0 else 0
-        q_counts = round(q / fs * 32768) if fs > 0 else 0
-        self._session.test_harness.set_dq_voltage(d_counts, q_counts)
+        self._session.test_harness.set_dq_voltage_volts(d, q)
         self.status.emit(f"DQ voltage: d={d:.2f} V, q={q:.2f} V")
         self.dq_voltage_set.emit()
 
     def _do_force_state(self, transition: int) -> None:
-        from pyx2ctune.test_harness import ForceState
         name = ForceState(transition).name
         self.status.emit(f"Forcing state: {name}...")
         self._session.test_harness.force_state(transition)
@@ -443,9 +410,8 @@ class SessionWorker(QObject):
 
     def _do_read_measured_speed(self) -> None:
         rpm = self._session.velocity.get_measured_velocity()
-        state_val = int(self._session.read_variable("motor.state"))
-        state_name = _MOTOR_STATES.get(state_val, f"UNKNOWN({state_val})")
-        self.measured_speed_read.emit(rpm, state_name)
+        state = self._session.test_harness.get_motor_state()
+        self.measured_speed_read.emit(rpm, state.name)
 
     # ── Scope commands ────────────────────────────────────────────────
 
@@ -462,7 +428,7 @@ class SessionWorker(QObject):
         self.scope_configured.emit()
 
     def _do_capture(self, timeout: float = 10.0) -> None:
-        from pyx2ctune.analysis import compute_metrics
+        from mctoolbox.analysis import compute_metrics
 
         self._capture_abort.clear()
         self.capture_started.emit()
@@ -483,12 +449,7 @@ class SessionWorker(QObject):
         self.capture_done.emit(response, metrics)
 
     def _do_start_continuous(self, timeout: float = 10.0) -> None:
-        """Begin cooperative continuous capture.
-
-        Clears the stop event, emits the started signal, and queues the
-        first frame.  Subsequent frames re-queue themselves so that other
-        commands (set gains, etc.) can be interleaved.
-        """
+        """Begin cooperative continuous capture."""
         self._continuous_stop.clear()
         self._continuous_active = True
         self._continuous_frame_count = 0
@@ -509,7 +470,7 @@ class SessionWorker(QObject):
                 self.continuous_stopped.emit()
             return
 
-        from pyx2ctune.analysis import compute_metrics
+        from mctoolbox.analysis import compute_metrics
 
         self.capture_started.emit()
         try:

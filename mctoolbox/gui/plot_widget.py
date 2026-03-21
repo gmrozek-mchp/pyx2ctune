@@ -15,8 +15,8 @@ from matplotlib.figure import Figure
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QLabel, QVBoxLayout, QWidget
 
-from pyx2ctune.analysis import StepMetrics
-from pyx2ctune.capture import StepResponse
+from mctoolbox.analysis import StepMetrics
+from mctoolbox.capture import StepResponse
 
 
 class PlotWidget(QWidget):

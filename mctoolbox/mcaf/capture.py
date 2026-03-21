@@ -1,4 +1,4 @@
-"""Scope data acquisition for step response capture.
+"""Scope data acquisition for step response capture (MCAF implementation).
 
 Uses pyX2Cscope's scope channel API to capture waveform data from the
 target firmware and packages it into a StepResponse dataclass for analysis.
@@ -11,13 +11,15 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from mctoolbox import interfaces as _interfaces
+from mctoolbox.capture import StepResponse
+
 if TYPE_CHECKING:
-    from pyx2ctune.connection import TuningSession
+    from mctoolbox.mcaf.session import TuningSession
 
 logger = logging.getLogger(__name__)
 
@@ -69,40 +71,7 @@ _VIEW_CONFIGS = {
 }
 
 
-@dataclass
-class StepResponse:
-    """Captured step response data from a scope acquisition.
-
-    Attributes:
-        time_us: Time axis in microseconds.
-        reference: Current reference signal (idqCmd).
-        measured: Measured current signal (idq).
-        voltage: Voltage output from PI controller (vdq).
-        axis: Which current axis was captured ("q" or "d").
-        gains: PI gains at time of capture.
-        sample_time: Scope prescaler (1 = every sample).
-        control_period_us: Control ISR period in microseconds.
-        metadata: Additional context (variable names, etc.).
-    """
-
-    time_us: np.ndarray
-    reference: np.ndarray
-    measured: np.ndarray
-    voltage: np.ndarray
-    axis: str
-    loop_type: str = "current"
-    gains: dict = field(default_factory=dict)
-    sample_time: int = 1
-    control_period_us: float = 50.0
-    current_units: str = "counts"
-    voltage_units: str = "counts"
-    reference_units: str = ""
-    measured_units: str = ""
-    output_units: str = ""
-    metadata: dict = field(default_factory=dict)
-
-
-class ScopeCapture:
+class ScopeCapture(_interfaces.WaveformCapture):
     """Scope data acquisition manager.
 
     Configures pyX2Cscope scope channels for current loop analysis,
@@ -121,6 +90,17 @@ class ScopeCapture:
         self._configured_axis: str | None = None
         self._configured_vars: dict[str, str] = {}
         self._loop_type: str = "current"
+
+    # ── ABC interface ──────────────────────────────────────────────────
+
+    def configure(self, view: str, **kwargs: Any) -> None:
+        """Configure capture channels for a named view preset.
+
+        Delegates to configure_view().
+        """
+        self.configure_view(view, **kwargs)
+
+    # ── View configuration ─────────────────────────────────────────────
 
     def configure_view(
         self,
@@ -208,14 +188,10 @@ class ScopeCapture:
     ) -> StepResponse:
         """Capture a single frame of scope data.
 
-        Requests data acquisition, polls until complete, and returns
-        the captured waveforms as a StepResponse.
-
         Args:
             timeout: Maximum time to wait for data in seconds.
             abort_event: Optional threading.Event.  If set while polling,
-                an InterruptedError is raised so callers (e.g. continuous
-                capture loops) can exit cleanly.
+                an InterruptedError is raised.
 
         Returns:
             StepResponse with time axis and captured signals.
@@ -426,3 +402,32 @@ class ScopeCapture:
                 "loop_type": self._loop_type,
             },
         )
+
+    # ── Trigger level conversion ─────────────────────────────────────
+
+    def trigger_level_to_q15(
+        self,
+        value: float,
+        fullscale_key: str,
+    ) -> int:
+        """Convert an engineering-unit trigger level to Q15 counts.
+
+        Args:
+            value: Trigger level in engineering units (A, V, or RPM).
+            fullscale_key: One of "current", "voltage", "velocity".
+
+        Returns:
+            Q15 integer counts for the scope trigger.
+        """
+        param_map = {
+            "current": _PARAM_FULLSCALE_CURRENT,
+            "voltage": _PARAM_FULLSCALE_VOLTAGE,
+            "velocity": _PARAM_FULLSCALE_VELOCITY,
+        }
+        param_name = param_map.get(fullscale_key, fullscale_key)
+        params = self._session.params
+        if params is not None:
+            fs = params.get_fullscale(param_name)
+            if fs > 0:
+                return round(value / fs * 32768)
+        return round(value)

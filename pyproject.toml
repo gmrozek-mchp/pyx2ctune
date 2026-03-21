@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0", "setuptools-scm>=8.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pyx2ctune"
+name = "mctoolbox"
 version = "0.1.0"
 description = "MCAF motor control tuning library using pyX2Cscope"
 readme = "README.md"
@@ -13,6 +13,8 @@ dependencies = [
     "pyx2cscope>=0.5.0",
     "numpy>=1.26",
     "matplotlib>=3.7",
+    "pyyaml>=6.0",
+    "control>=0.10",
 ]
 
 [project.optional-dependencies]
@@ -27,7 +29,10 @@ dev = [
 ]
 
 [project.scripts]
-pyx2ctune-gui = "pyx2ctune.gui:main"
+mctoolbox-gui = "mctoolbox.gui:main"
 
 [tool.setuptools.packages.find]
-include = ["pyx2ctune*"]
+include = ["mctoolbox*"]
+
+[tool.setuptools.package-data]
+"mctoolbox.wizards" = ["*.yaml", "*.yml"]

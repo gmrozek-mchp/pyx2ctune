@@ -14,8 +14,8 @@ import numpy as np
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
-from pyx2ctune.analysis import StepMetrics
-from pyx2ctune.capture import StepResponse
+from mctoolbox.analysis import StepMetrics
+from mctoolbox.capture import StepResponse
 
 
 def plot_step_response(

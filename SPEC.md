@@ -1,12 +1,12 @@
-# pyx2ctune -- Specification
+# mctoolbox -- Specification
 
 A Python library for real-time tuning of Microchip MCAF motor control firmware via X2Cscope.
 
 ## Goals
 
-Build a Python package (`pyx2ctune`) that wraps [pyX2Cscope](https://x2cscope.github.io/pyx2cscope/) to provide **MCAF-aware motor control tuning workflows**. The library automates the [MCAF test harness](https://microchiptech.github.io/mcaf-doc/9.0.1/components/testharness.html) to tune PI control loop gains on live hardware, capture step responses, and compute performance metrics -- all from Python scripts or Jupyter notebooks.
+Build a Python package (`mctoolbox`) that wraps [pyX2Cscope](https://x2cscope.github.io/pyx2cscope/) to provide **MCAF-aware motor control tuning workflows**. The library automates the [MCAF test harness](https://microchiptech.github.io/mcaf-doc/9.0.1/components/testharness.html) to tune PI control loop gains on live hardware, capture step responses, and compute performance metrics -- all from Python scripts or Jupyter notebooks.
 
-**Phase 1** delivers a scriptable library and Jupyter notebook for current loop tuning. **Phase 2** (implemented) provides a cross-platform PyQt5 GUI application with standalone executables for Windows, macOS, and Linux.
+**Phase 1** delivers a scriptable library for current and velocity loop tuning. **Phase 2** (implemented) provides a cross-platform PyQt5 GUI application with standalone executables for Windows, macOS, and Linux.
 
 ## Background
 
@@ -18,7 +18,7 @@ Build a Python package (`pyx2ctune`) that wraps [pyX2Cscope](https://x2cscope.gi
 | [MCAF](https://microchiptech.github.io/mcaf-doc/9.0.1/index.html) (R9 / RC31) | Motor Control Application Framework -- the generated firmware running on the dsPIC |
 | [X2Cscope](https://x2cscope.github.io/) | Runtime diagnostics protocol embedded in MCAF firmware, communicates over UART |
 | [pyX2Cscope](https://pypi.org/project/pyx2cscope/) (v0.5.0+) | Python library that talks X2Cscope's LNet protocol, reads ELF files for variable resolution |
-| **pyx2ctune** (this project) | MCAF-specific tuning automation built on top of pyX2Cscope |
+| **mctoolbox** (this project) | MCAF-specific tuning automation built on top of pyX2Cscope |
 
 ### Reference Hardware
 
@@ -44,44 +44,65 @@ Per [MCAF section 5.1.6](https://microchiptech.github.io/mcaf-doc/9.0.1/algorith
 6. Evaluate metrics: overshoot, rise time, settling time
 7. Iterate on gains until performance is satisfactory
 
-This is the workflow pyx2ctune automates.
+This is the workflow mctoolbox automates.
 
 ## Architecture
 
 ```
-pyx2ctune/                  # Python package
-  __init__.py
-  connection.py             # X2CScope connection wrapper
-  parameters.py             # parameters.json reader + Q-format conversion
-  test_harness.py           # MCAF test harness management
-  current_tuning.py         # Current loop tuning workflow
-  capture.py                # Scope data acquisition
-  analysis.py               # Step response metric computation
-  plotting.py               # matplotlib visualization
-  gui/                      # PyQt5 GUI application
-    __init__.py             # Entry point (main())
-    __main__.py             # python -m pyx2ctune.gui support
-    main_window.py          # Main window with all panels
-    workers.py              # Background thread for serial I/O
-    plot_widget.py          # Embedded matplotlib canvas
-examples/
-  current_loop_tune.py      # End-to-end current loop tuning script
-  gain_sweep.py             # Automated Kp/Ki sweep with metrics
-notebooks/
-  current_loop_tuning.ipynb  # Interactive Jupyter tuning workflow
-logs/                        # Session log files (gitignored)
-pyx2ctune.spec               # PyInstaller build configuration
-.github/workflows/build.yml  # CI: cross-platform executable builds
-pyproject.toml               # Package config, dependencies
-SPEC.md                      # This file
+mctoolbox/                          # Python package
+  __init__.py                       # Re-exports TuningSession
+  interfaces.py                     # ABCs: TuningSession, TestHarness, LoopTuner, WaveformCapture
+  capture.py                        # StepResponse dataclass (framework-agnostic)
+  analysis.py                       # Step response metrics via control.step_info()
+  plotting.py                       # matplotlib visualization
+  wizard_schema.py                  # Wizard dataclasses + YAML loader (no Qt)
+  wizards/                          # YAML wizard definitions
+    current_loop_tuning.yaml
+    gain_sweep.yaml
+  mcaf/                             # MCAF-specific implementations
+    __init__.py                     # Re-exports public classes
+    session.py                      # TuningSession (X2CScope connection wrapper)
+    parameters.py                   # parameters.json reader + Q-format conversion
+    test_harness.py                 # MCAF test harness management
+    current_tuning.py               # Current loop PI gain tuning
+    velocity_tuning.py              # Velocity loop PI gain tuning
+    capture.py                      # ScopeCapture (X2CScope scope acquisition)
+  gui/                              # PyQt5 GUI application (pure view layer)
+    __init__.py                     # Entry point (main())
+    __main__.py                     # python -m mctoolbox.gui support
+    main_window.py                  # Main window with all panels
+    workers.py                      # SessionWorker on QThread for serial I/O
+    plot_widget.py                  # Embedded matplotlib canvas
+    scope_panel.py                  # Scope channel and capture controls
+    tabs/                           # Tuning settings tabs
+      current_tab.py                # Current loop gains + perturbation
+      velocity_tab.py               # Velocity loop gains + perturbation
+      openloop_tab.py               # Open-loop voltage/current override
+    wizard/                         # Data-driven guided workflows
+      engine.py                     # WizardEngine state machine
+      panel.py                      # WizardPanel UI
+      input_factory.py              # Dynamic input widget creation
+logs/                               # Session log files (gitignored)
+mctoolbox.spec                      # PyInstaller build configuration
+.github/workflows/build.yml         # CI: cross-platform executable builds
+pyproject.toml                      # Package config, dependencies
+SPEC.md                             # This file
 ```
+
+### Layering
+
+The package has three layers with strict import boundaries:
+
+1. **Generic library** (`interfaces.py`, `capture.py`, `analysis.py`, `plotting.py`, `wizard_schema.py`) -- no dependencies on `pyx2cscope` or PyQt5
+2. **MCAF implementation** (`mcaf/`) -- depends on `pyx2cscope`, implements the ABCs from `interfaces.py`
+3. **GUI** (`gui/`) -- depends on PyQt5, acts as a pure view over the library; no domain logic
 
 ### Dependency on pyX2Cscope
 
-pyx2ctune uses pyX2Cscope as a library. It does **not** reimplement any low-level communication:
+mctoolbox uses pyX2Cscope as a library. It does **not** reimplement any low-level communication:
 
 - **pyX2Cscope handles**: serial/TCP connection, LNet protocol, ELF file parsing (DWARF debug info), variable read/write, scope channel management, trigger configuration
-- **pyx2ctune handles**: MCAF domain knowledge (parameter semantics, Q-format conversion, test harness orchestration, tuning workflows, step response analysis)
+- **mctoolbox handles**: MCAF domain knowledge (parameter semantics, Q-format conversion, test harness orchestration, tuning workflows, step response analysis)
 
 ### Data Flow
 
@@ -89,7 +110,7 @@ pyx2ctune uses pyX2Cscope as a library. It does **not** reimplement any low-leve
 User interface (GUI / Jupyter / Python script)
   │
   ▼
-pyx2ctune library
+mctoolbox library
   ├── TuningSession           → X2CScope(port, elf_file)
   ├── ParameterDB             → reads parameters.json
   ├── TestHarness             → writes guard, mode, overrides via X2CScope
@@ -108,7 +129,7 @@ dsPIC33CK firmware (MCAF + X2Cscope)
 
 ## Module Specifications
 
-### 1. `connection.py` -- Session Management
+### 1. `mcaf/session.py` -- Session Management
 
 ```python
 class TuningSession:
@@ -150,7 +171,7 @@ Exposes sub-objects:
 - `session.capture` -- `ScopeCapture` instance
 - `session.params` -- `ParameterDB` instance (if parameters_json provided)
 
-### 2. `parameters.py` -- Q-Format Conversion
+### 2. `mcaf/parameters.py` -- Q-Format Conversion
 
 Reads `parameters.json` generated by motorBench. Each parameter has:
 
@@ -199,7 +220,7 @@ class ParameterDB:
         """Get full parameter metadata (units, scale, Q, description)."""
 ```
 
-### 3. `test_harness.py` -- MCAF Test Harness Control
+### 3. `mcaf/test_harness.py` -- MCAF Test Harness Control
 
 Manages the test harness per [MCAF section 4.5](https://microchiptech.github.io/mcaf-doc/9.0.1/components/testharness.html).
 
@@ -288,7 +309,7 @@ class TestHarness:
         """
 ```
 
-### 4. `current_tuning.py` -- PI Gain Tuning
+### 4. `mcaf/current_tuning.py` -- PI Gain Tuning
 
 ```python
 @dataclass
@@ -344,7 +365,11 @@ class CurrentTuning:
         """Set sqwave.value = 0 to stop perturbation."""
 ```
 
-### 5. `capture.py` -- Scope Data Acquisition
+### 5. `capture.py` / `mcaf/capture.py` -- Scope Data Acquisition
+
+`capture.py` (top-level) contains the framework-agnostic `StepResponse` dataclass.
+`mcaf/capture.py` contains `ScopeCapture`, the MCAF-specific implementation that
+talks to X2CScope and produces `StepResponse` objects.
 
 ```python
 @dataclass
@@ -392,15 +417,24 @@ class ScopeCapture:
 
 ### 6. `analysis.py` -- Step Response Metrics
 
+Uses a hybrid approach: custom multi-step edge detection to segment the captured
+waveform, then delegates per-segment metric computation to `control.step_info()`
+from the [python-control](https://python-control.readthedocs.io/) library.
+
 ```python
 @dataclass
 class StepMetrics:
     overshoot: float             # Normalized fraction (0.0 = none, 0.1 = 10%)
     rise_time_us: float          # 10% to 90% of step, in microseconds
-    settling_time_us: float      # Time to stay within ±5% band, in microseconds
+    settling_time_us: float      # Time to stay within settling band, in microseconds
     steady_state_error: float    # Final value error as fraction of step size
     step_size: float = 0.0       # Magnitude of detected step change in counts
     n_steps: int = 0             # Number of step transitions detected and averaged
+    undershoot: float = 0.0      # Normalized undershoot fraction
+    peak: float = 0.0            # Absolute peak value in original signal units
+    peak_time_us: float = 0.0    # Time of peak relative to step edge
+    settling_min: float = 0.0    # Minimum value after rise time
+    settling_max: float = 0.0    # Maximum value after rise time
 
 def compute_metrics(response: StepResponse,
                     settling_band: float = 0.05,
@@ -409,7 +443,9 @@ def compute_metrics(response: StepResponse,
     Analyze a captured step response.
     1. Detect step edges in the reference signal
     2. Isolate individual step transitions
-    3. Compute metrics for each step, return averaged values
+    3. Normalize each segment and pass to control.step_info()
+    4. Compute steady-state error from response tail vs reference
+    5. Return averaged metrics across all detected steps
     """
 ```
 
@@ -463,24 +499,27 @@ Example: `motor.idCtrl.kp` corresponds to `MCAF_MOTOR_DATA.idCtrl.kp` in the fir
 | Package | Version | Purpose |
 |---------|---------|---------|
 | `pyx2cscope` | `>= 0.5.0` | X2Cscope communication, ELF parsing |
-| `numpy` | `>= 1.26` | Numerical computation (transitive via pyx2cscope) |
-| `matplotlib` | `>= 3.7` | Plotting (transitive via pyx2cscope) |
+| `numpy` | `>= 1.26` | Numerical computation |
+| `matplotlib` | `>= 3.7` | Plotting |
+| `pyyaml` | `>= 6.0` | Wizard YAML definition parsing |
+| `control` | `>= 0.10` | Step response metric computation (`step_info()`) |
+| `scipy` | (transitive via control) | Numerical routines used by python-control |
 | `PyQt5` | `>= 5.15` | GUI framework (transitive via pyx2cscope) |
 
 **Python version**: 3.12 (compatible with pyX2Cscope's supported range of 3.10-3.12)
 
 ## Constraints
 
-- **Read-only access to `motorbench/` directory**: The `motorbench/` folder contains firmware generated by motorBench/MCC. pyx2ctune reads files from it (e.g., `parameters.json`, YAML configs) but never modifies them. Firmware changes are handled separately.
+- **Read-only access to `motorbench/` directory**: The `motorbench/` folder contains firmware generated by motorBench/MCC. mctoolbox reads files from it (e.g., `parameters.json`, YAML configs) but never modifies them. Firmware changes are handled separately.
 - **No firmware recompilation required**: All tuning is done at runtime via X2Cscope variable writes. The firmware must already be built and flashed with X2Cscope enabled.
 - **Safety**: The test harness guard mechanism ensures test modes auto-disable if the guard timeout expires (3.27 seconds at 20kHz). The library refreshes the timeout automatically while a test session is active.
 
 ## Example Usage
 
 ```python
-from pyx2ctune import TuningSession
-from pyx2ctune.analysis import compute_metrics
-from pyx2ctune.plotting import plot_step_response
+from mctoolbox import TuningSession
+from mctoolbox.analysis import compute_metrics
+from mctoolbox.plotting import plot_step_response
 
 # Connect (session log written to logs/session_YYYYMMDD_HHMMSS.log)
 session = TuningSession(
@@ -517,21 +556,18 @@ session.test_harness.exit_test_mode()
 session.disconnect()
 ```
 
-A Jupyter notebook (`notebooks/current_loop_tuning.ipynb`) provides an interactive
-version of this workflow with quick-iteration cells and an optional automated gain sweep.
-
 ## GUI Application
 
 ### 8. `gui/` -- PyQt5 Desktop Application
 
 A cross-platform desktop GUI (Windows, macOS, Linux) built with PyQt5. The GUI is a
-thin layer over the pyx2ctune library -- no business logic in the UI code.
+thin layer over the mctoolbox library -- no business logic in the UI code.
 
 **Launch:**
 
 ```bash
-pyx2ctune-gui              # console script entry point
-python -m pyx2ctune.gui    # module entry point
+mctoolbox-gui              # console script entry point
+python -m mctoolbox.gui    # module entry point
 ```
 
 **Architecture:**
@@ -542,39 +578,43 @@ python -m pyx2ctune.gui    # module entry point
   is serialized through a command queue, results emitted as Qt signals
 - `gui/plot_widget.py` -- Matplotlib `FigureCanvasQTAgg` embedded in a QWidget
   with `NavigationToolbar`
+- `gui/scope_panel.py` -- Scope channel and capture controls
+- `gui/tabs/` -- Tuning settings tabs (current, velocity, open-loop)
+- `gui/wizard/` -- Data-driven guided workflows (engine, panel, input factory)
 
 **Panels:**
 
 | Panel | Purpose |
 |-------|---------|
 | Connection | Port dropdown (auto-populated), ELF/params file browsers, baud rate, Connect/Disconnect |
-| PI Gains | Read current gains from board, set new Kp/Ki in engineering units |
-| Test Harness | Enter/exit test mode, operating mode and guard status display |
-| Perturbation | Axis selector, amplitude, half-period, Start/Stop buttons |
-| Capture | "Single" one-shot capture; "Start"/"Stop" for continuous live capture |
-| Plot | Embedded matplotlib figure: current reference vs measured (top), voltage (bottom); line objects reused for fast continuous updates |
+| Tabs: Current | Current loop PI gains + perturbation controls |
+| Tabs: Velocity | Velocity loop PI gains + perturbation controls |
+| Tabs: Open Loop | Open-loop voltage/current overrides |
+| Scope | Scope channel configuration, single/continuous capture |
+| Plot | Embedded matplotlib figure: reference vs measured (top), output (bottom); line objects reused for fast continuous updates |
 | Metrics | Overshoot, rise time, settling time, steady-state error, step count |
+| Wizard | Data-driven guided workflows loaded from YAML definitions |
 
 **Persistence:** Connection settings, file paths, gain parameters, perturbation
 settings, and window geometry are saved via `QSettings` and restored on next launch.
 
 **Threading model:** A single `SessionWorker` runs on a dedicated `QThread`.
 The main thread posts `Command` enums to a queue; the worker executes them
-sequentially against the pyx2ctune library and emits result signals. This keeps
+sequentially against the mctoolbox library and emits result signals. This keeps
 the GUI responsive and ensures UART access is serialized.
 
 ### Standalone Executables
 
 Pre-built executables are produced by GitHub Actions using PyInstaller
-(`pyx2ctune.spec`). The CI workflow (`.github/workflows/build.yml`) builds
+(`mctoolbox.spec`). The CI workflow (`.github/workflows/build.yml`) builds
 for all three platforms on every push to `main` and creates GitHub Releases
 with attached binaries on version tags (`v*`).
 
 | Platform | Artifact |
 |----------|----------|
-| Linux | `pyx2ctune-linux.tar.gz` |
-| macOS | `pyx2ctune-macos.tar.gz` |
-| Windows | `pyx2ctune-windows.zip` |
+| Linux | `mctoolbox-linux.tar.gz` |
+| macOS | `mctoolbox-macos.tar.gz` |
+| Windows | `mctoolbox-windows.zip` |
 
 ### Future GUI Enhancements
 

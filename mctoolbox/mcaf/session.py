@@ -1,4 +1,4 @@
-"""Session management for pyx2ctune.
+"""Session management for MCAF motor control tuning.
 
 Wraps pyX2Cscope's X2CScope class and wires up the tuning sub-modules
 (TestHarness, CurrentTuning, ScopeCapture, ParameterDB).
@@ -13,7 +13,8 @@ from typing import TYPE_CHECKING
 
 from pyx2cscope.x2cscope import X2CScope
 
-from pyx2ctune.parameters import ParameterDB
+from mctoolbox import interfaces as _interfaces
+from mctoolbox.mcaf.parameters import ParameterDB
 
 if TYPE_CHECKING:
     from pyx2cscope.variable.variable import Variable
@@ -24,7 +25,7 @@ _LOG_FORMAT = "%(asctime)s %(levelname)-5s %(name)s  %(message)s"
 _LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
-class TuningSession:
+class TuningSession(_interfaces.TuningSession):
     """Top-level session for MCAF motor control tuning.
 
     Connects to the target MCU via pyX2Cscope, loads the ELF file for
@@ -74,11 +75,10 @@ class TuningSession:
             self.params = ParameterDB(parameters_json)
             logger.info("Loaded %s", self.params)
 
-        # Deferred imports to avoid circular dependencies
-        from pyx2ctune.capture import ScopeCapture
-        from pyx2ctune.current_tuning import CurrentTuning
-        from pyx2ctune.test_harness import TestHarness
-        from pyx2ctune.velocity_tuning import VelocityTuning
+        from mctoolbox.mcaf.capture import ScopeCapture
+        from mctoolbox.mcaf.current_tuning import CurrentTuning
+        from mctoolbox.mcaf.test_harness import TestHarness
+        from mctoolbox.mcaf.velocity_tuning import VelocityTuning
 
         self.test_harness = TestHarness(self)
         self.current = CurrentTuning(self)
@@ -145,7 +145,7 @@ class TuningSession:
     # ── Session Logging ───────────────────────────────────────────────
 
     def _setup_file_logging(self, log_dir: Path) -> logging.FileHandler | None:
-        """Attach a DEBUG-level FileHandler to the pyx2ctune logger hierarchy."""
+        """Attach a DEBUG-level FileHandler to the mctoolbox logger hierarchy."""
         try:
             log_dir.mkdir(parents=True, exist_ok=True)
         except OSError:
@@ -159,11 +159,8 @@ class TuningSession:
         handler.setLevel(logging.DEBUG)
         handler.setFormatter(logging.Formatter(_LOG_FORMAT, datefmt=_LOG_DATE_FORMAT))
 
-        pkg_logger = logging.getLogger("pyx2ctune")
+        pkg_logger = logging.getLogger("mctoolbox")
         pkg_logger.addHandler(handler)
-        # Set logger to DEBUG so the file handler captures everything,
-        # but don't affect console output -- that's controlled by the
-        # root logger's handler level (set via logging.basicConfig).
         pkg_logger.setLevel(logging.DEBUG)
         pkg_logger.propagate = False
 
@@ -176,7 +173,7 @@ class TuningSession:
         if self._file_handler is not None:
             logger.info("Session log closed: %s", self._log_path)
             self._file_handler.flush()
-            logging.getLogger("pyx2ctune").removeHandler(self._file_handler)
+            logging.getLogger("mctoolbox").removeHandler(self._file_handler)
             self._file_handler.close()
             self._file_handler = None
 

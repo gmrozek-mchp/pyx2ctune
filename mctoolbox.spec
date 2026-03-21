@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec for pyx2ctune GUI application.
+"""PyInstaller spec for mctoolbox GUI application.
 
 Uses --onedir mode for fast startup (no temp extraction).
 On macOS, also produces a .app bundle.
@@ -10,7 +10,7 @@ import sys
 block_cipher = None
 
 a = Analysis(
-    ['pyx2ctune/gui/__main__.py'],
+    ['mctoolbox/gui/__main__.py'],
     pathex=[],
     binaries=[],
     datas=[],
@@ -57,7 +57,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='pyx2ctune',
+    name='mctoolbox',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -80,15 +80,15 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='pyx2ctune',
+    name='mctoolbox',
 )
 
 if sys.platform == 'darwin':
     app = BUNDLE(
         coll,
-        name='pyx2ctune.app',
+        name='mctoolbox.app',
         icon=None,
-        bundle_identifier='com.microchip.pyx2ctune',
+        bundle_identifier='com.microchip.mctoolbox',
         info_plist={
             'CFBundleShortVersionString': '0.1.0',
             'NSHighResolutionCapable': True,
