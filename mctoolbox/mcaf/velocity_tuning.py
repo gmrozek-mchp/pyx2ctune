@@ -94,9 +94,7 @@ class VelocityTuning(_interfaces.LoopTuner):
         if units == "counts":
             kp_counts = int(kp)
             ki_counts = int(ki)
-            conn = self._session.conn
-            conn.write_raw("motor.omegaCtrl.kp", kp_counts)
-            conn.write_raw("motor.omegaCtrl.ki", ki_counts)
+            motor.write_velocity_gains_raw(kp_counts, ki_counts)
             return VelocityGains(
                 kp=float(kp_counts), ki=float(ki_counts),
                 kp_counts=kp_counts, ki_counts=ki_counts,

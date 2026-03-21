@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from pymcaf.motor import Motor
+
 from mctoolbox import interfaces as _interfaces
 from mctoolbox.capture import StepResponse
 
@@ -27,38 +29,37 @@ _PARAM_FULLSCALE_CURRENT = "mcapi.fullscale.current"
 _PARAM_FULLSCALE_VOLTAGE = "mcapi.fullscale.voltage"
 _PARAM_FULLSCALE_VELOCITY = "mcapi.fullscale.velocity"
 
-# Scope variables for current loop analysis
+_V = Motor
+
 _CURRENT_LOOP_VARS = {
     "q": {
-        "measured": "motor.idq.q",
-        "reference": "motor.idqCmd.q",
-        "voltage": "motor.vdq.q",
+        "measured": _V.VAR_CURRENT_DQ_Q,
+        "reference": _V.VAR_CURRENT_CMD_DQ_Q,
+        "voltage": _V.VAR_VOLTAGE_DQ_Q,
     },
     "d": {
-        "measured": "motor.idq.d",
-        "reference": "motor.idqCmd.d",
-        "voltage": "motor.vdq.d",
+        "measured": _V.VAR_CURRENT_DQ_D,
+        "reference": _V.VAR_CURRENT_CMD_DQ_D,
+        "voltage": _V.VAR_VOLTAGE_DQ_D,
     },
 }
 
-# Scope variables for velocity loop analysis
 _VELOCITY_LOOP_VARS = {
-    "measured": "motor.omegaElectrical",
-    "reference": "motor.omegaCmd",
-    "output": "motor.idqCmd.q",
+    "measured": _V.VAR_VELOCITY,
+    "reference": _V.VAR_VELOCITY_REF,
+    "output": _V.VAR_CURRENT_CMD_DQ_Q,
 }
 
-# Scope variables for open-loop analysis
 _OPEN_VOLTAGE_VARS = {
-    "measured": "motor.vdq.d",
-    "reference": "motor.vdq.q",
-    "output": "motor.idq.q",
+    "measured": _V.VAR_VOLTAGE_DQ_D,
+    "reference": _V.VAR_VOLTAGE_DQ_Q,
+    "output": _V.VAR_CURRENT_DQ_Q,
 }
 
 _OPEN_CURRENT_VARS = {
-    "measured": "motor.idq.d",
-    "reference": "motor.idq.q",
-    "output": "motor.omegaElectrical",
+    "measured": _V.VAR_CURRENT_DQ_D,
+    "reference": _V.VAR_CURRENT_DQ_Q,
+    "output": _V.VAR_VELOCITY,
 }
 
 # Unified view lookup: view_id -> (var_dict, loop_type, axis)

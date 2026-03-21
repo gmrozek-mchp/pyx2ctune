@@ -10,9 +10,14 @@ from enum import IntEnum
 
 # ── Guard key ─────────────────────────────────────────────────────────
 
-GUARD_KEY_VALID = 0xD1A6
-GUARD_KEY_RESET = 0x0000
-GUARD_TIMEOUT_MAX = 0xFFFF
+GUARD_KEY_VALID: int = 0xD1A6
+"""Guard key value (``0xD1A6`` = "DIAG") that enables test harness features."""
+
+GUARD_KEY_RESET: int = 0x0000
+"""Guard key value written to disable test harness features."""
+
+GUARD_TIMEOUT_MAX: int = 0xFFFF
+"""Maximum guard timeout (65535 ISR cycles, ~3.3 s at 20 kHz)."""
 
 
 # ── Enumerations ──────────────────────────────────────────────────────
@@ -63,3 +68,4 @@ MOTOR_STATES: dict[int, str] = {
     7: "TEST_ENABLE",
     8: "TEST_RESTART",
 }
+"""Mapping from MCAF motor state machine codes to human-readable names."""

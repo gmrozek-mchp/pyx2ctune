@@ -16,15 +16,23 @@ class ParameterInfo:
     """Metadata for a single MCAF parameter."""
 
     key: str
+    """Dot-delimited parameter key (e.g. ``"foc.kip"``)."""
     define_name: str
+    """C preprocessor define name (e.g. ``"KIP"``)."""
     description: str | None
+    """Human-readable description, or ``None``."""
     intended_value: float
+    """Nominal value from motorBench code generation."""
     q: int | None
+    """Q-format fractional bit count, or ``None`` if unscaled."""
     scale: float | None
+    """Scaling factor for counts-to-engineering conversion, or ``None``."""
     units: str | None
+    """Engineering unit string (e.g. ``"V/A"``), or ``None``."""
 
     @property
     def has_scaling(self) -> bool:
+        """Whether this parameter has valid Q-format and scale for conversion."""
         return self.q is not None and self.scale is not None
 
 
@@ -45,6 +53,7 @@ class ParameterDB:
             data = json.load(f)
 
         self.metadata: dict = data.get("metadata", {})
+        """File-level metadata from parameters.json (version, timestamp, etc.)."""
         self._by_key: dict[str, ParameterInfo] = {}
         self._by_define: dict[str, ParameterInfo] = {}
 

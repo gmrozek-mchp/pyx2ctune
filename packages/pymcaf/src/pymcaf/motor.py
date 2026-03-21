@@ -53,6 +53,7 @@ _VAR_VDQCMD_Q = "motor.vdqCmd.q"
 
 _VAR_VELOCITY_CMD = "motor.velocityControl.velocityCmd"
 _VAR_VELOCITY_CMD_RL = "motor.velocityControl.velocityCmdRateLimited"
+_VAR_OMEGA_CMD = "motor.omegaCmd"
 _VAR_OMEGA_ELECTRICAL = "motor.omegaElectrical"
 _VAR_THETA_ELECTRICAL = "motor.thetaElectrical"
 
@@ -113,6 +114,31 @@ class Motor:
 
     Instantiated automatically by :attr:`pymcaf.Connection.motor`.
     """
+
+    # ── Public variable identifiers ───────────────────────────────────
+    #
+    # Generic motor control names mapped to framework-specific firmware
+    # variable identifiers.  Other SDKs (e.g. pyqspin) would expose the
+    # same constant names with their own framework-specific values.
+
+    VAR_CURRENT_DQ_D: str = _VAR_IDQ_D
+    """Measured d-axis current."""
+    VAR_CURRENT_DQ_Q: str = _VAR_IDQ_Q
+    """Measured q-axis current."""
+    VAR_CURRENT_CMD_DQ_D: str = _VAR_IDQCMD_D
+    """d-axis current command (post-perturbation)."""
+    VAR_CURRENT_CMD_DQ_Q: str = _VAR_IDQCMD_Q
+    """q-axis current command (post-perturbation)."""
+    VAR_VOLTAGE_DQ_D: str = _VAR_VDQ_D
+    """d-axis output voltage."""
+    VAR_VOLTAGE_DQ_Q: str = _VAR_VDQ_Q
+    """q-axis output voltage."""
+    VAR_VELOCITY: str = _VAR_OMEGA_ELECTRICAL
+    """Estimated electrical velocity."""
+    VAR_VELOCITY_CMD: str = _VAR_VELOCITY_CMD
+    """Velocity command (user input)."""
+    VAR_VELOCITY_REF: str = _VAR_OMEGA_CMD
+    """Velocity reference to speed controller (post rate-limiting)."""
 
     def __init__(self, conn: Connection):
         self._conn = conn
@@ -439,6 +465,41 @@ class Motor:
             kp_shift=15 - nkp, ki_shift=15 - nki,
             kp_units="A/(rad/s)", ki_units="A/rad",
         )
+
+    # ── Raw gain writes (no unit conversion) ────────────────────────
+
+    def write_current_gains_raw(
+        self, axis: str, kp_counts: int, ki_counts: int,
+    ) -> None:
+        """Write current loop PI gain counts directly without conversion.
+
+        Useful when the caller already has raw fixed-point values and
+        does not want Q-format conversion.
+
+        Args:
+            axis: ``"q"``, ``"d"``, or ``"both"``.
+            kp_counts: Raw Kp value to write.
+            ki_counts: Raw Ki value to write.
+        """
+        axes = ["d", "q"] if axis.lower() == "both" else [axis.lower()]
+        for ax in axes:
+            if ax not in _CURRENT_GAIN_VARS:
+                raise ValueError(f"axis must be 'q', 'd', or 'both', got {ax!r}")
+            v = _CURRENT_GAIN_VARS[ax]
+            self._conn.write_raw(v["kp"], kp_counts)
+            self._conn.write_raw(v["ki"], ki_counts)
+
+    def write_velocity_gains_raw(
+        self, kp_counts: int, ki_counts: int,
+    ) -> None:
+        """Write velocity loop PI gain counts directly without conversion.
+
+        Args:
+            kp_counts: Raw Kp value to write.
+            ki_counts: Raw Ki value to write.
+        """
+        self._conn.write_raw(_VELOCITY_GAIN_VARS["kp"], kp_counts)
+        self._conn.write_raw(_VELOCITY_GAIN_VARS["ki"], ki_counts)
 
     def __repr__(self) -> str:
         return f"Motor(conn={self._conn!r})"

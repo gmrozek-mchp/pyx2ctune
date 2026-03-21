@@ -111,16 +111,7 @@ class CurrentTuning(_interfaces.LoopTuner):
         if units == "counts":
             kp_counts = int(kp)
             ki_counts = int(ki)
-            target = ["d", "q"] if axes.lower() == "both" else [axes.lower()]
-            for axis in target:
-                conn = self._session.conn
-                _vars = {
-                    "d": ("motor.idCtrl.kp", "motor.idCtrl.ki"),
-                    "q": ("motor.iqCtrl.kp", "motor.iqCtrl.ki"),
-                }
-                kp_var, ki_var = _vars[axis]
-                conn.write_raw(kp_var, kp_counts)
-                conn.write_raw(ki_var, ki_counts)
+            motor.write_current_gains_raw(axes, kp_counts, ki_counts)
             return CurrentGains(
                 kp=float(kp_counts), ki=float(ki_counts),
                 kp_counts=kp_counts, ki_counts=ki_counts,
@@ -242,11 +233,15 @@ class CurrentTuning(_interfaces.LoopTuner):
             units: "engineering" (Amps / ms) or "counts" (raw values).
         """
         if units == "engineering":
+            amp_amps = amplitude
             amp_counts = self.amps_to_counts(amplitude)
             hp_cycles = self.ms_to_isr_cycles(halfperiod)
+            hp_ms = halfperiod
         elif units == "counts":
             amp_counts = int(amplitude)
+            amp_amps = self.counts_to_amps(amp_counts)
             hp_cycles = int(halfperiod)
+            hp_ms = self.isr_cycles_to_ms(hp_cycles)
         else:
             raise ValueError(f"units must be 'engineering' or 'counts', got {units!r}")
 
@@ -258,11 +253,9 @@ class CurrentTuning(_interfaces.LoopTuner):
         sqwave.halfperiod = hp_cycles
 
         if axis.lower() == "q":
-            conn.write_raw("motor.testing.sqwave.idq.q", amp_counts)
-            conn.write_raw("motor.testing.sqwave.idq.d", 0)
+            sqwave.idq_amplitude = DQPair(d=0.0, q=amp_amps)
         elif axis.lower() == "d":
-            conn.write_raw("motor.testing.sqwave.idq.d", amp_counts)
-            conn.write_raw("motor.testing.sqwave.idq.q", 0)
+            sqwave.idq_amplitude = DQPair(d=amp_amps, q=0.0)
         else:
             raise ValueError(f"axis must be 'q' or 'd', got {axis!r}")
 
@@ -270,11 +263,7 @@ class CurrentTuning(_interfaces.LoopTuner):
         logger.info(
             "Started step test: axis=%s, amplitude=%.3f A (%d counts), "
             "halfperiod=%.2f ms (%d cycles)",
-            axis,
-            amplitude if units == "engineering" else self.counts_to_amps(amp_counts),
-            amp_counts,
-            halfperiod if units == "engineering" else self.isr_cycles_to_ms(hp_cycles),
-            hp_cycles,
+            axis, amp_amps, amp_counts, hp_ms, hp_cycles,
         )
 
     def stop_perturbation(self) -> None:
