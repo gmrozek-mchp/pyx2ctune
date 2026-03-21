@@ -5950,3 +5950,1423 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 <summary>Tool use: **edit_file_v2**</summary>
 
 </details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update all call sites from `self._conn.read_pi_gain` to `self._read_pi_gain` and `self._conn.write_pi_gain` to `self._write_pi_gain`:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pymcaf/motor.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pymcaf/motor.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pymcaf/motor.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pymcaf/motor.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Add _read_pi_gain / _write_pi_gain private methods to Motor, update call sites",
+      "id": "move-pi-to-motor",
+      "status": "completed"
+    },
+    {
+      "content": "Remove read_pi_gain / write_pi_gain from Connection",
+      "id": "remove-pi-from-conn",
+      "status": "in_progress"
+    },
+    {
+      "content": "Run imports and lint checks",
+      "id": "verify-pi-move",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Add _read_pi_gain / _write_pi_gain private methods to Motor, update call sites",
+      "id": "move-pi-to-motor",
+      "status": "in_progress"
+    },
+    {
+      "content": "Remove read_pi_gain / write_pi_gain from Connection",
+      "id": "remove-pi-from-conn",
+      "status": "pending"
+    },
+    {
+      "content": "Run imports and lint checks",
+      "id": "verify-pi-move",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now remove the PI gain methods from Connection.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pymcaf/connection.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pymcaf/connection.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Add _read_pi_gain / _write_pi_gain private methods to Motor, update call sites",
+      "id": "move-pi-to-motor",
+      "status": "completed"
+    },
+    {
+      "content": "Remove read_pi_gain / write_pi_gain from Connection",
+      "id": "remove-pi-from-conn",
+      "status": "completed"
+    },
+    {
+      "content": "Run imports and lint checks",
+      "id": "verify-pi-move",
+      "status": "in_progress"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Add _read_pi_gain / _write_pi_gain private methods to Motor, update call sites",
+      "id": "move-pi-to-motor",
+      "status": "completed"
+    },
+    {
+      "content": "Remove read_pi_gain / write_pi_gain from Connection",
+      "id": "remove-pi-from-conn",
+      "status": "in_progress"
+    },
+    {
+      "content": "Run imports and lint checks",
+      "id": "verify-pi-move",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me verify there are no remaining references to the old methods and run lint/import checks.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "outputMode": "content",
+  "pattern": "read_pi_gain|write_pi_gain"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "pattern": "read_pi_gain|write_pi_gain",
+  "topFiles": [
+    {
+      "matchCount": 10,
+      "uri": "pymcaf/motor.py"
+    },
+    {
+      "matchCount": 28,
+      "uri": ".specstory/history/2026-03-21_20-39-57Z-mcaf-library-refactoring.md"
+    }
+  ],
+  "totalFiles": 2,
+  "totalMatches": 38
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "pymcaf/motor.py",
+    "pymcaf/connection.py"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "pymcaf/motor.py"
+    },
+    {
+      "relativeWorkspacePath": "pymcaf/connection.py"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints"><details>
+<summary>Tool use: **read_lints**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+Good - no references to `read_pi_gain` or `write_pi_gain` remain outside of `pymcaf/motor.py` (where they're now private methods) and the `.specstory` history file (which is just documentation). No linter errors. Let me run the import verification.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+All references to `read_pi_gain`/`write_pi_gain` are now only in `pymcaf/motor.py` as private methods (and in the `.specstory` history which is just documentation). No linter errors. Let me run the import checks.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -c "from pymcaf.connection import Connection; print('pymcaf.connection OK')"</summary>
+
+```bash
+.venv/bin/python -c "from pymcaf.connection import Connection; print('pymcaf.connection OK')"
+```
+
+```
+pymcaf.connection OK
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -c "from pymcaf.motor import Motor; print('pymcaf.motor OK')"</summary>
+
+```bash
+.venv/bin/python -c "from pymcaf.motor import Motor; print('pymcaf.motor OK')"
+```
+
+```
+pymcaf.motor OK
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -c "import pymcaf; print('pymcaf OK'); print(dir(pymcaf))"</summary>
+
+```bash
+.venv/bin/python -c "import pymcaf; print('pymcaf OK'); print(dir(pymcaf))"
+```
+
+```
+pymcaf OK
+['ABCTriple', 'AlphaBetaPair', 'AsymmetricPerturbation', 'Backend', 'Connection', 'DQPair', 'ForceState', 'GUARD_KEY_RESET', 'GUARD_KEY_VALID', 'GUARD_TIMEOUT_MAX', 'MOTOR_STATES', 'Motor', 'MotorState', 'OperatingMode', 'OverrideFlag', 'PIGainValues', 'ParameterDB', 'ParameterInfo', 'SquareWavePerturbation', 'TestHarness', '__all__', '__builtins__', '__cached__', '__doc__', '__file__', '__loader__', '__name__', '__package__', '__path__', '__spec__', '__version__', 'backend', 'connection', 'constants', 'motor', 'parameters', 'scope', 'test_harness', 'types']
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -c "from mctoolbox.mcaf.current_tuning import CurrentTuner; from mctoolbox.mcaf.velocity_tuning import VelocityTuner; print('mctoolbox tuning imports OK')"</summary>
+
+```bash
+.venv/bin/python -c "from mctoolbox.mcaf.current_tuning import CurrentTuner; from mctoolbox.mcaf.velocity_tuning import VelocityTuner; print('mctoolbox tuning imports OK')"
+```
+
+```
+Traceback (most recent call last):
+  File "&lt;string&gt;", line 1, in &lt;module&gt;
+ImportError: cannot import name 'CurrentTuner' from 'mctoolbox.mcaf.current_tuning' (/Users/greg/projects/microchip/pyx2ctune/mctoolbox/mcaf/current_tuning.py). Did you mean: 'CurrentTuning'?
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+The class is called `CurrentTuning`, not `CurrentTuner`. Let me re-run with the correct names.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -c "from mctoolbox.mcaf.current_tuning import CurrentTuning; from mctoolbox.mcaf.velocity_tuning import VelocityTuning; print('mctoolbox tuning imports OK')"</summary>
+
+```bash
+.venv/bin/python -c "from mctoolbox.mcaf.current_tuning import CurrentTuning; from mctoolbox.mcaf.velocity_tuning import VelocityTuning; print('mctoolbox tuning imports OK')"
+```
+
+```
+mctoolbox tuning imports OK
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+All imports pass. Let me verify the final state of both files is clean.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Add _read_pi_gain / _write_pi_gain private methods to Motor, update call sites",
+      "id": "move-pi-to-motor",
+      "status": "completed"
+    },
+    {
+      "content": "Remove read_pi_gain / write_pi_gain from Connection",
+      "id": "remove-pi-from-conn",
+      "status": "completed"
+    },
+    {
+      "content": "Run imports and lint checks",
+      "id": "verify-pi-move",
+      "status": "completed"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Add _read_pi_gain / _write_pi_gain private methods to Motor, update call sites",
+      "id": "move-pi-to-motor",
+      "status": "completed"
+    },
+    {
+      "content": "Remove read_pi_gain / write_pi_gain from Connection",
+      "id": "remove-pi-from-conn",
+      "status": "completed"
+    },
+    {
+      "content": "Run imports and lint checks",
+      "id": "verify-pi-move",
+      "status": "in_progress"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+All three tasks are complete. Here's what was done:
+
+1. **Added `_read_pi_gain` / `_write_pi_gain` to `Motor`** -- The PI gain conversion math (Q-format with shift count handling, overflow adjustment) was moved into two private methods on the `Motor` class. All four public gain methods (`read_current_gains`, `write_current_gains`, `read_velocity_gains`, `write_velocity_gains`) now call `self._read_pi_gain()` / `self._write_pi_gain()` instead of `self._conn.read_pi_gain()` / `self._conn.write_pi_gain()`.
+
+2. **Removed PI gain methods from `Connection`** -- The `read_pi_gain`, `write_pi_gain` methods and the `# ── PI gain conversion` section were removed from `pymcaf/connection.py`. Connection is now a cleaner generic class focused on raw access, Q15 conversion, scope, and lifecycle.
+
+3. **Verified** -- No linter errors, all `pymcaf` and `mctoolbox` imports pass, and grep confirms no remaining references to the old `Connection.read_pi_gain` / `Connection.write_pi_gain` methods.
+
+---
+
+_**User**_
+
+is pymcaf set up in such a way that it can be eventually deployed on pypi for example?
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+The user is asking about whether `pymcaf` is set up for eventual deployment to PyPI. This is an informational question about the current packaging configuration. Let me look at the relevant files to assess this.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Let me check the current packaging setup for `pymcaf`.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyproject.toml</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="search" data-tool-name="glob_file_search">
+<details>
+<summary>Tool use: **glob_file_search** • Searched codebase "" • **19** results in **1** directory</summary>
+
+Directory: **** (19 files)
+
+| File |
+|------|
+| `pymcaf/__pycache__/constants.cpython-312.pyc` |
+| `pymcaf/connection.py` |
+| `pymcaf/backends/__init__.py` |
+| `pymcaf/backends/x2cscope.py` |
+| `pymcaf/test_harness.py` |
+| `pymcaf/__pycache__/connection.cpython-312.pyc` |
+| `pymcaf/parameters.py` |
+| `pymcaf/backends/__pycache__/__init__.cpython-312.pyc` |
+| `pymcaf/types.py` |
+| `pymcaf/motor.py` |
+| `pymcaf/__pycache__/scope.cpython-312.pyc` |
+| `pymcaf/scope.py` |
+| `pymcaf/backends/__pycache__/x2cscope.cpython-312.pyc` |
+| `pymcaf/__pycache__/__init__.cpython-312.pyc` |
+| `pymcaf/__init__.py` |
+| `pymcaf/__pycache__/parameters.cpython-312.pyc` |
+| `pymcaf/constants.py` |
+| `pymcaf/__pycache__/backend.cpython-312.pyc` |
+| `pymcaf/backend.py` |
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="search" data-tool-name="glob_file_search"><details>
+<summary>Tool use: **glob_file_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pymcaf/__init__.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+The user is asking whether `pymcaf` is set up to be deployable as its own package on PyPI. Let me analyze the current state:
+
+1. `pyproject.toml` defines a single package called `mctoolbox` - not `pymcaf`
+2. The `[tool.setuptools.packages.find]` section includes both `pymcaf*` and `mctoolbox*`, meaning they ship as part of the same distribution
+3. `pymcaf` has its own `__init__.py` with `__version__`, `__all__`, and proper docstrings
+4. But there's no separate `pyproject.toml` for `pymcaf`
+
+
+5. So the answer is no—`pymcaf` is currently bundled inside the `mctoolbox` distribution. To make it independently deployable on PyPI, it would need its own `pyproject.toml` or a monorepo setup with separate build configurations. The code itself is well-structured for independence since it doesn't import from `mctoolbox`, but the packaging infrastructure isn't split yet.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+**Not yet.** The code is architecturally independent (zero imports from `mctoolbox`), but the packaging bundles everything into a single distribution. Here's the gap:
+
+The current `pyproject.toml` defines **one package** called `mctoolbox`:
+
+```1:2:pyproject.toml
+[project]
+name = "mctoolbox"
+```
+
+And includes `pymcaf` as a co-shipped package within that same distribution:
+
+```34:35:pyproject.toml
+[tool.setuptools.packages.find]
+include = ["pymcaf*", "mctoolbox*"]
+```
+
+So when you `pip install` this project, you get both `pymcaf` and `mctoolbox` in one install. There's no way to `pip install pymcaf` independently from PyPI today.
+
+**What's already in good shape:**
+- `pymcaf` has its own `__init__.py` with `__version__`, `__all__`, and a proper docstring
+- Zero dependencies on `mctoolbox` -- the dependency arrow is one-way (`mctoolbox` depends on `pymcaf`)
+- Clean public API surface with well-defined exports
+
+**What would need to change to make it PyPI-deployable:**
+- `pymcaf` needs its own `pyproject.toml` with its own `name = "pymcaf"`, its own dependency list (just `pyx2cscope`), and its own metadata (description, license, authors, classifiers, etc.)
+- `mctoolbox`'s `pyproject.toml` would then list `pymcaf` as a dependency instead of co-shipping it
+- The repo would need a monorepo-style layout (e.g. `packages/pymcaf/` and `packages/mctoolbox/`, or top-level `pymcaf/pyproject.toml` with `src/pymcaf/`) -- or you could split into separate repos
+
+Would you like me to create a plan for splitting the packaging so `pymcaf` can be published independently?
+
+---
+
+_**User**_
+
+yes. can we continue to develop pymcaf within this top level project? Or should we split it out into its on repository? Or can we do that later (split out)?
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+The user is asking about repository strategy for pymcaf. This is a design/architecture question with a few valid approaches. Let me think through the options:
+
+1. **Monorepo with separate pyproject.toml files** - Keep pymcaf in this repo but give it its own pyproject.toml so it can be built and published independently. This is very common (e.g., many projects use this pattern with tools like `hatch`, `flit`, or just plain setuptools).
+
+2. **Split into a separate repository now** - Move pymcaf to its own git repo immediately.
+
+3. **Keep developing here, split later** - Continue as-is and extract later.
+ 
+Option 1 is really the sweet spot here—I can keep everything in one place for development while still publishing pymcaf independently, and there's nothing stopping me from moving it to its own repo down the line if that becomes necessary.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+You can absolutely continue developing `pymcaf` within this repo and still publish it independently to PyPI. This is a very common pattern -- a monorepo with multiple publishable packages. You can always split it into its own repository later if/when that makes sense.
+
+The key insight is that **repo structure and package publishing are independent concerns**. Here's how the options compare:
+
+**Option A: Monorepo with separate packaging (recommended now)**
+- Keep everything in this repo
+- Give `pymcaf` its own `pyproject.toml` (in a subdirectory like `packages/pymcaf/`)
+- `mctoolbox`'s `pyproject.toml` lists `pymcaf` as a dependency
+- During development, install both with `pip install -e ./packages/pymcaf && pip install -e .`
+- Publish each to PyPI independently
+- Advantages: single repo for PRs/issues, atomic cross-package changes, easy to keep in sync
+
+**Option B: Split into separate repo now**
+- Premature unless you have a separate team or release cadence for `pymcaf`
+- Adds coordination overhead (cross-repo PRs, version pinning)
+- Can always do this later since the code is already cleanly separated
+
+**Option C: Do nothing, split later**
+- Keep the current single-package setup
+- Risk: harder to track what's truly pymcaf-independent vs. what accidentally couples to mctoolbox
+- But the current code is already clean, so this risk is low
+
+My recommendation: **go with Option A now**. It gives you independent publishability with zero repo-management overhead, and migrating to a separate repo later (if ever needed) is trivial since the package boundaries are already clean.
+
+Want me to create a plan for restructuring into a monorepo layout with separate `pyproject.toml` files?
+
+---
+
+_**User**_
+
+yes
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+The user wants me to create a plan for restructuring into a monorepo layout with separate `pyproject.toml` files. Let me first gather the information I need to create a good plan.
+
+I need to understand:
+1. The current directory structure
+2. The current pyproject.toml
+3. What pymcaf's dependencies actually are (just pyx2cscope?)
+4. Whether there are any other config files that reference pymcaf paths
+
+Let me check a few things.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Let me gather the details I need for the plan.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: ls -la /Users/greg/projects/microchip/pyx2ctune/</summary>
+
+```bash
+ls -la /Users/greg/projects/microchip/pyx2ctune/
+```
+
+```
+total 128
+drwx------@ 22 greg  staff    704 Mar 21 16:01 .
+drwxr-xr-x@ 48 greg  staff   1536 Mar 19 20:50 ..
+-rw-r--r--@  1 greg  staff   6148 Mar 19 21:21 .DS_Store
+drwxr-xr-x@  3 greg  staff     96 Mar 19 21:57 .cursor
+drwxr-xr-x@ 16 greg  staff    512 Mar 21 16:33 .git
+drwxr-xr-x@  3 greg  staff     96 Mar 19 20:50 .github
+-rw-r--r--@  1 greg  staff    247 Mar 19 21:57 .gitignore
+drwxr-xr-x@  6 greg  staff    192 Mar 21 16:35 .specstory
+drwxr-xr-x@  7 greg  staff    224 Mar 19 21:55 .venv
+drwxr-xr-x@  3 greg  staff     96 Mar 19 20:53 .vscode
+-rw-r--r--@  1 greg  staff   1082 Mar 20 21:33 LICENSE
+-rw-r--r--@  1 greg  staff   3536 Mar 21 15:33 README.md
+-rw-r--r--@  1 greg  staff  27711 Mar 21 15:34 SPEC.md
+-rw-r--r--@  1 greg  staff   6121 Mar 21 15:35 THIRD-PARTY-LICENSES.md
+drwxr-xr-x@ 12 greg  staff    384 Mar 21 14:54 mctoolbox
+drwxr-xr-x@  8 greg  staff    256 Mar 21 16:27 mctoolbox.egg-info
+-rw-r--r--@  1 greg  staff   2373 Mar 21 16:26 mctoolbox.spec
+drwxr-xr-x@  4 greg  staff    128 Mar 19 21:21 motorbench
+drwxr-xr-x@  3 greg  staff     96 Mar 21 15:31 notebooks
+drwxr-xr-x@ 13 greg  staff    416 Mar 21 16:24 pymcaf
+-rw-r--r--@  1 greg  staff    793 Mar 21 16:07 pyproject.toml
+-rw-r--r--@  1 greg  staff      0 Mar 19 21:55 pyx2cscope.x2cscope.log
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "outputMode": "files_with_matches",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/mctoolbox",
+  "pattern": "^from pymcaf|^import pymcaf"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "files_with_matches",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/mctoolbox",
+  "pattern": "^from pymcaf|^import pymcaf",
+  "topFiles": [
+    {
+      "matchCount": 1,
+      "uri": "mctoolbox/interfaces.py"
+    },
+    {
+      "matchCount": 1,
+      "uri": "mctoolbox/mcaf/current_tuning.py"
+    },
+    {
+      "matchCount": 1,
+      "uri": "mctoolbox/gui/workers.py"
+    },
+    {
+      "matchCount": 1,
+      "uri": "mctoolbox/mcaf/session.py"
+    },
+    {
+      "matchCount": 1,
+      "uri": "mctoolbox/mcaf/parameters.py"
+    },
+    {
+      "matchCount": 1,
+      "uri": "mctoolbox/mcaf/velocity_tuning.py"
+    },
+    {
+      "matchCount": 1,
+      "uri": "mctoolbox/mcaf/__init__.py"
+    }
+  ],
+  "totalFiles": 7,
+  "totalMatches": 7
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/mctoolbox.spec",
+  "pattern": "pymcaf"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/mctoolbox.spec",
+  "pattern": "pymcaf",
+  "topFiles": [
+    {
+      "matchCount": 11,
+      "uri": "mctoolbox.spec"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 11
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pymcaf",
+  "pattern": "^from pyx2cscope|^import pyx2cscope"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pymcaf",
+  "pattern": "^from pyx2cscope|^import pyx2cscope",
+  "topFiles": [
+    {
+      "matchCount": 1,
+      "uri": "pymcaf/backends/x2cscope.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 1
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/.gitignore</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox.spec</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+I have everything I need. Here's the plan:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="create_plan">
+<details>
+<summary>Tool use: **create_plan**</summary>
+
+
+Parameters:
+
+```json
+{
+  "name": "Split pymcaf packaging",
+  "overview": "Restructure the repo into a monorepo with &#96;pymcaf&#96; as an independently publishable package with its own &#96;pyproject.toml&#96;, while keeping both packages in the same repository for convenient co-development.",
+  "plan": "# Split pymcaf into an Independently Publishable Package\n\n## Current State\n\nToday &#96;pymcaf&#96; is a top-level Python package living at &#96;pymcaf/&#96; but it has no packaging metadata of its own. It ships as part of the &#96;mctoolbox&#96; distribution via a single &#96;pyproject.toml&#96; at the repo root.\n\n## Target State\n\n&#96;&#96;&#96;mermaid\ngraph TD\n    subgraph repo [pyx2ctune repo]\n        subgraph pymcaf_pkg [packages/pymcaf/]\n            pyproject_pymcaf[\"pyproject.toml\"]\n            src_pymcaf[\"src/pymcaf/\"]\n        end\n        subgraph mctoolbox_pkg [Root]\n            pyproject_mctoolbox[\"pyproject.toml\"]\n            mctoolbox_dir[\"mctoolbox/\"]\n        end\n    end\n    pyproject_mctoolbox --\u003e|\"depends on\"| pymcaf_pkg\n&#96;&#96;&#96;\n\n## Layout Change\n\nMove &#96;pymcaf/&#96; into &#96;packages/pymcaf/src/pymcaf/&#96; (using the &#96;src&#96; layout, which is the modern Python packaging best practice and prevents accidental imports of the uninstalled package):\n\n&#96;&#96;&#96;\npyx2ctune/\n  packages/\n    pymcaf/\n      pyproject.toml        # NEW -- pymcaf's own metadata\n      src/\n        pymcaf/             # MOVED from top-level pymcaf/\n          __init__.py\n          backend.py\n          connection.py\n          ...\n  mctoolbox/                # stays at repo root\n  pyproject.toml            # remains the mctoolbox package\n  mctoolbox.spec\n&#96;&#96;&#96;\n\n## File Changes\n\n### New: [&#96;packages/pymcaf/pyproject.toml&#96;](packages/pymcaf/pyproject.toml)\n\nMinimal pyproject.toml for &#96;pymcaf&#96;:\n\n- &#96;name = \"pymcaf\"&#96;\n- &#96;version&#96; -- read from &#96;src/pymcaf/__init__.py&#96; (or hardcoded &#96;\"0.1.0\"&#96; to start)\n- &#96;requires-python = \"\u003e=3.10,\u003c3.13\"&#96;\n- &#96;dependencies = [\"pyx2cscope\u003e=0.5.0\"]&#96; -- pymcaf's only external dependency\n- &#96;[tool.setuptools.packages.find]&#96; with &#96;where = [\"src\"]&#96;\n- License, description, readme fields\n\n### Modified: [&#96;pyproject.toml&#96;](pyproject.toml) (root -- mctoolbox)\n\n- Remove &#96;\"pymcaf*\"&#96; from &#96;[tool.setuptools.packages.find] include&#96;\n- Add &#96;\"pymcaf\u003e=0.1.0\"&#96; to &#96;dependencies&#96;\n- For local editable development, document in README that you install pymcaf first: &#96;pip install -e packages/pymcaf \u0026\u0026 pip install -e .&#96;\n\n### Modified: [&#96;mctoolbox.spec&#96;](mctoolbox.spec)\n\n- No changes needed -- PyInstaller &#96;hiddenimports&#96; references the installed package name (&#96;pymcaf&#96;), not a filesystem path, so it works regardless of where the source lives.\n\n### Modified: [&#96;.gitignore&#96;](.gitignore)\n\n- Add &#96;packages/pymcaf/*.egg-info/&#96; pattern (or just keep the existing generic &#96;*.egg-info/&#96;)\n\n### Moved: &#96;pymcaf/&#96; -\u003e &#96;packages/pymcaf/src/pymcaf/&#96;\n\n- All source files move. &#96;git mv&#96; preserves history.\n- No code changes needed inside pymcaf -- all imports are &#96;from pymcaf.xxx&#96; which works with the &#96;src&#96; layout once installed.\n\n### Dev workflow after the change\n\n&#96;&#96;&#96;bash\n# One-time setup\npython3.12 -m venv .venv\nsource .venv/bin/activate\npip install -e packages/pymcaf   # install pymcaf in editable mode\npip install -e .                  # install mctoolbox in editable mode (depends on pymcaf)\n&#96;&#96;&#96;\n\n## What does NOT change\n\n- All import paths (&#96;from pymcaf import ...&#96;, &#96;from pymcaf.motor import Motor&#96;) stay identical\n- &#96;mctoolbox.spec&#96; stays the same\n- No code changes inside &#96;pymcaf/&#96; or &#96;mctoolbox/&#96;\n- The &#96;.cursor/rules/python-venv.mdc&#96; install step changes slightly (documented above)\n",
+  "todos": [
+    {
+      "content": "Create packages/pymcaf/pyproject.toml with pymcaf-specific metadata and dependencies",
+      "id": "create-pymcaf-pyproject",
+      "status": "pending"
+    },
+    {
+      "content": "git mv pymcaf/ to packages/pymcaf/src/pymcaf/ (preserving git history)",
+      "id": "move-pymcaf-src",
+      "status": "pending"
+    },
+    {
+      "content": "Update root pyproject.toml: remove pymcaf* from find, add pymcaf to dependencies",
+      "id": "update-root-pyproject",
+      "status": "pending"
+    },
+    {
+      "content": "Update .gitignore for new egg-info location",
+      "id": "update-gitignore",
+      "status": "pending"
+    },
+    {
+      "content": "Reinstall both packages in editable mode and verify imports work",
+      "id": "reinstall-verify",
+      "status": "pending"
+    }
+  ]
+}
+```
+Additional data:
+
+```json
+{
+  "hasOpenedEditor": true,
+  "planUri": "file:///Users/greg/.cursor/plans/split_pymcaf_packaging_dd91c068.plan.md",
+  "reviewData": {
+    "isShowingInput": false,
+    "selectedOption": "none",
+    "status": "Requested"
+  }
+}
+```
+Result:
+
+```json
+{
+  "rejected": {}
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="create_plan"><details>
+<summary>Tool use: **create_plan**</summary>
+
+</details></tool-use>
+
+---
+
+_**User**_
+
+Implement the plan as specified, it is attached for your reference. Do NOT edit the plan file itself.
+
+To-do's from the plan have already been created. Do not create them again. Mark them as in_progress as you work, starting with the first one. Don't stop until you have completed all the to-dos.
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Create packages/pymcaf/pyproject.toml with pymcaf-specific metadata and dependencies",
+      "id": "create-pymcaf-pyproject",
+      "status": "in_progress"
+    },
+    {
+      "content": "git mv pymcaf/ to packages/pymcaf/src/pymcaf/ (preserving git history)",
+      "id": "move-pymcaf-src",
+      "status": "pending"
+    },
+    {
+      "content": "Update root pyproject.toml: remove pymcaf* from find, add pymcaf to dependencies",
+      "id": "update-root-pyproject",
+      "status": "pending"
+    },
+    {
+      "content": "Update .gitignore for new egg-info location",
+      "id": "update-gitignore",
+      "status": "pending"
+    },
+    {
+      "content": "Reinstall both packages in editable mode and verify imports work",
+      "id": "reinstall-verify",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Create packages/pymcaf/pyproject.toml with pymcaf-specific metadata and dependencies",
+      "id": "create-pymcaf-pyproject",
+      "status": "pending"
+    },
+    {
+      "content": "git mv pymcaf/ to packages/pymcaf/src/pymcaf/ (preserving git history)",
+      "id": "move-pymcaf-src",
+      "status": "pending"
+    },
+    {
+      "content": "Update root pyproject.toml: remove pymcaf* from find, add pymcaf to dependencies",
+      "id": "update-root-pyproject",
+      "status": "pending"
+    },
+    {
+      "content": "Update .gitignore for new egg-info location",
+      "id": "update-gitignore",
+      "status": "pending"
+    },
+    {
+      "content": "Reinstall both packages in editable mode and verify imports work",
+      "id": "reinstall-verify",
+      "status": "pending"
+    }
+  ],
+  "success": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyproject.toml</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pymcaf/__init__.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+First, create the directory structure and the `pymcaf` pyproject.toml.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: mkdir -p /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src</summary>
+
+```bash
+mkdir -p /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/pyproject.toml</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Create packages/pymcaf/pyproject.toml with pymcaf-specific metadata and dependencies",
+      "id": "create-pymcaf-pyproject",
+      "status": "completed"
+    },
+    {
+      "content": "git mv pymcaf/ to packages/pymcaf/src/pymcaf/ (preserving git history)",
+      "id": "move-pymcaf-src",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update root pyproject.toml: remove pymcaf* from find, add pymcaf to dependencies",
+      "id": "update-root-pyproject",
+      "status": "pending"
+    },
+    {
+      "content": "Update .gitignore for new egg-info location",
+      "id": "update-gitignore",
+      "status": "pending"
+    },
+    {
+      "content": "Reinstall both packages in editable mode and verify imports work",
+      "id": "reinstall-verify",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Create packages/pymcaf/pyproject.toml with pymcaf-specific metadata and dependencies",
+      "id": "create-pymcaf-pyproject",
+      "status": "in_progress"
+    },
+    {
+      "content": "git mv pymcaf/ to packages/pymcaf/src/pymcaf/ (preserving git history)",
+      "id": "move-pymcaf-src",
+      "status": "pending"
+    },
+    {
+      "content": "Update root pyproject.toml: remove pymcaf* from find, add pymcaf to dependencies",
+      "id": "update-root-pyproject",
+      "status": "pending"
+    },
+    {
+      "content": "Update .gitignore for new egg-info location",
+      "id": "update-gitignore",
+      "status": "pending"
+    },
+    {
+      "content": "Reinstall both packages in editable mode and verify imports work",
+      "id": "reinstall-verify",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now move the `pymcaf` package using `git mv` to preserve history.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/greg/projects/microchip/pyx2ctune && git mv pymcaf packages/pymcaf/src/pymcaf</summary>
+
+```bash
+cd /Users/greg/projects/microchip/pyx2ctune && git mv pymcaf packages/pymcaf/src/pymcaf
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: ls /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/</summary>
+
+```bash
+ls /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/
+```
+
+```
+__init__.py
+__pycache__
+backend.py
+backends
+connection.py
+constants.py
+motor.py
+parameters.py
+scope.py
+test_harness.py
+types.py
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Create packages/pymcaf/pyproject.toml with pymcaf-specific metadata and dependencies",
+      "id": "create-pymcaf-pyproject",
+      "status": "completed"
+    },
+    {
+      "content": "git mv pymcaf/ to packages/pymcaf/src/pymcaf/ (preserving git history)",
+      "id": "move-pymcaf-src",
+      "status": "completed"
+    },
+    {
+      "content": "Update root pyproject.toml: remove pymcaf* from find, add pymcaf to dependencies",
+      "id": "update-root-pyproject",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update .gitignore for new egg-info location",
+      "id": "update-gitignore",
+      "status": "pending"
+    },
+    {
+      "content": "Reinstall both packages in editable mode and verify imports work",
+      "id": "reinstall-verify",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Create packages/pymcaf/pyproject.toml with pymcaf-specific metadata and dependencies",
+      "id": "create-pymcaf-pyproject",
+      "status": "completed"
+    },
+    {
+      "content": "git mv pymcaf/ to packages/pymcaf/src/pymcaf/ (preserving git history)",
+      "id": "move-pymcaf-src",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update root pyproject.toml: remove pymcaf* from find, add pymcaf to dependencies",
+      "id": "update-root-pyproject",
+      "status": "pending"
+    },
+    {
+      "content": "Update .gitignore for new egg-info location",
+      "id": "update-gitignore",
+      "status": "pending"
+    },
+    {
+      "content": "Reinstall both packages in editable mode and verify imports work",
+      "id": "reinstall-verify",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the root `pyproject.toml` -- remove `pymcaf*` from the package find list and add `pymcaf` as a dependency.

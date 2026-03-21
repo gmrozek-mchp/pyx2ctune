@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10,<3.13"
 license = {text = "MIT"}
 dependencies = [
+    "pymcaf>=0.1.0",
     "pyx2cscope>=0.5.0",
     "numpy>=1.26",
     "matplotlib>=3.7",
@@ -32,7 +33,7 @@ dev = [
 mctoolbox-gui = "mctoolbox.gui:main"
 
 [tool.setuptools.packages.find]
-include = ["pymcaf*", "mctoolbox*"]
+include = ["mctoolbox*"]
 
 [tool.setuptools.package-data]
 "mctoolbox.wizards" = ["*.yaml", "*.yml"]
