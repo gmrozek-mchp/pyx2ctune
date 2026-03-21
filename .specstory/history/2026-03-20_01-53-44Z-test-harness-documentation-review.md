@@ -16497,3 +16497,127 @@ The gain buttons now explicitly stay enabled when continuous capture starts, so 
 _**User**_
 
 run it please
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: ls /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/*.txt 2>/dev/null | head -5</summary>
+
+```bash
+ls /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/*.txt 2>/dev/null | head -5
+```
+
+```
+/Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/559943.txt
+/Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/955115.txt
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: head -10 /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/*.txt</summary>
+
+```bash
+head -10 /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/*.txt
+```
+
+```
+==&gt; /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/559943.txt &lt;==
+---
+pid: 7914
+cwd: "/Users/greg/projects/microchip/pyx2ctune"
+command: "cd /Users/greg/projects/microchip/pyx2ctune &amp;&amp; .venv/bin/python -m pyx2ctune.gui 2&gt;&amp;1"
+started_at: 2026-03-20T02:55:30.449Z
+running_for_ms: 125064   
+---
+
+---
+exit_code: 0
+
+==&gt; /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/955115.txt &lt;==
+---
+pid: 4295
+cwd: "/Users/greg/projects/microchip/pyx2ctune"
+command: "cd /Users/greg/projects/microchip/pyx2ctune &amp;&amp; python3 -m pyx2ctune.gui 2&gt;&amp;1"
+started_at: 2026-03-20T02:50:56.490Z
+running_for_ms: 2        
+---
+Traceback (most recent call last):
+  File "&lt;frozen runpy&gt;", line 189, in _run_module_as_main
+  File "&lt;frozen runpy&gt;", line 112, in _get_module_details
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+The previous GUI instance has exited. Let me launch it again with the venv.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/greg/projects/microchip/pyx2ctune && .venv/bin/python -m pyx2ctune.gui 2>&1</summary>
+
+```bash
+cd /Users/greg/projects/microchip/pyx2ctune && .venv/bin/python -m pyx2ctune.gui 2>&1
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Exit code 138 (SIGBUS) -- likely a sandbox restriction on the GUI. Let me run it without sandboxing.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/greg/projects/microchip/pyx2ctune && .venv/bin/python -m pyx2ctune.gui 2>&1</summary>
+
+```bash
+cd /Users/greg/projects/microchip/pyx2ctune && .venv/bin/python -m pyx2ctune.gui 2>&1
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/.cursor/projects/Users-greg-projects-microchip-pyx2ctune/terminals/396267.txt</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+The GUI is running -- no errors, process is still alive. The window should be visible on your screen now. You can test the new behavior: start continuous capture, then use Set Gains or Read Gains while it's running -- they'll execute immediately between frames.

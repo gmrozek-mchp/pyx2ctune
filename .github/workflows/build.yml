@@ -109,14 +109,27 @@ jobs:
           Compress-Archive -Path pyx2ctune -DestinationPath ${{ matrix.artifact }}.zip
 
       - name: Upload artifact
+        if: runner.os != 'Linux'
         uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact }}
           path: |
-            dist/${{ matrix.artifact }}.tar.gz
             dist/${{ matrix.artifact }}.zip
             dist/${{ matrix.artifact }}.dmg
-            dist/${{ matrix.artifact }}.deb
+
+      - name: Upload artifact (Linux tar.gz)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.artifact }}-tar
+          path: dist/${{ matrix.artifact }}.tar.gz
+
+      - name: Upload artifact (Linux .deb)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.artifact }}-deb
+          path: dist/${{ matrix.artifact }}.deb
 
   release:
     needs: build
