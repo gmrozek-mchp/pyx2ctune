@@ -4,6 +4,9 @@ Provides methods to read/write velocity PI gains in engineering units,
 set velocity commands, and configure square-wave velocity perturbation
 for step response testing.
 
+Delegates gain read/write to :attr:`pymcaf.Connection.motor` and
+perturbation control to :attr:`pymcaf.Connection.test_harness.sqwave`.
+
 Reference: https://microchiptech.github.io/mcaf-doc/9.0.1/algorithms/foc/tuning.html
 """
 
@@ -13,6 +16,8 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from pymcaf.types import PIGainValues
+
 from mctoolbox import interfaces as _interfaces
 
 if TYPE_CHECKING:
@@ -20,21 +25,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_GAIN_VARS = {
-    "kp": "motor.omegaCtrl.kp",
-    "ki": "motor.omegaCtrl.ki",
-    "nkp": "motor.omegaCtrl.nkp",
-    "nki": "motor.omegaCtrl.nki",
-}
-
-_VAR_VELOCITY_CMD = "motor.velocityControl.velocityCmd"
-_VAR_OMEGA_ELECTRICAL = "motor.omegaElectrical"
-_VAR_SQWAVE_VALUE = "motor.testing.sqwave.value"
-_VAR_SQWAVE_HALFPERIOD = "motor.testing.sqwave.halfperiod"
-_VAR_SQWAVE_VEL_ELEC = "motor.testing.sqwave.velocity.electrical"
-
-_PARAM_KWP = "foc.kwp"
-_PARAM_KWI = "foc.kwi"
 _PARAM_FULLSCALE_VELOCITY = "mcapi.fullscale.velocity"
 _PARAM_ISR_DIVIDER = "timing.mcafIsrSubsampleDivider"
 
@@ -51,12 +41,22 @@ class VelocityGains(_interfaces.PIGains):
     ki_units: str = "A/rad"
 
 
+def _pi_to_velocity_gains(g: PIGainValues) -> VelocityGains:
+    """Convert a generic PIGainValues to the mctoolbox VelocityGains type."""
+    return VelocityGains(
+        kp=g.kp, ki=g.ki,
+        kp_counts=g.kp_raw, ki_counts=g.ki_raw,
+        kp_shift=g.kp_shift, ki_shift=g.ki_shift,
+        kp_units=g.kp_units, ki_units=g.ki_units,
+    )
+
+
 class VelocityTuning(_interfaces.LoopTuner):
     """Velocity loop PI gain tuning interface.
 
     Reads and writes PI gains for the velocity controller, converting
     between engineering units and firmware fixed-point counts via the
-    pymcaf Connection.
+    pymcaf Motor interface.
     """
 
     def __init__(self, session: TuningSession):
@@ -66,20 +66,9 @@ class VelocityTuning(_interfaces.LoopTuner):
 
     def get_gains(self, **kwargs: Any) -> VelocityGains:
         """Read velocity PI gains from firmware."""
-        conn = self._session.conn
-
-        kp_eng, kp_counts, kp_q = conn.read_pi_gain(
-            _GAIN_VARS["kp"], _GAIN_VARS["nkp"], _PARAM_KWP,
-        )
-        ki_eng, ki_counts, ki_q = conn.read_pi_gain(
-            _GAIN_VARS["ki"], _GAIN_VARS["nki"], _PARAM_KWI,
-        )
-
-        result = VelocityGains(
-            kp=kp_eng, ki=ki_eng,
-            kp_counts=kp_counts, ki_counts=ki_counts,
-            kp_shift=kp_q, ki_shift=ki_q,
-        )
+        motor = self._session.conn.motor
+        g = motor.read_velocity_gains()
+        result = _pi_to_velocity_gains(g)
         logger.info(
             "Read velocity gains: Kp=%.6f %s (counts=%d, Q%d), "
             "Ki=%.4f %s (counts=%d, Q%d)",
@@ -100,39 +89,26 @@ class VelocityTuning(_interfaces.LoopTuner):
         Returns:
             VelocityGains reflecting the values actually written.
         """
-        conn = self._session.conn
+        motor = self._session.conn.motor
 
         if units == "counts":
             kp_counts = int(kp)
             ki_counts = int(ki)
-            self._session.write_variable(_GAIN_VARS["kp"], kp_counts)
-            self._session.write_variable(_GAIN_VARS["ki"], ki_counts)
-
-            actual_nkp = int(self._session.read_variable(_GAIN_VARS["nkp"]))
-            actual_nki = int(self._session.read_variable(_GAIN_VARS["nki"]))
-            kp_q = 15 - actual_nkp
-            ki_q = 15 - actual_nki
-
-        elif units == "engineering":
-            kp_counts, nkp = conn.write_pi_gain(
-                _GAIN_VARS["kp"], _GAIN_VARS["nkp"], _PARAM_KWP, kp,
+            conn = self._session.conn
+            conn.write_raw("motor.omegaCtrl.kp", kp_counts)
+            conn.write_raw("motor.omegaCtrl.ki", ki_counts)
+            return VelocityGains(
+                kp=float(kp_counts), ki=float(ki_counts),
+                kp_counts=kp_counts, ki_counts=ki_counts,
             )
-            ki_counts, nki = conn.write_pi_gain(
-                _GAIN_VARS["ki"], _GAIN_VARS["nki"], _PARAM_KWI, ki,
-            )
-            kp_q = 15 - nkp
-            ki_q = 15 - nki
-        else:
+
+        if units != "engineering":
             raise ValueError(
                 f"units must be 'engineering' or 'counts', got {units!r}"
             )
 
-        result = VelocityGains(
-            kp=kp if units == "engineering" else float(kp_counts),
-            ki=ki if units == "engineering" else float(ki_counts),
-            kp_counts=kp_counts, ki_counts=ki_counts,
-            kp_shift=kp_q, ki_shift=ki_q,
-        )
+        g = motor.write_velocity_gains(kp, ki)
+        result = _pi_to_velocity_gains(g)
         logger.info(
             "Set velocity gains: Kp=%.6f %s (counts=%d, Q%d), "
             "Ki=%.4f %s (counts=%d, Q%d)",
@@ -156,32 +132,27 @@ class VelocityTuning(_interfaces.LoopTuner):
 
     def rpm_to_counts(self, rpm: float) -> int:
         """Convert RPM to Q15 velocity counts."""
-        conn = self._session.conn
-        return conn.engineering_to_q15(rpm, _PARAM_FULLSCALE_VELOCITY)
+        return self._session.conn.engineering_to_q15(rpm, _PARAM_FULLSCALE_VELOCITY)
 
     def counts_to_rpm(self, counts: int) -> float:
         """Convert Q15 velocity counts to RPM."""
-        conn = self._session.conn
-        return conn.q15_to_engineering(counts, _PARAM_FULLSCALE_VELOCITY)
+        return self._session.conn.q15_to_engineering(counts, _PARAM_FULLSCALE_VELOCITY)
 
     def set_velocity_command(self, rpm: float) -> None:
         """Set the velocity command in RPM.
 
         Requires the velocity command override to be active.
         """
-        counts = self.rpm_to_counts(rpm)
-        self._session.write_variable(_VAR_VELOCITY_CMD, counts)
-        logger.info("Set velocity command: %.1f RPM (%d counts)", rpm, counts)
+        self._session.conn.motor.velocity_cmd = rpm
+        logger.info("Set velocity command: %.1f RPM", rpm)
 
     def get_velocity_command(self) -> float:
         """Read the current velocity command in RPM."""
-        counts = int(self._session.read_variable(_VAR_VELOCITY_CMD))
-        return self.counts_to_rpm(counts)
+        return self._session.conn.motor.velocity_cmd
 
     def get_measured_velocity(self) -> float:
         """Read the measured electrical velocity in RPM."""
-        counts = int(self._session.read_variable(_VAR_OMEGA_ELECTRICAL))
-        return self.counts_to_rpm(counts)
+        return self._session.conn.motor.omega
 
     # ── Velocity Perturbation ─────────────────────────────────────────
 
@@ -207,10 +178,7 @@ class VelocityTuning(_interfaces.LoopTuner):
         return cycles * isr_period * 1000.0
 
     def start_perturbation(self, **kwargs: Any) -> None:
-        """Start a square-wave velocity perturbation.
-
-        Accepts the same keyword arguments as setup_velocity_perturbation().
-        """
+        """Start a square-wave velocity perturbation."""
         self.setup_velocity_perturbation(**kwargs)
 
     def setup_velocity_perturbation(
@@ -224,22 +192,21 @@ class VelocityTuning(_interfaces.LoopTuner):
             amplitude_rpm: Perturbation amplitude in RPM.
             halfperiod_ms: Half-period in milliseconds.
         """
-        amp_counts = self.rpm_to_counts(amplitude_rpm)
+        sqwave = self._session.conn.test_harness.sqwave
         hp_cycles = self.ms_to_isr_cycles(halfperiod_ms)
 
-        self._session.write_variable(_VAR_SQWAVE_HALFPERIOD, hp_cycles)
-        self._session.write_variable(_VAR_SQWAVE_VEL_ELEC, amp_counts)
-        self._session.write_variable(_VAR_SQWAVE_VALUE, 1)
+        sqwave.halfperiod = hp_cycles
+        sqwave.velocity_amplitude = amplitude_rpm
+        sqwave.start()
 
         logger.info(
-            "Started velocity perturbation: %.1f RPM (%d counts), "
-            "T/2=%.2f ms (%d cycles)",
-            amplitude_rpm, amp_counts, halfperiod_ms, hp_cycles,
+            "Started velocity perturbation: %.1f RPM, T/2=%.2f ms (%d cycles)",
+            amplitude_rpm, halfperiod_ms, hp_cycles,
         )
 
     def stop_perturbation(self) -> None:
         """Stop the square-wave perturbation signal."""
-        self._session.write_variable(_VAR_SQWAVE_VALUE, 0)
+        self._session.conn.test_harness.sqwave.stop()
         logger.info("Stopped velocity perturbation")
 
     def get_default_perturbation(self) -> dict:

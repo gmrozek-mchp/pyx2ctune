@@ -46,6 +46,8 @@ class Connection:
             logger.info("Loaded %s", self._params)
 
         self.scope = Scope(self._backend)
+        self._motor = None
+        self._test_harness = None
 
     @property
     def backend(self) -> Backend:
@@ -56,6 +58,34 @@ class Connection:
     def params(self) -> ParameterDB | None:
         """The parameter database, or None if not loaded."""
         return self._params
+
+    @property
+    def motor(self):
+        """Typed access to motor control variables.
+
+        Returns a :class:`~pymcaf.motor.Motor` instance providing
+        property-based read/write of currents, voltages, velocities,
+        duty cycles, and PI gains in engineering units.
+        """
+        if self._motor is None:
+            from pymcaf.motor import Motor
+
+            self._motor = Motor(self)
+        return self._motor
+
+    @property
+    def test_harness(self):
+        """Test harness interface.
+
+        Returns a :class:`~pymcaf.test_harness.TestHarness` instance
+        providing guard management, operating mode control, override
+        flags, state transitions, and perturbation configuration.
+        """
+        if self._test_harness is None:
+            from pymcaf.test_harness import TestHarness
+
+            self._test_harness = TestHarness(self)
+        return self._test_harness
 
     # ── Raw variable access ───────────────────────────────────────────
 
@@ -154,81 +184,6 @@ class Connection:
                 f"Invalid fullscale for {fullscale_param!r} (got {fs})"
             )
         return round(value / fs * 32768)
-
-    # ── PI gain conversion ────────────────────────────────────────────
-
-    def read_pi_gain(
-        self,
-        gain_var: str,
-        shift_var: str,
-        param_key: str,
-    ) -> tuple[float, int, int]:
-        """Read a PI gain in engineering units.
-
-        Accounts for the runtime shift count (nkp/nki) to compute the
-        effective Q-format before converting.
-
-        Args:
-            gain_var: Firmware variable for the gain (e.g. "motor.iqCtrl.kp").
-            shift_var: Firmware variable for the shift count (e.g. "motor.iqCtrl.nkp").
-            param_key: Parameter key for the scale factor (e.g. "foc.kip").
-
-        Returns:
-            Tuple of (engineering_value, raw_counts, effective_q).
-        """
-        params = self._require_params()
-        counts = int(self._backend.read_variable(gain_var))
-        nkp = int(self._backend.read_variable(shift_var))
-        info = params.get_info(param_key)
-        effective_q = 15 - nkp
-        eng_value = (counts / (1 << effective_q)) * info.scale
-        return eng_value, counts, effective_q
-
-    def write_pi_gain(
-        self,
-        gain_var: str,
-        shift_var: str,
-        param_key: str,
-        value: float,
-    ) -> tuple[int, int]:
-        """Write a PI gain in engineering units.
-
-        Computes the fixed-point representation, adjusting the shift
-        count if the value overflows Q15.  Writes both the gain and
-        shift variables to firmware.
-
-        Args:
-            gain_var: Firmware variable for the gain.
-            shift_var: Firmware variable for the shift count.
-            param_key: Parameter key for the scale factor.
-            value: Gain in engineering units (e.g. V/A).
-
-        Returns:
-            Tuple of (counts, nkp) actually written to firmware.
-
-        Raises:
-            ValueError: If the value cannot be represented in int16.
-        """
-        params = self._require_params()
-        info = params.get_info(param_key)
-        nkp = 15 - info.q
-        effective_q = 15 - nkp
-        counts = round(value / info.scale * (1 << effective_q))
-
-        while not (-32768 <= counts <= 32767) and effective_q > 0:
-            nkp += 1
-            effective_q = 15 - nkp
-            counts = round(value / info.scale * (1 << effective_q))
-
-        if not (-32768 <= counts <= 32767):
-            raise ValueError(
-                f"Cannot represent {value} {info.units} for {param_key!r} "
-                f"in int16 (tried nkp up to {nkp}, Q{effective_q})"
-            )
-
-        self._backend.write_variable(gain_var, counts)
-        self._backend.write_variable(shift_var, nkp)
-        return counts, nkp
 
     # ── Lifecycle ─────────────────────────────────────────────────────
 

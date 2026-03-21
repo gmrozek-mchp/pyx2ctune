@@ -14,13 +14,18 @@ Quick start::
         parameters_json="parameters.json",
     )
 
-    # Read current in Amps
-    iq = conn.read_q15("motor.idq.q", "mcapi.fullscale.current")
+    # Read measured current in Amps
+    iq = conn.motor.idq.q
+
+    # Set velocity command in RPM
+    conn.motor.velocity_cmd = 1000.0
 
     # Read PI gain in V/A
-    kp, counts, q = conn.read_pi_gain(
-        "motor.iqCtrl.kp", "motor.iqCtrl.nkp", "foc.kip",
-    )
+    gains = conn.motor.read_current_gains(axis="q")
+
+    # Test harness control
+    conn.test_harness.enable_guard()
+    conn.test_harness.operating_mode = OperatingMode.FORCE_CURRENT
 
     conn.disconnect()
 """
@@ -36,20 +41,42 @@ from pymcaf.constants import (
     OperatingMode,
     OverrideFlag,
 )
+from pymcaf.motor import Motor
 from pymcaf.parameters import ParameterDB, ParameterInfo
+from pymcaf.test_harness import (
+    AsymmetricPerturbation,
+    SquareWavePerturbation,
+    TestHarness,
+)
+from pymcaf.types import (
+    ABCTriple,
+    AlphaBetaPair,
+    DQPair,
+    MotorState,
+    PIGainValues,
+)
 
 __version__ = "0.1.0"
 
 __all__ = [
+    "ABCTriple",
+    "AlphaBetaPair",
+    "AsymmetricPerturbation",
     "Backend",
     "Connection",
+    "DQPair",
     "ForceState",
     "GUARD_KEY_RESET",
     "GUARD_KEY_VALID",
     "GUARD_TIMEOUT_MAX",
     "MOTOR_STATES",
+    "Motor",
+    "MotorState",
     "OperatingMode",
     "OverrideFlag",
+    "PIGainValues",
     "ParameterDB",
     "ParameterInfo",
+    "SquareWavePerturbation",
+    "TestHarness",
 ]

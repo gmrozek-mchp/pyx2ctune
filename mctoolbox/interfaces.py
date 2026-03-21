@@ -11,13 +11,15 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from pymcaf.types import MotorState, PIGainValues
+
 if TYPE_CHECKING:
     import threading
 
     import numpy as np
 
 
-# ── Data types ────────────────────────────────────────────────────────
+# ── Data types (canonical definitions live in pymcaf.types) ───────────
 
 @dataclass
 class PIGains:
@@ -31,14 +33,6 @@ class PIGains:
     ki: float
     kp_units: str = ""
     ki_units: str = ""
-
-
-@dataclass
-class MotorState:
-    """Snapshot of the motor controller state."""
-
-    value: int
-    name: str
 
 
 # ── Abstract base classes ─────────────────────────────────────────────
