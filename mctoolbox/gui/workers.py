@@ -6,8 +6,8 @@ worker thread so the GUI stays responsive and UART access is serialized.
 
 from __future__ import annotations
 
+import logging
 import threading
-import traceback
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Any
@@ -15,6 +15,8 @@ from typing import Any
 from PyQt5.QtCore import QObject, QThread, pyqtSignal, pyqtSlot, QMutex, QWaitCondition
 
 from pymcaf.constants import ForceState
+
+logger = logging.getLogger(__name__)
 
 
 class Command(Enum):
@@ -91,6 +93,7 @@ class SessionWorker(QObject):
 
     capture_started = pyqtSignal()
     capture_cancelled = pyqtSignal()
+    connection_lost = pyqtSignal(str)           # single notification on link failure
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -104,6 +107,8 @@ class SessionWorker(QObject):
         self._continuous_frame_count = 0
         self._continuous_timeout = 10.0
         self._capture_abort = threading.Event()
+        self._connection_lost_flag = False
+        self._consecutive_comm_errors = 0
 
     @property
     def session(self):
@@ -150,12 +155,27 @@ class SessionWorker(QObject):
                 self.busy_changed.emit(True)
             try:
                 self._dispatch(item)
-            except Exception:
-                tb = traceback.format_exc()
-                self.error.emit(item.command.name, tb)
-                if is_bg and self._continuous_active:
-                    self._continuous_active = False
-                    self.continuous_stopped.emit()
+                self._consecutive_comm_errors = 0
+            except Exception as exc:
+                is_auto = item.command in (
+                    Command.READ_MEASURED_SPEED,
+                    Command._CONTINUOUS_FRAME,
+                )
+                if is_auto:
+                    self._consecutive_comm_errors += 1
+                    if self._continuous_active:
+                        self._continuous_active = False
+                        self.continuous_stopped.emit()
+                    if (self._consecutive_comm_errors >= 3
+                            and not self._connection_lost_flag):
+                        self._connection_lost_flag = True
+                        self._session = None
+                        self.connection_lost.emit(str(exc))
+                else:
+                    logger.error(
+                        "Command %s failed", item.command.name, exc_info=True,
+                    )
+                    self.error.emit(item.command.name, str(exc))
             finally:
                 if not is_bg:
                     self.busy_changed.emit(False)
@@ -166,7 +186,12 @@ class SessionWorker(QObject):
 
         if cmd == Command.CONNECT:
             self._do_connect(**kw)
-        elif cmd == Command.DISCONNECT:
+            return
+
+        if self._session is None:
+            return
+
+        if cmd == Command.DISCONNECT:
             self._do_disconnect()
         elif cmd == Command.READ_GAINS:
             self._do_read_gains(**kw)
@@ -223,15 +248,41 @@ class SessionWorker(QObject):
 
     def _do_connect(self, port: str, elf_file: str,
                     baud_rate: int, parameters_json: str | None) -> None:
+        import os
+
         from mctoolbox.mcaf.session import TuningSession
 
+        self._connection_lost_flag = False
+        self._consecutive_comm_errors = 0
+
+        if not os.path.isfile(elf_file):
+            raise FileNotFoundError(f"ELF file not found:\n{elf_file}")
+        if parameters_json and not os.path.isfile(parameters_json):
+            raise FileNotFoundError(
+                f"Parameters file not found:\n{parameters_json}"
+            )
+
         self.status.emit(f"Connecting to {port}...")
-        session = TuningSession.from_x2cscope(
-            port=port,
-            elf_file=elf_file,
-            baud_rate=baud_rate,
-            parameters_json=parameters_json or None,
-        )
+        try:
+            session = TuningSession.from_x2cscope(
+                port=port,
+                elf_file=elf_file,
+                baud_rate=baud_rate,
+                parameters_json=parameters_json or None,
+            )
+        except RuntimeError:
+            raise ConnectionError(
+                f"Board is not responding on {port}.\n\n"
+                f"Check that:\n"
+                f"  \u2022 The board is powered on and connected via USB\n"
+                f"  \u2022 The correct port is selected\n"
+                f"  \u2022 No other application is using the port\n"
+                f"  \u2022 The baud rate matches the firmware ({baud_rate})"
+            ) from None
+        except Exception as exc:
+            raise ConnectionError(
+                f"Could not connect on {port}: {exc}"
+            ) from None
         self._session = session
         self.status.emit(f"Connected to {port}")
         self.connected.emit(session)

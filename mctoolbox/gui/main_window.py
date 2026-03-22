@@ -286,6 +286,7 @@ class MainWindow(QMainWindow):
         self._worker.measured_speed_read.connect(ol.on_speed_read)
 
         self._worker.error.connect(self._on_error)
+        self._worker.connection_lost.connect(self._on_connection_lost)
         self._worker.status.connect(self._status_bar.showMessage)
         self._worker.busy_changed.connect(self._on_busy_changed)
 
@@ -711,15 +712,26 @@ class MainWindow(QMainWindow):
         ):
             lbl.setText("--")
 
-    # ── Error / Busy ──────────────────────────────────────────────────
+    # ── Connection Loss / Error / Busy ────────────────────────────────
+
+    def _on_connection_lost(self, message: str) -> None:
+        """Handle unexpected loss of communication with the board."""
+        if self._session is None:
+            return
+        self._speed_timer.stop()
+        self._worker.request_stop_continuous()
+        self._worker.cancel_capture()
+        self._on_disconnected()
+        QMessageBox.warning(
+            self, "Connection Lost",
+            "Communication with the board was lost.\n\n"
+            "Check the USB connection and click Connect to reconnect.",
+        )
 
     def _on_error(self, cmd_name: str, message: str) -> None:
         self._status_bar.showMessage(f"Error: {cmd_name}")
         self._set_ui_state(connected=self._session is not None)
-        QMessageBox.critical(
-            self, f"Error: {cmd_name}",
-            f"Command {cmd_name} failed:\n\n{message}",
-        )
+        QMessageBox.critical(self, f"Error: {cmd_name}", message)
 
     def _on_busy_changed(self, busy: bool) -> None:
         if busy:
