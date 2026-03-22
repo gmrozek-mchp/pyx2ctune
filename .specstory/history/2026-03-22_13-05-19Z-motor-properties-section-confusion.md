@@ -2613,7 +2613,60 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 <details>
 <summary>Tool use: **ask_question**</summary>
 
-Status: **loading**
+
+Parameters:
+
+```json
+{
+  "questions": [
+    {
+      "id": "iabc_c_impl",
+      "options": [
+        {
+          "id": "always_zero",
+          "label": "Always return 0.0 (match current compound behavior)"
+        },
+        {
+          "id": "read_firmware",
+          "label": "Read from firmware (there may be a motor.iabc.c variable even if not populated)"
+        }
+      ],
+      "prompt": "The compound iabc property hardcodes c=0.0 because MCAF typically only measures phases A and B. How should iabc_c behave?"
+    }
+  ],
+  "title": "iabc_c behavior"
+}
+```
+Additional data:
+
+```json
+{
+  "currentSelections": {
+    "iabc_c_impl": [
+      "__freeform_other__"
+    ]
+  },
+  "freeformTexts": {
+    "iabc_c_impl": "mcaf can be configured to measure all 3 channels. We must always read from firmware"
+  },
+  "status": "submitted"
+}
+```
+Result:
+
+```json
+{
+  "answers": [
+    {
+      "freeformText": "mcaf can be configured to measure all 3 channels. We must always read from firmware",
+      "questionId": "iabc_c_impl"
+    }
+  ]
+}
+```
+User decision: **accepted**
+
+Status: **completed**
 
 
 </details>
@@ -2623,3 +2676,212 @@ Status: **loading**
 <summary>Tool use: **ask_question**</summary>
 
 </details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Got it -- I'll add `iabc_c` reading from firmware and also fix the compound `iabc` property to read from firmware instead of hardcoding `c=0.0`. Let me make those changes.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/motor.py",
+  "pattern": "_VAR_IABC"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/motor.py",
+  "pattern": "_VAR_IABC",
+  "topFiles": [
+    {
+      "matchCount": 6,
+      "uri": "packages/pymcaf/src/pymcaf/motor.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 6
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+There's no `_VAR_IABC_C` constant yet. I need to add it and update the compound property too.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/motor.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now fix the compound `iabc` property to read all three from firmware, and add `iabc_c`.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/motor.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the docs to include `iabc_c`.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/api/motor.rst</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/guide/motor.rst</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Verify everything still works.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -c "
+from pymcaf.motor import Motor
+assert hasattr(Motor, 'iabc_c') and isinstance(Motor.iabc_c, property)
+print('iabc_c property verified')
+" && .venv/bin/python -m sphinx -b html packages/pymcaf/docs packages/pymcaf/docs/_build/html 2>&1</summary>
+
+```bash
+.venv/bin/python -c "
+from pymcaf.motor import Motor
+assert hasattr(Motor, 'iabc_c') and isinstance(Motor.iabc_c, property)
+print('iabc_c property verified')
+" && .venv/bin/python -m sphinx -b html packages/pymcaf/docs packages/pymcaf/docs/_build/html 2>&1
+```
+
+```
+iabc_c property verified
+Running Sphinx v9.1.0
+loading translations [en]... done
+loading pickled environment... The configuration has changed (2 options: 'html_permalinks_icon', 'jquery_use_sri')
+done
+building [mo]: targets for 0 po files that are out of date
+writing output... 
+building [html]: targets for 2 source files that are out of date
+updating environment: 0 added, 2 changed, 0 removed
+reading sources... [ 50%] api/motor
+reading sources... [100%] guide/motor
+
+looking for now-outdated files... none found
+pickling environment... done
+checking consistency... done
+preparing documents... done
+copying assets... 
+copying static files... 
+Writing evaluated template result to /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/_build/html/_static/basic.css
+Writing evaluated template result to /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/_build/html/_static/language_data.js
+Writing evaluated template result to /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/_build/html/_static/documentation_options.js
+Writing evaluated template result to /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/_build/html/_static/js/versions.js
+copying static files: done
+copying extra files... 
+copying extra files: done
+copying assets: done
+writing output... [ 25%] api/index
+writing output... [ 50%] api/motor
+writing output... [ 75%] guide/index
+writing output... [100%] guide/motor
+
+generating indices... genindex py-modindex done
+highlighting module code... [ 11%] pymcaf.backend
+highlighting module code... [ 22%] pymcaf.backends.x2cscope
+highlighting module code... [ 33%] pymcaf.connection
+highlighting module code... [ 44%] pymcaf.constants
+highlighting module code... [ 56%] pymcaf.motor
+highlighting module code... [ 67%] pymcaf.parameters
+highlighting module code... [ 78%] pymcaf.scope
+highlighting module code... [ 89%] pymcaf.test_harness
+highlighting module code... [100%] pymcaf.types
+
+writing additional pages... search done
+dumping search index in English (code: en)... done
+dumping object inventory... done
+build succeeded.
+
+The HTML pages are in packages/pymcaf/docs/_build/html.
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Fixed. Three changes:
+
+1. Added the `_VAR_IABC_C = "motor.iabc.c"` firmware path constant
+2. Fixed the compound `iabc` property to read all three phases from firmware instead of hardcoding `c=0.0`
+3. Added the `iabc_c` individual property
