@@ -21,7 +21,7 @@ Quick start::
     conn.motor.velocity_cmd = 1000.0
 
     # Read PI gain in V/A
-    gains = conn.motor.read_current_gains(axis="q")
+    kp = conn.motor.current_kp_q
 
     # Test harness control
     conn.test_harness.enable_guard()
@@ -53,7 +53,6 @@ from pymcaf.types import (
     AlphaBetaPair,
     DQPair,
     MotorState,
-    PIGainValues,
 )
 
 __version__ = "0.1.0"
@@ -74,7 +73,6 @@ __all__ = [
     "MotorState",
     "OperatingMode",
     "OverrideFlag",
-    "PIGainValues",
     "ParameterDB",
     "ParameterInfo",
     "SquareWavePerturbation",

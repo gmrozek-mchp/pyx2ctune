@@ -4286,3 +4286,300 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 <summary>Tool use: **read_file_v2**</summary>
 
 </details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me implement. I'll replace the four buttons with three: **Single**, **Run**, **Stop**. The `Stop` button emits a single `stop_requested` signal, and MainWindow handles calling both `request_stop_continuous()` and `cancel_capture()`.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update `set_connected` and all the state callbacks:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Add the `_continuous` flag initialization in `__init__`:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/scope_panel.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update MainWindow to use the new single `stop_requested` signal:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Replace the two separate handlers with one:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the capture lifecycle callbacks in MainWindow that reference the old scope panel methods. Let me check what's there:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "on_capture_cancelled|on_capture_started|continuous_started|continuous_stopped"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "on_capture_cancelled|on_capture_started|continuous_started|continuous_stopped",
+  "topFiles": [
+    {
+      "matchCount": 8,
+      "uri": "pyx2ctune/gui/main_window.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 8
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Those connections look fine -- they call the scope panel methods which I've already updated. Let me verify nothing references the old button names:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui",
+  "pattern": "_continuous_start_btn|_continuous_stop_btn|_cancel_btn|cancel_capture_requested|continuous_stop_requested"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui",
+  "pattern": "_continuous_start_btn|_continuous_stop_btn|_cancel_btn|cancel_capture_requested|continuous_stop_requested",
+  "topFiles": [],
+  "totalFiles": 0,
+  "totalMatches": 0
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "pyx2ctune/gui/scope_panel.py",
+    "pyx2ctune/gui/main_window.py"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/scope_panel.py"
+    },
+    {
+      "relativeWorkspacePath": "pyx2ctune/gui/main_window.py"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints"><details>
+<summary>Tool use: **read_lints**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Clean. Here's what changed:
+
+**Four buttons down to three:**
+
+| Before | After |
+|--------|-------|
+| Single | Single |
+| Start (bold) | Run (bold) |
+| Stop | Stop |
+| Cancel | *(removed)* |
+
+**How Stop works now:** One Stop button handles everything. When clicked, it emits a single `stop_requested` signal. MainWindow calls both `request_stop_continuous()` and `cancel_capture()` -- whichever is relevant takes effect, the other is a no-op.
+
+**Button states** are now driven by a `_continuous` flag instead of checking whether the old stop button was enabled:
+
+- **Idle**: Single + Run enabled, Stop disabled
+- **Single capture pending**: all three disabled except Stop
+- **Continuous running**: all three disabled except Stop
+- **Stop clicked**: returns to idle state

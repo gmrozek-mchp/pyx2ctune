@@ -858,8 +858,14 @@ _**Agent (composer-1.5)**_
 
 _**Agent (composer-1.5)**_
 
+
+
+
+
+_**Agent (composer-1.5)**_
+
 <tool-use data-tool-type="read" data-tool-name="read_file_v2">
-<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
 
 </details>
 </tool-use>
@@ -875,7 +881,35 @@ _**Agent (composer-1.5)**_
 <details>
 <summary>Tool use: **ripgrep_raw_search**</summary>
 
-Status: **loading**
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "value\\(|setValue\\("
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py",
+  "pattern": "value\\(|setValue\\(",
+  "topFiles": [
+    {
+      "matchCount": 24,
+      "uri": "pyx2ctune/gui/main_window.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 24
+}
+```
+Status: **completed**
 
 
 </details>
@@ -885,3 +919,192 @@ Status: **loading**
 <summary>Tool use: **ripgrep_raw_search**</summary>
 
 </details></tool-use>
+
+_**Agent (composer-1.5)**_
+
+
+Here are the findings from exploring the pyx2ctune codebase:
+
+---
+
+## 1. Full Contents of SPEC.md
+
+The SPEC.md file is 447 lines and describes the pyx2ctune project. Summary:
+
+- **Purpose**: Python library for real-time tuning of Microchip MCAF motor control firmware over X2Cscope.
+- **Phases**: Phase 1 – scriptable library and Jupyter notebook; Phase 2 – PyQt5 GUI with standalone executables.
+- **Ecosystem**: motorBench, MCAF, X2Cscope, pyX2Cscope, pyx2ctune.
+- **Reference hardware**: MCS MCLV-48V-300W (dsPIC33CK256MP508, Linix PMSM).
+- **Current loop workflow**: Enable guard → test mode → PI gains → square-wave perturbation → scope capture → metrics.
+- **Architecture**: `pyx2ctune` package with modules `connection`, `parameters`, `test_harness`, `current_tuning`, `capture`, `analysis`, `plotting`, and `gui/`.
+- **Module specs**: `TuningSession`, `ParameterDB`, `TestHarness`, `CurrentTuning`, `ScopeCapture`, `StepResponse`, `StepMetrics`, `compute_metrics`, `plot_step_response`.
+- **Configuration**: Port, ELF, baud, `parameters_json`, log_dir; optional pyX2Cscope `config.ini`.
+- **Dependencies**: `pyx2cscope>=0.5.0`, `numpy>=1.26`, `matplotlib>=3.7`, `PyQt5>=5.15`.
+- **Example usage**: Full Python script example.
+- **GUI**: PyQt5 app, panels for Connection, PI Gains, Test Harness, Perturbation, Capture, Plot, Metrics.
+- **Executables**: PyInstaller builds for Windows, macOS, Linux.
+
+---
+
+## 2. Directory and File Structure
+
+### Root
+
+```
+/Users/greg/projects/microchip/pyx2ctune/
+├── SPEC.md
+├── README.md
+├── pyproject.toml
+├── pyx2ctune.spec              # PyInstaller build
+├── THIRD-PARTY-LICENSES.md
+├── .github/workflows/build.yml
+├── .cursor/rules/               # Workspace rules
+├── .gitignore
+├── .specstory/                 # Spec story history
+```
+
+### Package layout (`pyx2ctune/`)
+
+```
+pyx2ctune/
+├── __init__.py                 # Exports TuningSession, __version__
+├── connection.py               # TuningSession
+├── parameters.py               # ParameterDB (Q-format)
+├── test_harness.py             # TestHarness
+├── current_tuning.py           # CurrentTuning, CurrentGains
+├── velocity_tuning.py          # Velocity loop
+├── capture.py                  # ScopeCapture, StepResponse
+├── analysis.py                 # compute_metrics, StepMetrics
+├── plotting.py                 # plot_step_response, plot_gain_sweep
+└── gui/
+    ├── __init__.py             # main()
+    ├── __main__.py             # python -m pyx2ctune.gui
+    ├── main_window.py          # MainWindow
+    ├── workers.py              # SessionWorker (QThread)
+    ├── plot_widget.py          # Matplotlib canvas
+    ├── scope_panel.py          # Scope config/capture UI
+    └── tabs/
+        ├── __init__.py
+        ├── current_tab.py      # Current loop tuning
+        ├── velocity_tab.py     # Velocity loop
+        └── openloop_tab.py     # Open-loop / voltage force
+```
+
+### Other directories
+
+```
+examples/
+├── current_loop_tune.py        # End-to-end tuning script
+└── gain_sweep.py               # Kp sweep automation
+
+notebooks/
+└── current_loop_tuning.ipynb   # Jupyter workflow
+
+motorbench/mclv-48v-300w/       # Reference firmware (read-only)
+```
+
+---
+
+## 3. Workflow, Wizard, and Step-Related Code
+
+There is no generic “wizard” or multi-step UI framework. Workflow logic is spread across:
+
+- **Current loop workflow** (SPEC § 1–7):
+  - `test_harness.py`: `enter_current_test_mode()`, `exit_test_mode()`
+  - `current_tuning.py`: `setup_step_test()`, `stop_perturbation()`
+  - `capture.py`: `configure_current_loop()`, `capture_frame()`
+  - `analysis.py`: `compute_metrics()`
+
+- **Step-related code**:
+  - `StepResponse` and `StepMetrics` dataclasses in `capture.py` and `analysis.py`
+  - `setup_step_test()` configures square-wave perturbation
+  - `compute_metrics()` analyzes step transitions (overshoot, rise time, settling time)
+
+- **Notebook workflow**: `notebooks/current_loop_tuning.ipynb` – cells follow: connect → read gains → enter test mode → set gains → configure scope → start perturbation → capture and analyze.
+
+- **Example scripts**: `examples/current_loop_tune.py` and `examples/gain_sweep.py` implement the same flow imperatively.
+
+The GUI uses tabbed panels (Current Loop, Velocity Loop, Open Loop) instead of a step wizard.
+
+---
+
+## 4. pyproject.toml (Dependencies and Metadata)
+
+```toml
+[project]
+name = "pyx2ctune"
+version = "0.1.0"
+description = "MCAF motor control tuning library using pyX2Cscope"
+requires-python = ">=3.10,<3.13"
+license = {text = "MIT"}
+dependencies = [
+    "pyx2cscope>=0.5.0",
+    "numpy>=1.26",
+    "matplotlib>=3.7",
+]
+
+[project.optional-dependencies]
+notebook = ["jupyterlab>=4.0", "ipykernel>=7.0"]
+dev = ["pytest>=7.0", "pytest-cov", "pyinstaller>=6.0"]
+
+[project.scripts]
+pyx2ctune-gui = "pyx2ctune.gui:main"
+```
+
+PyQt5 is not listed explicitly; the SPEC mentions PyQt5 for the GUI, so it is likely provided by pyx2cscope or must be installed separately.
+
+---
+
+## 5. CLI and UI Entry Points
+
+### CLI
+
+- No dedicated CLI library/parser. Only the example scripts use `argparse`:
+  - `examples/current_loop_tune.py` – port, elf, params, baud, kp, ki, amplitude, halfperiod, axis
+  - `examples/gain_sweep.py` – port, elf, params, ki, kp-range, amplitude, halfperiod, axis, output
+
+### GUI
+
+- **Console script**: `pyx2ctune-gui` → `pyx2ctune.gui:main`
+- **Module entry**: `python -m pyx2ctune.gui`
+- **Main code**: `pyx2ctune/gui/__init__.py` → `main()` creates `QApplication`, sets Fusion style, opens `MainWindow`
+- **`__main__.py`**: Before importing pyx2ctune, it sets cwd to `~/.pyx2ctune` so pyX2Cscope can write logs when run as a macOS `.app`
+
+### PyInstaller
+
+- `pyx2ctune.spec` builds from `pyx2ctune/gui/__main__.py`
+- Outputs `pyx2ctune` executable and `pyx2ctune.app` on macOS
+
+---
+
+## 6. Configuration and Parameters Files
+
+### Runtime configuration
+
+- Config is passed into `TuningSession`: `port`, `elf_file`, `baud_rate`, `parameters_json`, `log_dir`
+- No project-specific config files; optional use of pyX2Cscope `config.ini`
+
+### QSettings persistence (GUI)
+
+- `MainWindow` uses `QSettings("pyx2ctune", "pyx2ctune")`
+- Saved values:
+  - `port`, `elf_file`, `params_json`, `baud_rate`
+  - `geometry`, `splitter`
+  - `axis`, `amplitude`, `halfperiod` (current tab)
+
+### parameters.json
+
+- **Path**: `motorbench/mclv-48v-300w/mclv-48v-300w.X/mcc_generated_files/motorBench/aux-files/parameters.json`
+- **Role**: motorBench parameter database
+- **Format**: JSON with `metadata` and `parameters` array
+- **Fields per parameter**: `define_name`, `key`, `intended_value`, `q`, `scale`, `units`, `description`
+- **Example (foc.kip)**: `key: "foc.kip"`, `q: 15`, `scale: 1.722`, `units: "V/A"`
+- **Usage**: `ParameterDB` reads it for Q-format and unit conversion
+
+### Other config-like files
+
+- `motorbench/.../motorbench/log/CoreDataModel.yaml` – motorBench data model
+- `motorbench/.../motorbench/log/BoardDataModel.yaml` – board config
+- `motorbench/.../motorbench/log/AutoTuneCurrentResult.yaml` – autotune output
+
+These are in `motorbench/`, which is read-only for pyx2ctune.

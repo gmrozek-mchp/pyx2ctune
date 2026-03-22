@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from pymcaf.types import MotorState, PIGainValues
+from pymcaf.types import MotorState
 
 if TYPE_CHECKING:
     import threading

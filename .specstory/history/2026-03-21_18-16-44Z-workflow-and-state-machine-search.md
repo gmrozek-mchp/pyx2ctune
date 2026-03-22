@@ -6098,7 +6098,7 @@ Status: **completed**
 _**Agent (composer-1.5)**_
 
 <tool-use data-tool-type="read" data-tool-name="read_file_v2">
-<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/current_tuning.py</summary>
 
 </details>
 </tool-use>
@@ -6110,11 +6110,81 @@ _**Agent (composer-1.5)**_
 
 _**Agent (composer-1.5)**_
 
+
+
+
+
+_**Agent (composer-1.5)**_
+
 <tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
 <details>
 <summary>Tool use: **ripgrep_raw_search**</summary>
 
-Status: **loading**
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": true,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune",
+  "pattern": "stop.*perturbation|exit.*test|read.*gains|on_connected|_on_connected"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune",
+  "pattern": "stop.*perturbation|exit.*test|read.*gains|on_connected|_on_connected",
+  "topFiles": [
+    {
+      "matchCount": 1,
+      "uri": "pyx2ctune/gui/scope_panel.py"
+    },
+    {
+      "matchCount": 31,
+      "uri": "pyx2ctune/gui/workers.py"
+    },
+    {
+      "matchCount": 16,
+      "uri": "pyx2ctune/gui/tabs/velocity_tab.py"
+    },
+    {
+      "matchCount": 3,
+      "uri": "pyx2ctune/test_harness.py"
+    },
+    {
+      "matchCount": 17,
+      "uri": "pyx2ctune/gui/tabs/current_tab.py"
+    },
+    {
+      "matchCount": 7,
+      "uri": "pyx2ctune/gui/tabs/openloop_tab.py"
+    },
+    {
+      "matchCount": 7,
+      "uri": "pyx2ctune/current_tuning.py"
+    },
+    {
+      "matchCount": 36,
+      "uri": "pyx2ctune/gui/main_window.py"
+    },
+    {
+      "matchCount": 7,
+      "uri": "pyx2ctune/velocity_tuning.py"
+    },
+    {
+      "matchCount": 1,
+      "uri": "pyx2ctune/capture.py"
+    }
+  ],
+  "totalFiles": 10,
+  "totalMatches": 126
+}
+```
+Status: **completed**
 
 
 </details>
@@ -6128,7 +6198,7 @@ Status: **loading**
 _**Agent (composer-1.5)**_
 
 <tool-use data-tool-type="read" data-tool-name="read_file_v2">
-<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/main_window.py</summary>
 
 </details>
 </tool-use>
@@ -6140,16 +6210,18 @@ _**Agent (composer-1.5)**_
 
 _**Agent (composer-1.5)**_
 
-<tool-use data-tool-type="read" data-tool-name="read_file_v2">
-<details><summary>Tool use: **read_file_v2** • Read file: </summary>
-
-</details>
-</tool-use>
+File not found
 
 <tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
 <summary>Tool use: **read_file_v2**</summary>
 
 </details></tool-use>
+
+_**Agent (composer-1.5)**_
+
+
+
+
 
 _**Agent (composer-1.5)**_
 
@@ -6157,7 +6229,79 @@ _**Agent (composer-1.5)**_
 <details>
 <summary>Tool use: **ripgrep_raw_search**</summary>
 
-Status: **loading**
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "path": "/Users/greg/projects/microchip/pyx2ctune",
+  "pattern": "StepResponse|StepMetrics"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune",
+  "pattern": "StepResponse|StepMetrics",
+  "topFiles": [
+    {
+      "matchCount": 10,
+      "uri": "pyx2ctune/analysis.py"
+    },
+    {
+      "matchCount": 7,
+      "uri": "pyx2ctune/capture.py"
+    },
+    {
+      "matchCount": 4,
+      "uri": ".specstory/history/2026-03-20_14-38-52Z-refactoring-pyx2ctune-gui-for-scope-panel.md"
+    },
+    {
+      "matchCount": 8,
+      "uri": "SPEC.md"
+    },
+    {
+      "matchCount": 7,
+      "uri": ".specstory/history/2026-03-21_13-18-17Z-disabling-controls-without-connection.md"
+    },
+    {
+      "matchCount": 8,
+      "uri": "pyx2ctune/plotting.py"
+    },
+    {
+      "matchCount": 1,
+      "uri": "examples/gain_sweep.py"
+    },
+    {
+      "matchCount": 46,
+      "uri": ".specstory/history/2026-03-13_16-05-32Z-gui-tuning-tool-for-microchip-motorbench.md"
+    },
+    {
+      "matchCount": 4,
+      "uri": ".specstory/history/2026-03-20_13-07-27Z-file-structure-examination-for-pyx2ctune.md"
+    },
+    {
+      "matchCount": 1,
+      "uri": "pyx2ctune/gui/workers.py"
+    },
+    {
+      "matchCount": 6,
+      "uri": "pyx2ctune/gui/plot_widget.py"
+    },
+    {
+      "matchCount": 9,
+      "uri": ".specstory/history/2026-03-20_01-53-44Z-test-harness-documentation-review.md"
+    }
+  ],
+  "totalFiles": 12,
+  "totalMatches": 111
+}
+```
+Status: **completed**
 
 
 </details>
@@ -6172,9 +6316,15 @@ _**Agent (composer-1.5)**_
 
 <tool-use data-tool-type="search" data-tool-name="glob_file_search">
 <details>
-<summary>Tool use: **glob_file_search** • Searched codebase "" • **0** results in **0** directories</summary>
+<summary>Tool use: **glob_file_search** • Searched codebase "" • **2** results in **1** directory</summary>
 
-No results found
+Directory: **/Users/greg/projects/microchip/pyx2ctune** (2 files)
+
+| File |
+|------|
+| `examples/gain_sweep.py` |
+| `examples/current_loop_tune.py` |
+
 </details>
 </tool-use>
 
@@ -6185,8 +6335,14 @@ No results found
 
 _**Agent (composer-1.5)**_
 
+
+
+
+
+_**Agent (composer-1.5)**_
+
 <tool-use data-tool-type="read" data-tool-name="read_file_v2">
-<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/examples/current_loop_tune.py</summary>
 
 </details>
 </tool-use>
@@ -6199,7 +6355,7 @@ _**Agent (composer-1.5)**_
 _**Agent (composer-1.5)**_
 
 <tool-use data-tool-type="read" data-tool-name="read_file_v2">
-<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/examples/gain_sweep.py</summary>
 
 </details>
 </tool-use>
@@ -6208,3 +6364,125 @@ _**Agent (composer-1.5)**_
 <summary>Tool use: **read_file_v2**</summary>
 
 </details></tool-use>
+
+_**Agent (composer-1.5)**_
+
+
+Here are the findings from the search:
+
+---
+
+## 1. References to wizard, workflow, step, sequence, procedure, recipe, pipeline
+
+### Code & docs (pyx2ctune)
+
+- **SPEC.md**: “MCAF-aware motor control **tuning workflows**” (line 7), “Current Loop Tuning **Workflow**” section (lines 35–47), “tuning **workflow**s” (line 84), “**step** response analysis” (line 84)
+- **notebooks/current_loop_tuning.ipynb**: “current loop PI gain tuning **workflow**” (line 9), “**Workflow:**” with 10 enumerated steps (lines 11–21), “**step** 3 readback” (line 185), “**Step** Response Metrics” (lines 249, 275)
+- **pyx2ctune/current_tuning.py**: “square-wave perturbation for **step** response testing” (line 4), `setup_step_test()` (line 346)
+- **pyx2ctune/capture.py**: `StepResponse` dataclass, `capture_frame()` returning `StepResponse`
+- **pyx2ctune/analysis.py**: `StepMetrics` and `compute_metrics(response: StepResponse, ...)`
+- **pyx2ctune/plotting.py**: `plot_step_response(response, metrics)`
+- **pyx2ctune/test_harness.py**: `enter_current_test_mode()` “procedure from MCAF section 4.5.15.2” (lines 230–240), `enter_velocity_override_mode()` “procedure from MCAF section 4.5.15.5” (lines 251–261)
+- **pyx2ctune/gui/main_window.py**: window title “Motor Tuning” (line 44)
+
+### motorbench (MCAF firmware)
+
+- **state_machine.h/c**: `MCAF_SystemStateMachine_StepIsr`, `MCAF_SystemStateMachine_StepMain` – one-step execution of the state machine
+- **startup.c**: `MCAF_StartupTransitioningStep`, `TRANSITION_STEPS`
+- **commutation.c**: `MCAF_CommutationStep`, “calibration step” comment (line 90)
+- **flux_control.h**: `MCAF_FluxControlStep`
+- **test_harness.h**: `MCAF_TEST_PERTURB_STEP`, `MCAF_TestHarnessStepIsr`, `MCAF_TriggeredAverage_Step`
+- **other**: ADC steps, flux control steps, zero sequence modulation
+
+### CI / GitHub
+
+- **.specstory/history/2026-03-21_02-33-35Z-linux-build-separation-on-github.md**: mentions “GitHub **workflow**”, “**workflow** files”, “packaging **steps**”
+
+### “Wizard” and “recipe/pipeline”
+
+- No occurrences of “wizard”, “recipe”, or “pipeline” in the pyx2ctune package code or main docs.
+
+---
+
+## 2. State machine and sequential step patterns
+
+### MCAF firmware state machines
+
+- **`motorbench/.../state_machine.h`**, **`state_machine_types.h`**, **`state_machine.c`**: top-level motor state machine (`MCSM_RESTART`, `MCSM_STOPPED`, `MCSM_STARTING`, `MCSM_RUNNING`, etc.)
+- **`recover.c/h`**: recovery FSM (`MCAF_RECOVERY_FSM_NO_ERROR`, `stateMachine.state`, `stateMachine.inputs`, `stateMachine.outputs`)
+- **`gate_drive.h/types.h`**: bootstrap charging state machine
+- **`startup_types.h`**: “open-loop state machine state”
+
+### Python usage
+
+- **pyx2ctune/test_harness.py** (lines 218–224): `force_state(transition)` drives the MCAF state machine via `_VAR_FORCE_STATE`
+- **pyx2ctune/gui/workers.py**: `SessionWorker` has a command queue (`submit()`, `_dispatch()`), not a formal state machine
+- **pyx2ctune/gui/main_window.py** (lines 350–365): `_on_connected()` runs a fixed sequence on connect: `STOP_PERTURBATION` → `EXIT_TEST_MODE` → `READ_GAINS` → `READ_VELOCITY_GAINS` (each submitted as separate commands)
+- **pyx2ctune/test_harness.py**: procedures (e.g. `enter_current_test_mode()`) follow MCAF procedures with sequential steps (guard, mode, zero baseline, etc.)
+
+### SPEC.md
+
+- Line 563: “sequentially against the pyx2ctune library”
+
+---
+
+## 3. Jupyter notebooks with multi-step workflows
+
+**notebooks/current_loop_tuning.ipynb** – 10-step workflow:
+
+1. Configure serial port and paths  
+2. Connect to target  
+3. Read current PI gains from firmware  
+4. Enter current test mode (test harness guard)  
+5. Set PI gains (V/A, V/A/s)  
+6. Configure scope and start square-wave perturbation  
+7. Capture step response and metrics  
+8. Iterate on gains and re-capture  
+9. Optional Kp sweep  
+10. Clean up  
+
+The cells follow this sequence; no Python state machine or wizard is used.
+
+---
+
+## 4. Motor tuning procedures and calibration sequences
+
+### Tuning procedures
+
+- **SPEC.md** (lines 35–47): Current loop tuning workflow (guard, test mode, set gains, perturb, capture, metrics, iterate)
+- **notebooks/current_loop_tuning.ipynb**: same workflow
+- **examples/current_loop_tune.py**: end-to-end script (connect → enter test mode → set gains → configure scope → perturb → capture → metrics → plot → cleanup)
+- **examples/gain_sweep.py**: Kp sweep over a range, capture and metrics for each
+
+### Calibration
+
+- **motorbench**: ADC current offset calibration (`MCAF_ADCCalibrateCurrentOffsets`, `MCAF_ADCCurrentOffsetCalibrationInit`, `MCAF_CURRENT_CALIBRATION`, etc.)
+- **state_machine.c**: `MCAF_ADCCalibrateCurrentOffsets` during state transitions
+- **commutation.c** (line 90): “estimators may need to perform a calibration step”
+- No pyx2ctune-specific “calibration sequence” or orchestration
+
+---
+
+## 5. Agent transcripts on wizard/workflow
+
+| UUID | Summary |
+|------|---------|
+| **d1af3698-94d4-405f-90a0-952ad0656691** | User asks to design “a wizard that can help walk users through predefined set of steps”. Single-line request; no implementation or analysis. |
+| **adcb5135-8562-46a5-af5f-108e644d49a0** (subagent of d1af3698) | Subagent explores codebase for “existing workflow, wizard, or step-related code” plus SPEC.md, structure, pyproject.toml, CLI/UI, config. |
+| **8a36837f-1275-4bb3-b7ce-a2bb3df180f5** | GitHub Actions “workflow” for Linux build (CI, not application wizard). |
+| **3001ba21-4a14-4db9-a7a8-9d57f22c276a** (subagent of d1af3698) | Subagent run of the same search task as this query. |
+
+**Summary**: Transcript `d1af3698` is the only one that explicitly discusses a wizard for predefined steps. The follow-up exploration in `adcb5135` searches for workflow/wizard/step-related code but does not implement anything.
+
+---
+
+## Summary table
+
+| Category | Location | Details |
+|----------|----------|---------|
+| Workflow (pyx2ctune) | SPEC.md, notebooks, examples | Current loop tuning workflow (10 steps), gain sweep |
+| Step (analysis) | capture.py, analysis.py, plotting.py | `StepResponse`, `StepMetrics`, step response capture and plotting |
+| Procedure (MCAF) | test_harness.py | `enter_current_test_mode()`, `enter_velocity_override_mode()` – MCAF procedures |
+| State machine (firmware) | motorbench state_machine.*, recover.*, gate_drive.* | Motor FSM, recovery FSM, bootstrap FSM |
+| Sequential patterns | main_window._on_connected(), gain_sweep.py | Post-connect steps; Kp sweep loop |
+| Wizard / recipe / pipeline | — | No explicit “wizard”, “recipe”, or “pipeline” implementation in code |

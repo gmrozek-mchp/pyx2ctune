@@ -122,4 +122,44 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 _**Agent (claude-4.6-opus-high-thinking)**_
 
 <think><details><summary>Thought Process</summary>
-The error is happening because the board isn't responding. The `ord()` of an</details></think>
+The error is happening because the board isn't responding. The `ord()` of an empty string means the serial read timed out. Common causes:
+
+1. Board not connected/powered
+2. Wrong serial port selected
+3. Wrong baud rate
+4. Firmware doesn't have X2Cscope enabled
+5. Another application is using the serial port
+
+The error is caught at line 153 and emitted as `self.error.emit(item.command.name, tb)`, which is why the user sees "Command CONNECT failed:" in the GUI.
+
+The user seems to be reporting this error for help. Let me check if there's something we can improve in the error handling — perhaps wrapping the `X2CScope()` constructor call with a more user-friendly error message.
+
+
+Now I'm looking at the `connection.py` file to understand how the `via_x2cscope` method handles the connection setup.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/connection.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+The root cause is a **hardware/connectivity issue**, not a code bug. The `mchplnet` UART driver calls `serial.read()` during the LNet handshake, and it returns an empty byte string (timeout with no data), which then crashes in `ord()`.
+
+**Common causes to check:**
+
+1. **Board not powered or not connected** — verify the USB/serial cable is plugged in and the board has power.
+2. **Wrong serial port** — make sure you selected the correct port. On macOS, list available ports with `ls /dev/tty.usb*` or `ls /dev/cu.usb*`.
+3. **Wrong baud rate** — the default is 115200; confirm the firmware is configured for the same rate.
+4. **X2Cscope not enabled in firmware** — the target firmware must have X2Cscope enabled and running for the LNet handshake to succeed.
+5. **Port in use by another application** — another tool (MPLAB X, a serial terminal, etc.) may have the port open.
+
+That said, the error message reaching the user is pretty cryptic. Would you like me to add better error handling around the `X2CScope()` constructor call so the GUI shows a friendlier message like *"Could not connect: no response from board on /dev/tty.xxx. Check that the board is powered, the correct port is selected, and the baud rate matches the firmware."* instead of the raw traceback?

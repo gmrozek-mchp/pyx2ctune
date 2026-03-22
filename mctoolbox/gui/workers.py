@@ -303,8 +303,8 @@ class SessionWorker(QObject):
         self.status.emit(f"Reading {axis}-axis gains...")
         gains = self._session.current.get_gains(axis=axis)
         self.status.emit(
-            f"Kp={gains.kp:.4f} {gains.kp_units} (Q{gains.kp_shift})  "
-            f"Ki={gains.ki:.2f} {gains.ki_units} (Q{gains.ki_shift})"
+            f"Kp={gains.kp:.4f} {gains.kp_units}  "
+            f"Ki={gains.ki:.2f} {gains.ki_units}"
         )
         self.gains_read.emit(gains)
 
@@ -312,8 +312,8 @@ class SessionWorker(QObject):
         self.status.emit("Setting gains...")
         result = self._session.current.set_gains(kp=kp, ki=ki)
         self.status.emit(
-            f"Set Kp={result.kp:.4f} (Q{result.kp_shift})  "
-            f"Ki={result.ki:.2f} (Q{result.ki_shift})"
+            f"Set Kp={result.kp:.4f} {result.kp_units}  "
+            f"Ki={result.ki:.2f} {result.ki_units}"
         )
         self.gains_set.emit(result)
 
@@ -369,8 +369,8 @@ class SessionWorker(QObject):
         self.status.emit("Reading velocity gains...")
         gains = self._session.velocity.get_gains()
         self.status.emit(
-            f"Kwp={gains.kp:.6f} {gains.kp_units} (Q{gains.kp_shift})  "
-            f"Kwi={gains.ki:.4f} {gains.ki_units} (Q{gains.ki_shift})"
+            f"Kwp={gains.kp:.6f} {gains.kp_units}  "
+            f"Kwi={gains.ki:.4f} {gains.ki_units}"
         )
         self.velocity_gains_read.emit(gains)
 
@@ -378,8 +378,8 @@ class SessionWorker(QObject):
         self.status.emit("Setting velocity gains...")
         result = self._session.velocity.set_gains(kp=kp, ki=ki)
         self.status.emit(
-            f"Set Kwp={result.kp:.6f} (Q{result.kp_shift})  "
-            f"Kwi={result.ki:.4f} (Q{result.ki_shift})"
+            f"Set Kwp={result.kp:.6f} {result.kp_units}  "
+            f"Kwi={result.ki:.4f} {result.ki_units}"
         )
         self.velocity_gains_set.emit(result)
 

@@ -334,4 +334,276 @@ I'm compiling the audit with verified information about workers.py referencing T
 
 **Reviewing tuning conversions**
 
-I found that velocity_tuning.py already has rpm_to_counts() function and current_tuning.py has amps_to_counts(), so I'm updating the conversions to use these existing library functions. </details></think>
+I found that velocity_tuning.py already has rpm_to_counts() function and current_tuning.py has amps_to_counts(), so I'm updating the conversions to use these existing library functions. 
+
+**Updating conversion logic**
+
+I'm refactoring workers.py to use existing library functions like amps_to_counts and rpm_to_counts instead of duplicating conversion logic. 
+
+**Refactoring conversion logic**
+
+I'm moving conversion from engineering units to counts into the worker layer, using existing library functions like `rpm_to_counts` and `amps_to_counts`. I'm consolidating duplicated conversion logic into shared helper functions in wizard/engine.py. 
+
+**Consolidating helper functions**
+
+I'm extracting shared conversion logic into reusable helpers in wizard/engine.py. </details></think>
+
+_**Agent (composer-1.5)**_
+
+
+# Dependency Audit: pyx2ctune Library vs GUI
+
+## Summary
+
+**Imports:** Library modules only import from `pyx2ctune` (via deferred imports) and stdlib/external packages. GUI modules import from both the library and PyQt5; a few GUI files depend on other GUI modules. Wizard YAML files are data only.
+
+**Domain logic in GUI:**  
+Domain logic appears in `workers.py` and `scope_panel.py` (unit conversions). `wizard/engine.py` is orchestration only. Tabs mostly use the library and avoid business logic.
+
+---
+
+## Library Modules (`pyx2ctune/`)
+
+### `connection.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | `pyx2cscope.x2cscope` (external), `pyx2ctune.parameters` (library); `datetime`, `logging`, `pathlib`, `typing` (stdlib). Deferred: `pyx2ctune.capture`, `current_tuning`, `test_harness`, `velocity_tuning` |
+| **Domain logic** | No tuning logic; session wiring, logging, file handling |
+| **Qt/UI** | No |
+
+### `parameters.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | `json`, `math`, `dataclasses`, `pathlib` (stdlib only) |
+| **Domain logic** | Yes: Q-format conversion, `ParameterDB` |
+| **Qt/UI** | No |
+
+### `test_harness.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | `logging`, `threading`, `time`, `enum`, `typing` (stdlib). `TYPE_CHECKING`: `pyx2ctune.connection` |
+| **Domain logic** | Yes: MCAF test harness control, `OperatingMode`, `ForceState`, `OverrideFlag` |
+| **Qt/UI** | No |
+
+### `current_tuning.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | `logging`, `dataclasses`, `typing` (stdlib). `TYPE_CHECKING`: `pyx2ctune.connection` |
+| **Domain logic** | Yes: PI gain read/write, perturbation setup, Amps↔counts, ms↔ISR cycles |
+| **Qt/UI** | No |
+
+### `velocity_tuning.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | Same pattern as `current_tuning.py` |
+| **Domain logic** | Yes: velocity PI gains, RPM↔counts, velocity perturbation |
+| **Qt/UI** | No |
+
+### `capture.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | `numpy`, `logging`, `threading`, `time`, `dataclasses`, `typing` (stdlib). `TYPE_CHECKING`: `pyx2ctune.connection` |
+| **Domain logic** | Yes: scope config, data acquisition, Q15→engineering conversion |
+| **Qt/UI** | No |
+
+### `analysis.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | `dataclasses`, `numpy` (external), `pyx2ctune.capture` |
+| **Domain logic** | Yes: step-response metrics (overshoot, rise time, settling, SSE) |
+| **Qt/UI** | No |
+
+### `plotting.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | `matplotlib`, `numpy`, `typing`. `TYPE_CHECKING`: `Figure`. `pyx2ctune.analysis`, `pyx2ctune.capture` |
+| **Domain logic** | No; plot layout and presentation only |
+| **Qt/UI** | No (matplotlib only) |
+
+---
+
+## GUI Modules (`pyx2ctune/gui/`)
+
+### `gui/__init__.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | `sys`, `PyQt5.QtWidgets`, `pyx2ctune.gui.main_window` |
+| **Domain logic** | No |
+| **Qt/UI** | Yes: app setup and main window |
+
+### `gui/main_window.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | `numpy`, `serial.tools.list_ports`, `PyQt5.QtCore`, `PyQt5.QtGui`, `PyQt5.QtWidgets`, `pyx2ctune.gui.plot_widget`, `pyx2ctune.gui.scope_panel`, `pyx2ctune.gui.tabs.*`, `pyx2ctune.gui.wizard`, `pyx2ctune.gui.workers` |
+| **Domain logic** | No. `_build_metadata`, `_write_csv`, `_write_npz`, `_write_json` are data serialization only |
+| **Qt/UI** | Yes |
+
+### `gui/workers.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | `threading`, `traceback`, `dataclasses`, `enum`, `typing`, `PyQt5.QtCore`, `pyx2ctune.test_harness.ForceState` |
+| **Domain logic** | Yes |
+| **Qt/UI** | No; Qt used for signals/slots only |
+
+**Domain logic in `workers.py` (should move to library):**
+
+1. **`_MOTOR_STATES` (lines 19–29):** MCAF motor state mapping `0→"RESTART"`, `1→"STOPPED"`, etc. This is motor-control domain knowledge and belongs with the harness/tuning code.
+
+2. **`_do_set_commutation_freq` (lines 396–402):**
+   ```python
+   fs = self._get_fullscale("mcapi.fullscale.velocity")
+   counts = round(rpm / fs * 32768) if fs > 0 else 0
+   ```
+   Same RPM→Q15 conversion as `velocity_tuning.rpm_to_counts()`.
+
+3. **`_do_set_dq_current` (lines 404–410):**
+   ```python
+   fs = self._get_fullscale("mcapi.fullscale.current")
+   d_counts = round(d / fs * 32768) if fs > 0 else 0
+   ```
+   Same Amps→Q15 conversion as `current_tuning.amps_to_counts()`.
+
+4. **`_do_set_dq_voltage` (lines 412–418):**
+   ```python
+   fs = self._get_fullscale("mcapi.fullscale.voltage")
+   d_counts = round(d / fs * 32768) if fs > 0 else 0
+   ```
+   Same pattern; voltage conversion should live in the library.
+
+5. **`_do_read_measured_speed` (lines 423–427):** Uses raw `"motor.state"` and `_MOTOR_STATES`, mixing hardware access with state naming.
+
+Recommendation: Add library APIs so `TestHarness` (or similar) accepts engineering units where appropriate, then have the worker call those APIs instead of duplicating the conversion formulas.
+
+### `gui/plot_widget.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | `numpy`, `matplotlib.backends.backend_qt5agg`, `matplotlib.figure`, `PyQt5.QtCore`, `PyQt5.QtWidgets`, `pyx2ctune.analysis`, `pyx2ctune.capture` |
+| **Domain logic** | No; plotting and overshoot annotation only |
+| **Qt/UI** | Yes |
+
+### `gui/scope_panel.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | `PyQt5.QtCore`, `PyQt5.QtWidgets` (no library imports at module level) |
+| **Domain logic** | Yes |
+| **Qt/UI** | Yes |
+
+**Domain logic in `scope_panel.py`:**
+
+1. **`trigger_level_q15()` (lines 202–212):**
+   ```python
+   fs = self._fullscale.get(fs_key, 0.0)
+   if fs > 0:
+       return round(value / fs * 32768)
+   return round(value)
+   ```
+   Duplicated engineering→Q15 conversion.
+
+2. **`on_connected` (lines 222–236):** Reads fullscale from `ParameterDB`. This is usage of library data, but the conversion logic itself is domain logic that should be in the library.
+
+### `gui/wizard/engine.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | `importlib.resources`, `re`, `dataclasses`, `enum`, `pathlib`, `typing`, `yaml`, `PyQt5.QtCore`, `pyx2ctune.gui.workers` |
+| **Domain logic** | No |
+| **Qt/UI** | No (signals only) |
+
+Engine only does:
+
+- YAML schema parsing and dataclasses
+- State machine (IDLE → SHOWING_STEP → EXECUTING → …)
+- SessionWorker command submission
+- $ref resolution
+- Signal/slot wiring
+
+No MCAF-specific or tuning logic. Orchestration only.
+
+### `gui/wizard/panel.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | `PyQt5.QtCore`, `PyQt5.QtGui`, `PyQt5.QtWidgets`, `pyx2ctune.gui.wizard.engine`, `pyx2ctune.gui.wizard.input_factory`, `pyx2ctune.gui.workers` |
+| **Domain logic** | No |
+| **Qt/UI** | Yes |
+
+### `gui/wizard/input_factory.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | `serial.tools.list_ports`, `PyQt5.QtWidgets`, `pyx2ctune.gui.wizard.engine.InputDef` |
+| **Domain logic** | No |
+| **Qt/UI** | Yes (widget creation) |
+
+---
+
+## Tab Files
+
+### `gui/tabs/current_tab.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | `PyQt5.QtCore`, `PyQt5.QtGui`, `PyQt5.QtWidgets` only |
+| **Domain logic** | No |
+| **Qt/UI** | Yes |
+
+Uses `session.current.get_default_perturbation()` in `on_connected`; no unit conversions or business rules. Formats gains for display only.
+
+### `gui/tabs/velocity_tab.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | `PyQt5.QtCore`, `PyQt5.QtGui`, `PyQt5.QtWidgets` only |
+| **Domain logic** | No |
+| **Qt/UI** | Yes |
+
+Uses `session.velocity.get_default_perturbation()` in `on_connected`; otherwise UI and formatting only.
+
+### `gui/tabs/openloop_tab.py`
+| Category | Details |
+|----------|---------|
+| **Imports** | `PyQt5.QtCore`, `PyQt5.QtGui`, `PyQt5.QtWidgets`, `pyx2ctune.test_harness.OverrideFlag` |
+| **Domain logic** | No |
+| **Qt/UI** | Yes |
+
+Uses `OverrideFlag` from the library to decode overrides for checkboxes. Appropriate use of library domain types.
+
+---
+
+## Wizard Definitions (`pyx2ctune/wizards/`)
+
+### `current_loop_tuning.yaml`, `gain_sweep.yaml`
+Data files defining steps, inputs, and actions. No imports or executable logic. They reference `SessionWorker` commands by name.
+
+---
+
+## Dependency Overview
+
+```
+Library (no GUI deps):
+  connection → parameters, capture, current_tuning, test_harness, velocity_tuning
+  analysis → capture
+  plotting → analysis, capture
+
+GUI → Library:
+  workers → test_harness (ForceState)
+  plot_widget → analysis, capture
+  main_window → (indirect via workers)
+  scope_panel → (uses session.params at runtime)
+  wizard/engine → workers (Command, SessionWorker)
+  openloop_tab → test_harness (OverrideFlag)
+
+GUI → GUI:
+  main_window → plot_widget, scope_panel, tabs/*, wizard, workers
+  wizard/panel → wizard/engine, wizard/input_factory, workers
+  wizard/input_factory → wizard/engine (InputDef)
+```
+
+---
+
+## Business Logic in the Wrong Layer
+
+| File        | Issue |
+|------------|--------|
+| **workers.py** | `_MOTOR_STATES`, RPM→counts, Amps→counts, Volts→counts duplicated from library |
+| **scope_panel.py** | Trigger-level engineering→Q15 conversion duplicated |
+
+These conversions (e.g. `value / fs * 32768`) are already implemented in `current_tuning`, `velocity_tuning`, and `capture`. Refactoring options:
+
+1. Extend `TestHarness` (or add helpers) to accept engineering units for commutation freq, dq current, and dq voltage, and add a helper for trigger-level conversion.
+2. Expose conversion helpers from the library and call them from the worker and scope panel instead of reimplementing them.

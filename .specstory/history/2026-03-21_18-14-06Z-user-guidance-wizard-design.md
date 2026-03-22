@@ -11734,4 +11734,634 @@ I've read all three files. Here are the issues I found:
 
 **README.md:**
 - Lines 54-73: "Jupyter Notebook" section references `notebooks/current_loop_tuning.ipynb` (deleted)
-- Setup section leads with
+- Setup section leads with notebook install, should lead with GUI since that's the focus
+
+**SPEC.md (most stale):**
+- Architecture tree (lines 52-77) shows old flat structure (`connection.py`, `parameters.py`, etc.) -- doesn't reflect `mcaf/` subpackage, `interfaces.py`, `wizard_schema.py`, `gui/tabs/`, `gui/wizard/`
+- Still lists `examples/` and `notebooks/` directories
+- Module specs reference old paths (e.g., `connection.py` instead of `mcaf/session.py`)
+- `analysis.py` spec missing new fields from `control` integration
+- Dependencies table missing `control`, `scipy`, `pyyaml` (now direct)
+- Line 520-521 references deleted notebook
+
+**THIRD-PARTY-LICENSES.md:**
+- Missing `control` (BSD-3-Clause) and `scipy` (BSD-3-Clause) as direct dependencies
+- `pyyaml` listed only as transitive but is now also a direct dependency
+
+Let me fix all of these.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Clean up README.md: remove notebook section, update setup focus",
+      "id": "readme",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update SPEC.md: architecture tree, module paths, deps, remove deleted refs",
+      "id": "spec",
+      "status": "pending"
+    },
+    {
+      "content": "Update THIRD-PARTY-LICENSES.md: add control, scipy as direct deps",
+      "id": "licenses",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Add control\u003e=0.10 to pyproject.toml dependencies",
+      "id": "add-dep",
+      "status": "completed"
+    },
+    {
+      "content": "Rewrite analysis.py: enrich StepMetrics, delegate to control.step_info(), remove hand-rolled helpers",
+      "id": "rewrite-analysis",
+      "status": "completed"
+    },
+    {
+      "content": "pip install -e . and verify imports work",
+      "id": "install-verify",
+      "status": "completed"
+    }
+  ],
+  "success": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/README.md</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Clean up README.md: remove notebook section, update setup focus",
+      "id": "readme",
+      "status": "completed"
+    },
+    {
+      "content": "Update SPEC.md: architecture tree, module paths, deps, remove deleted refs",
+      "id": "spec",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update THIRD-PARTY-LICENSES.md: add control, scipy as direct deps",
+      "id": "licenses",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Clean up README.md: remove notebook section, update setup focus",
+      "id": "readme",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update SPEC.md: architecture tree, module paths, deps, remove deleted refs",
+      "id": "spec",
+      "status": "pending"
+    },
+    {
+      "content": "Update THIRD-PARTY-LICENSES.md: add control, scipy as direct deps",
+      "id": "licenses",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now the SPEC. I need to update the architecture tree, module paths, and dependencies. Let me also check the actual current file structure for accuracy.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd /Users/greg/projects/microchip/pyx2ctune && find mctoolbox -name '*.py' -o -name '*.yaml' -o -name '*.yml' | sort</summary>
+
+```bash
+cd /Users/greg/projects/microchip/pyx2ctune && find mctoolbox -name '*.py' -o -name '*.yaml' -o -name '*.yml' | sort
+```
+
+```
+mctoolbox/__init__.py
+mctoolbox/analysis.py
+mctoolbox/capture.py
+mctoolbox/gui/__init__.py
+mctoolbox/gui/__main__.py
+mctoolbox/gui/main_window.py
+mctoolbox/gui/plot_widget.py
+mctoolbox/gui/scope_panel.py
+mctoolbox/gui/tabs/__init__.py
+mctoolbox/gui/tabs/current_tab.py
+mctoolbox/gui/tabs/openloop_tab.py
+mctoolbox/gui/tabs/velocity_tab.py
+mctoolbox/gui/wizard/__init__.py
+mctoolbox/gui/wizard/engine.py
+mctoolbox/gui/wizard/input_factory.py
+mctoolbox/gui/wizard/panel.py
+mctoolbox/gui/workers.py
+mctoolbox/interfaces.py
+mctoolbox/mcaf/__init__.py
+mctoolbox/mcaf/capture.py
+mctoolbox/mcaf/current_tuning.py
+mctoolbox/mcaf/parameters.py
+mctoolbox/mcaf/session.py
+mctoolbox/mcaf/test_harness.py
+mctoolbox/mcaf/velocity_tuning.py
+mctoolbox/plotting.py
+mctoolbox/wizard_schema.py
+mctoolbox/wizards/__init__.py
+mctoolbox/wizards/current_loop_tuning.yaml
+mctoolbox/wizards/gain_sweep.yaml
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now I'll update the SPEC. The architecture tree, module specs, and dependencies need the most work. I'll update section by section.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/SPEC.md</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/SPEC.md</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the module specs to reflect the new paths:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/SPEC.md</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/SPEC.md</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/SPEC.md</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/SPEC.md</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/SPEC.md</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the analysis spec to reflect the `control` integration:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/SPEC.md</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the dependencies table:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/SPEC.md</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Remove the deleted notebook reference:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/SPEC.md</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the GUI section to reflect the current panel structure:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/SPEC.md</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Clean up README.md: remove notebook section, update setup focus",
+      "id": "readme",
+      "status": "completed"
+    },
+    {
+      "content": "Update SPEC.md: architecture tree, module paths, deps, remove deleted refs",
+      "id": "spec",
+      "status": "completed"
+    },
+    {
+      "content": "Update THIRD-PARTY-LICENSES.md: add control, scipy as direct deps",
+      "id": "licenses",
+      "status": "in_progress"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Clean up README.md: remove notebook section, update setup focus",
+      "id": "readme",
+      "status": "completed"
+    },
+    {
+      "content": "Update SPEC.md: architecture tree, module paths, deps, remove deleted refs",
+      "id": "spec",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update THIRD-PARTY-LICENSES.md: add control, scipy as direct deps",
+      "id": "licenses",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/THIRD-PARTY-LICENSES.md</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the summary table at the bottom to include the new packages:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/THIRD-PARTY-LICENSES.md</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Also remove PyYAML from the transitive-only section since it's now a direct dependency:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/THIRD-PARTY-LICENSES.md</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/THIRD-PARTY-LICENSES.md</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Clean up README.md: remove notebook section, update setup focus",
+      "id": "readme",
+      "status": "completed"
+    },
+    {
+      "content": "Update SPEC.md: architecture tree, module paths, deps, remove deleted refs",
+      "id": "spec",
+      "status": "completed"
+    },
+    {
+      "content": "Update THIRD-PARTY-LICENSES.md: add control, scipy as direct deps",
+      "id": "licenses",
+      "status": "completed"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Clean up README.md: remove notebook section, update setup focus",
+      "id": "readme",
+      "status": "completed"
+    },
+    {
+      "content": "Update SPEC.md: architecture tree, module paths, deps, remove deleted refs",
+      "id": "spec",
+      "status": "completed"
+    },
+    {
+      "content": "Update THIRD-PARTY-LICENSES.md: add control, scipy as direct deps",
+      "id": "licenses",
+      "status": "in_progress"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+All three docs are cleaned up. Summary of changes:
+
+**README.md:**
+- Removed the "Jupyter Notebook" section (references deleted files)
+- Simplified setup to lead with `pip install -e .` (no notebook install)
+- Moved "Quick Start (Script)" up as a top-level section
+- Removed console logging note about notebooks
+
+**SPEC.md:**
+- Updated architecture tree to reflect the current structure: `interfaces.py`, `wizard_schema.py`, `wizards/`, `mcaf/` subpackage (6 modules), `gui/tabs/`, `gui/wizard/`, `gui/scope_panel.py`
+- Added "Layering" section describing the three-tier import boundary
+- Updated all module spec headings to use `mcaf/` paths
+- Added note about `capture.py` split (generic `StepResponse` vs MCAF `ScopeCapture`)
+- Updated `analysis.py` spec with `control.step_info()` integration and 5 new `StepMetrics` fields
+- Updated dependencies table to include `pyyaml`, `control`, `scipy`
+- Updated GUI panels table to show tabs, scope panel, and wizard
+- Removed reference to deleted notebook
+
+**THIRD-PARTY-LICENSES.md:**
+- Added `python-control` (BSD-3-Clause), `SciPy` (BSD-3-Clause), and `PyYAML` (MIT) as direct dependencies
+- Removed `PyYAML` from transitive-only list (now direct)
+- Updated summary table

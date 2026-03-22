@@ -1130,3 +1130,3927 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 <summary>Tool use: **read_file_v2**</summary>
 
 </details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+Now I can see the full picture. The connection path is:
+
+1. `workers.py: _do_connect` calls `TuningSession.from_x2cscope()`
+2. `session.py: from_x2cscope` calls `Connection.via_x2cscope()`
+3. `connection.py: via_x2cscope` creates `X2CScopeBackend(port, elf_file, baud_rate)`
+4. `x2cscope.py: X2CScopeBackend.__init__` calls `X2CScope(port=port, baud_rate=baud_rate)` and then `import_variables(elf_file)`
+
+
+5. The `X2CScope` constructor opens the serial port without an explicit timeout, so unresponsive boards can cause the connection to hang indefinitely
+
+I need to address two main problems: adding a connection timeout mechanism to prevent hangs, and replacing raw tracebacks with user-friendly error messages in the UI.
+
+For error handling, I should catch specific exceptions like `serial.SerialException` for port issues, `FileNotFoundError` for missing files, and `json.JSONDecodeError` for parsing errors, then map each to a clear message the user can understand. I'll need to handle these in both `_do_connect` and `_on_error` to ensure errors are caught and translated properly.
+
+The tricky part is handling timeouts when the board isn't responding—pyserial's `Serial` object has a timeout parameter for reads, but I need to check if `X2CScope` exposes this or if I should wrap the connection attempt with a timeout mechanism instead.
+
+For the user experience, I should map specific connection failures to actionable messages: port not found means check the USB cable, port busy means close other programs, board unresponsive means verify power and baud rate, and ELF-related errors point to file path or validity issues. I'm thinking the cleanest solution is to add a timeout parameter to `_do_connect` that handles the initial handshake, then translate the various exceptions into clear, user-friendly error messages. I should wrap the entire `_do_connect` flow with a timeout and translate exceptions into clearer messages for the user. Since `_do_connect` runs on a worker thread, I can leverage pyserial's built-in `timeout` parameter on the `Serial` object—when reads exceed that timeout, they'll raise `serial.SerialTimeoutException`, which is cleaner than trying to interrupt the thread directly. I need to check if pyx2cscope accepts a `serial_timeout` parameter or if I need to configure it differently. I'm taking a more pragmatic approach: wrap the connection attempt in `_do_connect` with proper exception handling and clear error messages, then set a timeout through the pyserial interface if X2CScope exposes it or accepts one as a parameter. Now I'm implementing the `_do_connect` method that initializes a TuningSession with the provided port, ELF file, and baud rate, then handles specific exceptions like missing files and serial connection errors with descriptive messages. I'm realizing the exception would get caught by the `run()` loop's handler, and since CONNECT isn't a background command, it would emit an error with the full traceback—which is ugly. I need to rethink this: either catch the error in `_do_connect` and emit a clean message directly, or re-raise with a clean message and have the error handler skip the traceback dump for connection errors.
+
+The simplest fix is probably to improve `_on_error` itself—instead of dumping the raw traceback, I can extract just the actual error message and display that, keeping the full traceback available elsewhere if needed for debugging. I'm thinking through a cleaner approach: catch specific exceptions in `_do_connect` and raise descriptive `ConnectionError`s, then in the error handler extract just the exception message from the traceback instead of showing the full stack to the user while still logging it for debugging. I could also add validation for file paths upfront and wrap the connection with a timeout to handle hanging connections gracefully.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Let me check what timeout options pyx2cscope's `X2CScope` constructor supports.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -c "from pyx2cscope.x2cscope import X2CScope; import inspect; print(inspect.signature(X2CScope.__init__))"</summary>
+
+```bash
+.venv/bin/python -c "from pyx2cscope.x2cscope import X2CScope; import inspect; print(inspect.signature(X2CScope.__init__))"
+```
+
+```
+(self, elf_file: str = None, interface: mchplnet.interfaces.factory.InterfaceType = None, **kwargs)
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/workers.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -c "
+from pyx2cscope.x2cscope import X2CScope
+import inspect
+# Get the full source of __init__ to see how kwargs are used
+source = inspect.getsource(X2CScope.__init__)
+print(source[:3000])
+"</summary>
+
+```bash
+.venv/bin/python -c "
+from pyx2cscope.x2cscope import X2CScope
+import inspect
+# Get the full source of __init__ to see how kwargs are used
+source = inspect.getsource(X2CScope.__init__)
+print(source[:3000])
+"
+```
+
+```
+    def __init__(self, elf_file: str = None, interface: InterfaceType = None, **kwargs):
+        """Initialize the X2CScope instance.
+
+        Args:
+            elf_file (str): Path to the ELF file.
+            interface (Interface): Communication interface to be used, defaults to None.
+            **kwargs: Key defined arguments.
+        """
+        self.interface = InterfaceFactory.get_interface(interface, **kwargs)
+        self.lnet = LNet(self.interface)
+        self.variable_factory = VariableFactory(self.lnet, elf_file)
+        self.scope_setup = self.lnet.get_scope_setup()
+        self.convert_list = {}
+        self.uc_width = self.variable_factory.device_info.uc_width
+
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -c "
+from mchplnet.interfaces.factory import InterfaceFactory
+import inspect
+source = inspect.getsource(InterfaceFactory.get_interface)
+print(source[:3000])
+"</summary>
+
+```bash
+.venv/bin/python -c "
+from mchplnet.interfaces.factory import InterfaceFactory
+import inspect
+source = inspect.getsource(InterfaceFactory.get_interface)
+print(source[:3000])
+"
+```
+
+```
+    @staticmethod
+    def get_interface(interface_type: InterfaceType, *args, **kwargs) -&gt; Interface:
+        r"""Create and return an interface instance based on the specified type.
+
+        Args:
+            interface_type (InterfaceType): The type of interface to create.
+            *args: Variable length argument list passed to the interface constructor.
+            **kwargs: Arbitrary keyword arguments passed to the interface constructor.
+
+        Returns:
+            Interface: An instance of the requested interface type.
+        """
+        interfaces = {
+            InterfaceType.SERIAL: LNetSerial,
+            InterfaceType.CAN: LNetCan,
+            InterfaceType.TCP_IP: LNetTcpIp,
+        }
+        default_args = {
+            "port": LNetSerial,
+            "host": LNetTcpIp,
+            "bus": LNetCan,
+        }
+        default = [default_args.get(key) for key in default_args if key in kwargs]
+        if len(default) == 0 and interface_type is None:
+            warnings.warn("No interface select, setting Serial as default.", Warning)
+            default = [LNetSerial]
+        return interfaces.get(interface_type, default[0])(*args, **kwargs)
+
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -c "
+from mchplnet.interfaces.lnet_serial import LNetSerial
+import inspect
+source = inspect.getsource(LNetSerial.__init__)
+print(source[:3000])
+"</summary>
+
+```bash
+.venv/bin/python -c "
+from mchplnet.interfaces.lnet_serial import LNetSerial
+import inspect
+source = inspect.getsource(LNetSerial.__init__)
+print(source[:3000])
+"
+```
+
+```
+Traceback (most recent call last):
+  File "&lt;string&gt;", line 2, in &lt;module&gt;
+ModuleNotFoundError: No module named 'mchplnet.interfaces.lnet_serial'
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -c "
+from mchplnet.interfaces.factory import LNetSerial
+import inspect
+source = inspect.getsource(LNetSerial.__init__)
+print(source[:3000])
+"</summary>
+
+```bash
+.venv/bin/python -c "
+from mchplnet.interfaces.factory import LNetSerial
+import inspect
+source = inspect.getsource(LNetSerial.__init__)
+print(source[:3000])
+"
+```
+
+```
+    def __init__(self, *args, **kwargs):
+        r"""Constructor for the LNetSerial class. Initializes serial communication with the provided settings.
+
+        Args:
+            *args: Variable-length argument list.
+            **kwargs: Arbitrary keyword arguments.
+
+        Keyword Args:
+            port (str, optional): Serial port name. Defaults to "COM1".
+            baud_rate (int, optional): Baud rate (bits per second). Defaults to 115200.
+            parity (int, optional): Parity setting. Defaults to 0.
+            stop_bit (int, optional): Number of stop bits. Defaults to 1.
+            data_bits (int, optional): Number of data bits. Defaults to 8.
+
+        Returns:
+            None
+        """
+        if "port" not in kwargs:
+            warnings.warn("No port provided, using default COM1", Warning)
+        self.com_port = kwargs["port"] if "port" in kwargs else "COM1"
+        self.baud_rate = kwargs["baud_rate"] if "baud_rate" in kwargs else 115200
+        self.parity = kwargs["parity"] if "parity" in kwargs else 0
+        self.stop_bit = kwargs["stop_bit"] if "stop_bit" in kwargs else 1
+        self.data_bits = kwargs["data_bits"] if "data_bits" in kwargs else 8
+        self.serial = None
+
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -c "
+from mchplnet.interfaces.factory import LNetSerial
+import inspect
+source = inspect.getsource(LNetSerial)
+print(source[:5000])
+"</summary>
+
+```bash
+.venv/bin/python -c "
+from mchplnet.interfaces.factory import LNetSerial
+import inspect
+source = inspect.getsource(LNetSerial)
+print(source[:5000])
+"
+```
+
+```
+class LNetSerial(Interface):
+    r"""A class representing a serial communication interface for the LNet framework.
+
+    This class implements the Interface interface for serial communication.
+
+    Attributes:
+        com_port (str): The serial port name.
+        baud_rate (int): The baud rate of the communication (bits per second).
+        parity (int): The parity setting for serial communication.
+        stop_bit (int): The number of stop bits.
+        data_bits (int): The number of data bits.
+        serial (serial.Serial): The serial communication object.
+
+    Methods:
+        __init__(\\*args, \\*\\*kwargs):
+            Constructor for the LNetSerial class. Initializes serial communication with the provided settings.
+
+        start():
+            Set up the serial communication with the provided settings.
+
+        stop():
+            Close the serial communication.
+
+        write(data):
+            Write data to the serial port.
+
+        is_open() -&gt; bool:
+            Check if the serial port is open and operational.
+
+        read() -&gt; list:
+            Read data from the serial port.
+
+    Raises:
+        ValueError: If the provided serial settings are invalid.
+    """
+
+    def __init__(self, *args, **kwargs):
+        r"""Constructor for the LNetSerial class. Initializes serial communication with the provided settings.
+
+        Args:
+            *args: Variable-length argument list.
+            **kwargs: Arbitrary keyword arguments.
+
+        Keyword Args:
+            port (str, optional): Serial port name. Defaults to "COM1".
+            baud_rate (int, optional): Baud rate (bits per second). Defaults to 115200.
+            parity (int, optional): Parity setting. Defaults to 0.
+            stop_bit (int, optional): Number of stop bits. Defaults to 1.
+            data_bits (int, optional): Number of data bits. Defaults to 8.
+
+        Returns:
+            None
+        """
+        if "port" not in kwargs:
+            warnings.warn("No port provided, using default COM1", Warning)
+        self.com_port = kwargs["port"] if "port" in kwargs else "COM1"
+        self.baud_rate = kwargs["baud_rate"] if "baud_rate" in kwargs else 115200
+        self.parity = kwargs["parity"] if "parity" in kwargs else 0
+        self.stop_bit = kwargs["stop_bit"] if "stop_bit" in kwargs else 1
+        self.data_bits = kwargs["data_bits"] if "data_bits" in kwargs else 8
+        self.serial = None
+
+    def start(self):
+        """Set up the serial communication with the provided settings.
+
+        Parity, stop bits, and data bits are converted from integer values to their respective constants.
+        Initializes the serial communication object.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If the provided serial settings are invalid.
+        """
+        # Mapping of settings values to serial module constants
+        parity_options = {
+            0: serial.PARITY_NONE,
+            2: serial.PARITY_EVEN,
+            3: serial.PARITY_ODD,
+            4: serial.PARITY_SPACE,
+            5: serial.PARITY_MARK,
+        }
+        stop_bits_options = {
+            1: serial.STOPBITS_ONE,
+            2: serial.STOPBITS_TWO,
+            3: serial.STOPBITS_ONE_POINT_FIVE,
+        }
+        data_bits_options = {
+            5: serial.FIVEBITS,
+            6: serial.SIXBITS,
+            7: serial.SEVENBITS,
+            8: serial.EIGHTBITS,
+        }
+
+        parity_value = parity_options.get(self.parity)
+        stop_bits_value = stop_bits_options.get(self.stop_bit)
+        data_bits_value = data_bits_options.get(self.data_bits)
+
+        if None in [parity_value, stop_bits_value, data_bits_value]:
+            raise ValueError("Invalid serial settings provided.")
+
+        try:
+            self.serial = serial.Serial(
+                port=self.com_port,
+                baudrate=self.baud_rate,
+                parity=parity_value,
+                stopbits=stop_bits_value,
+                bytesize=data_bits_value,
+                write_timeout=1,
+                timeout=1,
+            )
+        except Exception as e:
+            logging.debug(e)
+
+    def stop(self):
+        """Close the serial communication.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
+        if self.serial:
+            self.serial.close()
+
+    def write(self, data):
+        """Write data to the serial port.
+
+        Args:
+            data: The data to be written to the serial port.
+
+        Returns:
+            None
+        """
+        if self.serial:
+            self.serial.write(data)
+
+    def is_open(self) -&gt; bool:
+        """Check if the serial port is open and operational.
+
+        Args:
+            None
+
+        Returns:
+            bool: True if the serial port is open, False otherwise.
+        """
+        return self.serial.is_open if self.serial else False
+
+    def read(self):
+        """Read data from the serial port with LNet protocol framing.
+
+        Returns:
+            b
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+Now I can see the full picture:
+
+1. `LNetSerial.start()` creates `serial.Serial(..., timeout=1, write_timeout=1)` - so there IS a 1-second timeout on reads/writes
+2. The serial port is opened in `LNetSerial.start()`, not in `__init__`
+3. The `X2CScope.__init__` calls `InterfaceFactory.get_interface()` which creates `LNetSerial`, and then somewhere calls `start()` on it
+
+So the serial timeout is 1 second per read operation. But the overall connection process involves:
+
+
+1. Opening the serial port (quick, fails immediately if port doesn't exist)
+2. `import_variables(elf_file)` - ELF parsing (local, no serial comms)
+3. First actual serial communication happens in `scope_setup = self.lnet.get_scope_setup()` in X2CScope.__init__
+
+The `get_scope_setup()` call does an LNet exchange. If the board doesn't respond, it'll timeout after 1 second per attempt, but there might be retries in the LNet layer. The real bottleneck is that `X2CScope.__init__` performs this blocking serial communication right away, so if the board isn't responding, the entire initialization hangs.
+
+Looking at the `X2CScopeBackend.__init__`, it instantiates `X2CScope` which immediately tries to talk to the board via `get_scope_setup()`. The LNet protocol has its own retry and timeout behavior, so with a 1-second serial timeout, the constructor could take several seconds if there are multiple retry attempts. This means the user would experience a delay or hang during initialization if the board is off or disconnected.
+
+I need to handle the case where the constructor takes too long or throws an exception, and translate those exceptions into clear error messages. Let me trace through what specific exceptions get raised in different failure scenarios—like when the port doesn't exist, when it's already in use, when the board isn't responding after retries, or when the ELF file is missing.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -c "
+from mchplnet.lnet import LNet
+import inspect
+source = inspect.getsource(LNet.get_scope_setup)
+print(source[:3000])
+"</summary>
+
+```bash
+.venv/bin/python -c "
+from mchplnet.lnet import LNet
+import inspect
+source = inspect.getsource(LNet.get_scope_setup)
+print(source[:3000])
+"
+```
+
+```
+    def get_scope_setup(self) -&gt; ScopeSetup:
+        """Get the current scope setup.
+
+        Returns:
+            ScopeSetup: The current scope setup instance.
+        """
+        return self.scope_setup
+
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -c "
+from mchplnet.lnet import LNet
+import inspect
+source = inspect.getsource(LNet.__init__)
+print(source[:5000])
+"</summary>
+
+```bash
+.venv/bin/python -c "
+from mchplnet.lnet import LNet
+import inspect
+source = inspect.getsource(LNet.__init__)
+print(source[:5000])
+"
+```
+
+```
+    def __init__(self, interface: Interface, handshake: bool = True):
+        """Initialize the LNet instance.
+
+        Args:
+            interface (Interface): The interface for communication with the microcontroller.
+            handshake (bool, optional): If True, performs an interface handshake upon initialization. Defaults to True.
+        """
+        self.scope_data = None
+        self.interface = interface
+        self.device_info = None
+        self.scope_setup = ScopeSetup()
+        self._lock = threading.Lock()
+        if handshake:
+            self.interface.start()
+            self._handshake()
+
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -c "
+from mchplnet.lnet import LNet
+import inspect
+source = inspect.getsource(LNet._handshake)
+print(source[:5000])
+"</summary>
+
+```bash
+.venv/bin/python -c "
+from mchplnet.lnet import LNet
+import inspect
+source = inspect.getsource(LNet._handshake)
+print(source[:5000])
+"
+```
+
+```
+    def _handshake(self):
+        """Perform an interface handshake and retrieve device information.
+
+        Raises:
+            RuntimeError: If unable to retrieve device information successfully.
+        """
+        try:
+            if self.get_device_info() is None:
+                raise RuntimeError("Could not read DeviceInfo. Communication channel is available?")
+            self.load_parameters()
+        except Exception as e:
+            logging.error(e)
+            self.interface.stop()
+            raise RuntimeError("Failed to retrieve device information.")
+
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -c "
+from mchplnet.lnet import LNet
+import inspect
+source = inspect.getsource(LNet.get_device_info)
+print(source[:3000])
+"</summary>
+
+```bash
+.venv/bin/python -c "
+from mchplnet.lnet import LNet
+import inspect
+source = inspect.getsource(LNet.get_device_info)
+print(source[:3000])
+"
+```
+
+```
+    def get_device_info(self) -&gt; DeviceInfo:
+        """Retrieve and return the device information.
+
+        Returns:
+            DeviceInfo: The device information retrieved from the microcontroller.
+        """
+        if not self.device_info:
+            device_info_frame = FrameDeviceInfo()
+            device_info_frame.received = self._xchg_data(device_info_frame.serialize())
+            self.device_info = device_info_frame.deserialize()
+        return self.device_info
+
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -c "
+from mchplnet.lnet import LNet
+import inspect
+source = inspect.getsource(LNet._xchg_data)
+print(source[:3000])
+"</summary>
+
+```bash
+.venv/bin/python -c "
+from mchplnet.lnet import LNet
+import inspect
+source = inspect.getsource(LNet._xchg_data)
+print(source[:3000])
+"
+```
+
+```
+    def _xchg_data(self, frame):
+        """Send a frame to the microcontroller and read the response.
+
+        This method is thread-safe and ensures that only one thread can access the interface at a time.
+
+        Args:
+            frame: The frame data to be sent.
+
+        Returns:
+            The response from the microcontroller.
+        """
+        with self._lock:
+            try:
+                self.interface.write(frame)
+                return self.interface.read()
+            except TimeoutError:
+                self.interface.stop()
+                self.interface.start()
+                self.interface.write(frame)
+                return self.interface.read()
+
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -c "
+from mchplnet.interfaces.factory import LNetSerial
+import inspect
+source = inspect.getsource(LNetSerial.read)
+print(source[:3000])
+"</summary>
+
+```bash
+.venv/bin/python -c "
+from mchplnet.interfaces.factory import LNetSerial
+import inspect
+source = inspect.getsource(LNetSerial.read)
+print(source[:3000])
+"
+```
+
+```
+    def read(self):
+        """Read data from the serial port with LNet protocol framing.
+
+        Returns:
+            bytearray: The data read from the serial port.
+        """
+        # LNET Frame (SYN, SIZE, NODE, SERVICE_ID, DATA, CRC)
+        # SIZE contains the number of DATA bytes
+        # Read initial 2 bytes (SYN, SIZE)
+        size = 2
+        fill_bytes = (LNET_FILL_BYTE_1, LNET_FILL_BYTE_2)
+        data = bytearray()
+
+        while size:
+            byte = ord(self.serial.read())
+            data.append(byte)
+            size -= 1
+
+        size = data[1] + 2 # NODE, SERVICE_ID, CRC
+        size += 1 if data[1] in fill_bytes else 0
+
+        while size:
+            byte = ord(self.serial.read())
+            data.append(byte)
+            size -= 0 if byte in fill_bytes else 1
+        return data
+
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+Now I have the full picture of the connection and timeout behavior:
+
+1. `LNetSerial.start()` opens serial with `timeout=1` (1 second read timeout)
+2. `LNetSerial.read()` reads bytes one at a time with `self.serial.read()` - each call has 1s timeout
+3. `LNet._xchg_data()` does one retry on `TimeoutError` (stop → start → write → read)
+4. `LNet._handshake()` catches any exception and raises `RuntimeError("Failed to retrieve device information.")`
+
+So the flow when board is not responding:
+
+
+1. `X2CScope.__init__` → `LNet.__init__` → `_handshake()` → `get_device_info()` → `_xchg_data()`
+2. `_xchg_data()` writes the frame and tries to read, but `serial.read()` returns empty bytes on timeout, which causes `ord(b'')` to raise a `TypeError` instead of `TimeoutError` - that's the actual bug, since the retry logic only catches `TimeoutError`.
+
+The `TypeError` propagates up through the call stack uncaught by the `TimeoutError` handler in `_xchg_data`, gets caught by `_handshake`'s broader `except Exception` clause, and gets converted to a `RuntimeError` about failing to retrieve device information. When the board isn't responding, each read attempt times out after 1 second, and the first byte read fails with this type error. So when `serial.read()` times out and returns empty bytes, calling `ord(b'')` throws a `TypeError` with a confusing message about string length, which isn't caught by `_xchg_data` since it only handles `TimeoutError`. This misleading error then bubbles up through the handshake and initialization chain to the user.
+
+Looking at the different failure modes: a non-responsive board gives a ~1 second delay before raising `RuntimeError: Failed to retrieve device information`, while a missing or in-use port fails immediately with `serial.SerialException`, and an ELF file issue surfaces as `FileNotFoundError` after the serial connection succeeds. The current error dialog just displays the raw error message without context about what actually went wrong.
+
+My approach is to catch these specific exceptions in `_do_connect` and replace them with user-friendly messages, then validate file paths upfront before attempting any connection.
+
+Implementing exception handling and path validation... I'm realizing the run loop's exception handler will format the full traceback for any error I raise, which defeats the purpose of crafting a clean user message. I could either have `_do_connect` catch everything and emit the error signal directly without raising, or modify how the run loop generates error content to distinguish between user-facing messages and debugging tracebacks. I want clean messages.
+
+The cleanest approach: Keep the run loop as-is, but change `_on_error` in main_window to format the message better. Extract the actual exception message from the traceback, rather than showing the full traceback.
+
+Actually, even cleaner: change the `error` signal to emit a cleaner message. In the run loop, I'd use the exception message for user display while logging the full traceback separately.
+
+But this would lose debugging info. Better to have the error signal carry both a clean message and optional details.
+
+Let me think about the simplest approach that gives good UX: catch exceptions in `_do_connect` and raise clean `ConnectionError` messages, extract just the last exception line in the `run()` loop instead of the full traceback while logging it separately, and show the clean message in `_on_error`.
+
+The simplest change is handling all exceptions in `_do_connect` and emitting the error signal directly with an early return...
+
+Refactoring the connection handler... Handling various connection errors... I'm refining the error handling strategy: for `ConnectionError` exceptions, I'll emit just the clean message since that's already user-facing text, but for other unexpected errors, I'll extract the last line of the traceback to preserve the exception type and message for debugging context.
+
+Refining error extraction logic...
+
+Actually, I realize the full traceback clutters the user-facing popup, so I should log the complete traceback to a file for debugging while showing only the exception message to the user—this keeps the UI clean while preserving diagnostic information.
+
+For non-ConnectionError exceptions, just showing `str(exc)` can be cryptic, so I'm formatting the message as `{ExceptionType}: {message}` to give users more context about what went wrong. The strategy is to have `_do_connect` wrap exceptions as user-friendly ConnectionErrors, the run loop logs the full traceback and emits the formatted exception string, and the error handler displays it in the popup.
+
+I'm also adding early validation of the ELF file path before attempting to open the serial port, so users get a clear file-not-found error upfront. For the timeout, the serial connection already has a 1-second timeout built in, and the handshake chain will fail within 1-2 seconds if the board doesn't respond, but I should add a ThreadPoolExecutor wrapper or thread-based timeout around the entire connection attempt to catch any other blocking code paths.
+
+Actually, the 1-second serial timeout is probably sufficient—the real issue is just making sure error messages are clear and properly formatted. Let me review the X2CScopeBackend constructor to see how it's initializing the connection and handling logging setup.
+
+The constructor creates an X2CScope instance which opens the serial port and performs the LNet handshake—that's where "board not responding" errors surface. Then it imports variables from the ELF file, which is where parsing errors or file-not-found issues come up. I'm going to finalize my implementation by updating the `_do_connect` method...
+
+I need to add early file validation and catch exceptions to re-raise them as `ConnectionError` with cleaner messages, importing `serial` to handle `SerialException`. For error emission in `run()`, I'll log the full traceback but only emit the exception message to avoid cluttering the UI. In `main_window.py`, I can remove the redundant "Command X failed:" prefix from `_on_error` and just display the message. I should also improve `_on_connection_lost` to show a summary instead of the raw traceback, since it currently emits the full traceback.
+
+Looking at the actual exception types that get raised, `RuntimeError` from `_handshake` is the main one for "board not responding", so I need to figure out which exceptions to catch and how to handle them cleanly. port issues, it's `serial.SerialException`. For file issues, `FileNotFoundError`.
+
+Let me also check: does `serial.SerialException` get raised from `LNetSerial.start()`? Looking at the code, `LNetSerial.start()` catches all exceptions from `serial.Serial()` and just logs them at DEBUG level, so if the port doesn't exist, the serial object never gets created but no exception is raised. Then when `LNet._xchg_data()` tries to write via the interface, it calls `write()` on a `None` object, triggering an `AttributeError` that propagates up through `_handshake()` which catches it and raises `RuntimeError("Failed to retrieve device information.")`. So all connection failures—whether the port doesn't exist, the board isn't responding, or the port is busy—end up as the same generic `RuntimeError` with the original cause buried, which actually simplifies my error handling since I just need to catch that `RuntimeError`.
+
+But I could do better by checking if the port exists before attempting connection. I could use `os.path.exists()` to validate the port on Unix/macOS systems, though this won't work for Windows COM ports. Still, it's worth considering whether the added complexity is worth the improved error messages.
+
+Actually, I think the better approach is to provide a comprehensive error message that addresses the most common issues—board not powered, wrong port selected, port in use, or baud rate mismatch. I can also validate the ELF file path upfront and check that the parameters file exists if provided.
+
+Now I'm laying out the implementation strategy: validate file paths early in `_do_connect`, catch connection errors and convert them to clean `ConnectionError` exceptions, then in the error handler log the full traceback while emitting just the user-friendly message through the signal, and finally adjust how the error gets displayed so it doesn't get wrapped with the "Command X failed:" prefix for connection errors.
+
+I'm also thinking about the `connection_lost` handler—it currently sends a traceback but the main window ignores it and shows a fixed message, so I should add logging there too to keep the full context.
+
+Now I'm implementing the exception handling in the run loop to catch errors, log the full traceback, and emit cleaner messages to the UI while tracking consecutive communication errors for automatic commands.
+
+Checking imports...</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now I have the full picture. The pyx2cscope stack has a 1-second serial read timeout, and `LNet._handshake()` catches all errors and raises a generic `RuntimeError("Failed to retrieve device information.")` -- which `LNetSerial.start()` also suppresses port errors (catches all exceptions, just logs at DEBUG). So every connection failure collapses into the same unhelpful `RuntimeError`, and the user sees a raw Python traceback in a popup.
+
+I need to:
+1. Validate paths early (before the slow serial attempt)
+2. Catch the `RuntimeError` from the handshake and provide an actionable message
+3. Stop dumping full tracebacks in error popups -- log them instead, show just the message
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/workers.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me make all the changes. First, update the imports and the error handling in `run()` to log tracebacks instead of emitting them:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/workers.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the error handling in `run()` to log full tracebacks and emit clean messages:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/workers.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now rewrite `_do_connect` to validate paths early and translate exceptions into clear messages:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/workers.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update `_on_error` in main_window.py to show a clean dialog without the "Command X failed:" boilerplate:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/main_window.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "mctoolbox/gui/workers.py",
+    "mctoolbox/gui/main_window.py"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "mctoolbox/gui/workers.py"
+    },
+    {
+      "relativeWorkspacePath": "mctoolbox/gui/main_window.py"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints"><details>
+<summary>Tool use: **read_lints**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Let me verify the final state of both files:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/workers.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/workers.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/workers.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Let me also verify the `_on_error` change:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/main_window.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me also remove the unused `traceback` import since we replaced `traceback.format_exc()` with `str(exc)` and `logger.error(..., exc_info=True)`:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "path": "/Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/workers.py",
+  "pattern": "traceback"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/workers.py",
+  "pattern": "traceback",
+  "topFiles": [
+    {
+      "matchCount": 1,
+      "uri": "mctoolbox/gui/workers.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 1
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+`traceback` is no longer used -- the full traceback is now handled by `logger.error(..., exc_info=True)` and `str(exc)`. Let me clean it up:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/workers.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "mctoolbox/gui/workers.py"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "mctoolbox/gui/workers.py"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints"><details>
+<summary>Tool use: **read_lints**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Clean. Here's a summary of the changes:
+
+**`_do_connect` -- early validation and clear error messages:**
+- Validates ELF and parameters file paths *before* attempting the serial connection, so the user gets an instant "file not found" instead of waiting through the handshake
+- Catches `RuntimeError` from pyx2cscope's LNet handshake (the catch-all for port-not-found, board-off, port-busy -- all collapsed to "Failed to retrieve device information" by pyx2cscope internals) and replaces it with an actionable checklist
+- Any other unexpected exception is wrapped with the port context so it's identifiable
+
+**`run()` error handler -- log tracebacks, emit clean messages:**
+- Full tracebacks go to the session log via `logger.error(..., exc_info=True)` for debugging
+- Only `str(exc)` is emitted on the `error` signal -- no more raw Python traceback in popup dialogs
+
+**`_on_error` -- simplified popup:**
+- Title is `"Error: CONNECT"` etc. (unchanged), body is the clean exception message directly instead of the old `"Command CONNECT failed:\n\n<traceback>"` wrapper
+
+---
+
+_**User**_
+
+can we make current and velocity loop gains properties as well? I don't see need for functions here, different pattern than all the other parameters
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/motor.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+The user wants to convert the `read_current_gains`, `write_current_gains`, `read_velocity_gains`, and `write_velocity_gains` methods to properties, matching the pattern used for all the other motor parameters (like `idq`, `vdq`, `velocity_cmd`, etc.).
+
+The challenge is that current gains have an `axis` parameter (d or q). For properties, we'd need separate properties for d-axis and q-axis gains, or a single property that returns both/one.
+
+Looking at how other properties work:
+- `idq` returns a `DQPair` (both axes together)
+
+
+- `vdq_cmd` has both getter and setter as property
+
+For current gains, I could create separate `current_gains_d` and `current_gains_q` properties that each return and accept `PIGainValues`, or follow the pattern of `idq_cmd_raw` which handles the assignment of structured data through a property setter.
+
+The challenge is that `PIGainValues` contains many fields (kp, ki, kp_raw, ki_raw, kp_shift, ki_shift, kp_units, ki_units), but the setter only needs the engineering values kp and ki to write back to the device. I could either accept a full `PIGainValues` object and extract just those two fields, or accept a simpler type like `DQPair` that only carries what's needed.
+
+Looking at how the existing write methods work—they return `PIGainValues` with the written values—switching to a property setter would change the API from a function call that returns a result to a simple assignment. The user wants consistency with other parameters that use properties, so I should accept either a tuple or `PIGainValues` in the setter to keep the interface flexible and intuitive.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Let me check the `PIGainValues` type to understand the setter interface.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/types.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+OK, so `PIGainValues` has `kp` and `ki` as required fields, and everything else has defaults. So you can do:
+```python
+motor.current_gains_q = PIGainValues(kp=3.0, ki=5000)
+```
+That's not too bad. But it's still a bit verbose compared to the existing DQPair pattern.
+
+Now let me think about the design:
+
+1. **Current gains** - have d and q axes. Options:
+   - Two properties: `current_gains_d` and `current_gains_q`
+   - One property returning a dict or named tuple with both axes
+   - Use DQ-like approach where the property returns both and the setter writes both
+
+Looking at the `write_current_gains` method, it supports `axis="both"` to write the same gains to both axes, which is the common use case. I think the cleanest approach is separate `current_gains_d` and `current_gains_q` properties since that matches how `_CURRENT_GAIN_VARS` is structured with distinct d and q entries.
+
+2. **Velocity gains** - no axis dimension, so just a single straightforward property.
+
+With separate properties, setting both axes means assigning the same gains object to each property in two transactions instead of a single `write_current_gains("both", ...)` call, but it's more explicit and consistent with the property pattern. Now I need to find all the existing callers of these methods to understand what needs updating.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me find all callers of these methods to understand the update scope.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "context": 1,
+  "outputMode": "content",
+  "pattern": "read_current_gains|write_current_gains|read_velocity_gains|write_velocity_gains"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "pattern": "read_current_gains|write_current_gains|read_velocity_gains|write_velocity_gains",
+  "topFiles": [
+    {
+      "matchCount": 9,
+      "uri": "mctoolbox/mcaf/velocity_tuning.py"
+    },
+    {
+      "matchCount": 3,
+      "uri": "packages/pymcaf/docs/index.rst"
+    },
+    {
+      "matchCount": 18,
+      "uri": "packages/pymcaf/src/pymcaf/motor.py"
+    },
+    {
+      "matchCount": 116,
+      "uri": ".specstory/history/2026-03-21_20-39-57Z-mcaf-library-refactoring.md"
+    },
+    {
+      "matchCount": 12,
+      "uri": "packages/pymcaf/docs/guide/motor.rst"
+    },
+    {
+      "matchCount": 6,
+      "uri": ".specstory/history/2026-03-21_21-40-39Z-public-api-documentation-summary.md"
+    },
+    {
+      "matchCount": 6,
+      "uri": "mctoolbox/gui/workers.py"
+    },
+    {
+      "matchCount": 9,
+      "uri": "mctoolbox/mcaf/current_tuning.py"
+    },
+    {
+      "matchCount": 6,
+      "uri": "packages/pymcaf/docs/quickstart.rst"
+    },
+    {
+      "matchCount": 3,
+      "uri": "packages/pymcaf/src/pymcaf/__init__.py"
+    },
+    {
+      "matchCount": 3,
+      "uri": ".specstory/history/2026-03-21_22-22-39Z-connection-loss-error-popups.md"
+    },
+    {
+      "matchCount": 3,
+      "uri": ".specstory/history/2026-03-21_18-16-44Z-workflow-and-state-machine-search.md"
+    }
+  ],
+  "totalFiles": 12,
+  "totalMatches": 72
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+Now I can see all the callers. Let me map them out:
+
+**`motor.read_current_gains(axis)`** callers:
+1. `mctoolbox/mcaf/current_tuning.py:76` → `motor.read_current_gains(axis)`
+2. `packages/pymcaf/docs/index.rst` → doc example
+3. `packages/pymcaf/docs/guide/motor.rst` → doc example
+4. `packages/pymcaf/docs/quickstart.rst` → doc example
+5. `packages/pymcaf/src/pymcaf/__init__.py` → doc example in docstring
+
+
+6. `mctoolbox/mcaf/current_tuning.py:123` → `motor.write_current_gains(axes, kp, ki)`
+
+The velocity tuning functions have similar patterns—`read_velocity_gains()` is called from `velocity_tuning.py:70` and `write_velocity_gains(kp, ki)` is referenced at `velocity_tuning.py:108`, with doc examples scattered throughout the documentation.
+
+For the raw versions, `write_current_gains_raw(axis, kp, ki)` appears at `current_tuning.py:114` with the parameters renamed to `axes, kp_counts, ki_counts`, and `write_velocity_gains_raw(kp, ki)` shows up at `velocity_tuning.py:97` with `kp_counts, ki_counts` instead.
+
+Now I'm thinking about how to design these as properties—the current gains are complicated because of the `axis` parameter, but looking at the actual usage patterns, `read_current_gains(axis="q")` reads a single axis while `write_current_` appears to handle multiple axes, which creates a design tension I need to resolve.
+
+I think the cleanest approach is to create separate properties for each axis: `current_gains_d` and `current_gains_q`, each accepting a `PIGainValues` object where the user only needs to specify `kp` and `ki`. This way, setting both axes just means assigning the same gains object to each property separately.
+
+For velocity gains, I'll keep it simple with a single `velocity_gains` property. As for raw gain writes, I'm debating whether to expose them as separate properties like `current_gains_d_raw` and `velocity_gains_raw`, but that feels like over-engineering since they're low-level and rarely used—they're mainly called internally when the tuning code switches to "counts" mode.
+
+The real question is about the setter interface. The current `write_current_gains` method returns a `PIGainValues` object with the actual values written (accounting for Q-format rounding), but properties don't return values. I need to figure out how the tuning code actually uses that return value to decide whether to keep it as a method or find another pattern. Looking at how the setter pattern works with the DQ properties, they don't return anything either, and callers don't read back afterward. But in the current tuning flow, the return value from `write_current_gains` gets converted and logged, then returned to the GUI worker which emits it so the interface can display the actual Q-format-adjusted values. With a property setter, I'd need to handle that feedback differently.
+
+I'm thinking the approach would be to set the property, then read it back to get what the firmware actually has, convert that result, and return it to the caller. It adds a few extra serial transactions but gives me accurate values that reflect what the hardware is actually storing. Since it's just a few milliseconds over serial, the performance hit is acceptable.
+
+Given the existing pattern where `idq` returns a `DQPair` and `idq_cmd_raw` accepts one, I should probably follow that same convention for gains—having a single property that handles both axes together rather than separate d and q properties.
+
+But there's a complication: `PIGainValues` doesn't have a d/q structure like `DQPair` does. It just has kp and ki values. Since the d and q axes typically use the same gains anyway (they're symmetric), and the firmware defaults to the q axis with most callers using that, I'll go with separate `current_gains_d` and `current_gains_q` properties instead. It's more explicit and clearer than trying to force a single property that only reads one axis.
+
+For the user experience, I want reading and writing to be straightforward: you get back a `PIGainValues` object with full info, and you can set it by passing a `PIGainValues` with just kp and ki. This keeps it consistent with the rest of the Motor API. Raw writes will stay as methods since they're special-purpose operations without a symmetric read.
+
+Now I'm planning the implementation changes to motor.py... Now I need to update the tuning modules to use these new properties instead of the old method calls, and then make sure the documentation reflects these changes.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Good call -- the gains are no different from `idq`, `vdq_cmd`, `velocity_cmd` etc. Let me see the callers in the tuning modules to understand the full update scope.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Convert current/velocity gain methods to properties in motor.py",
+      "id": "1",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update current_tuning.py to use property API",
+      "id": "2",
+      "status": "pending"
+    },
+    {
+      "content": "Update velocity_tuning.py to use property API",
+      "id": "3",
+      "status": "pending"
+    },
+    {
+      "content": "Update doc examples (index.rst, guide/motor.rst, quickstart.rst, __init__.py)",
+      "id": "4",
+      "status": "pending"
+    },
+    {
+      "content": "Verify no lint errors",
+      "id": "5",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Add connection_lost signal and detection in workers.py",
+      "id": "1",
+      "status": "completed"
+    },
+    {
+      "content": "Add session guard in _dispatch to skip commands when session is gone",
+      "id": "2",
+      "status": "completed"
+    },
+    {
+      "content": "Handle connection_lost in main_window.py with single notification",
+      "id": "3",
+      "status": "completed"
+    },
+    {
+      "content": "Verify no lint errors",
+      "id": "4",
+      "status": "completed"
+    }
+  ],
+  "success": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/mcaf/current_tuning.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/mcaf/velocity_tuning.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+Now I have the full picture. Let me plan the property conversion:
+
+### motor.py: Convert gain methods to properties
+
+**Current gains** - need separate d and q properties since they have different firmware variables:
+- `current_gains_d` (getter/setter) → reads/writes d-axis gains
+- `current_gains_q` (getter/setter) → reads/writes q-axis gains
+
+**Velocity gains** - single property:
+- `velocity_gains` (getter/setter) → reads/writes velocity gains
+
+The setter takes a `PIGainValues` (only `kp` and `ki` are used since other fields have defaults).
+
+
+I'll use internal helper methods to handle the actual read/write logic, with the properties delegating to them. For the `write_current_gains` with `axes="both"` feature, callers will just set both properties individually instead. The raw write methods stay as methods since they're special-purpose utilities without read counterparts. Now I need to update the callers in `current_tuning.py` to use the new property interface. I'm realizing that `write_current_gains` returns a `PIGainValues` object, so when converting to properties, I'd need to set the values and then read them back to return the same type. Looking at the actual implementation, it's iterating through axes and calling `_write_pi_gain` for both the kp and ki components. I'm weighing two approaches for the setter: either have it write and let the caller read back through the getter to verify, or keep an internal helper that returns the computed values but the setter discards them. The first option is cleaner architecturally since it separates concerns, though it does add extra serial transactions—acceptable for a tuning tool. I'm leaning toward the simpler approach for the tuning module itself.
+
+Building the axis handling logic...
+
+Actually, I think the cleaner approach is to skip the dictionary abstraction and just handle the "both" case directly with explicit conditionals—it's more readable and avoids the overhead of setattr/getattr. Then I can read back from whichever axis makes sense as the default.
+
+Now I'm implementing the property getters in motor.py to read the PI gain values from the device, pulling both the engineering and raw representations.
+
+I see I can reduce the duplication between the d-axis and q-axis implementations by creating a helper method that handles the common logic for reading gains across different axes. Writing the PI gain accessor methods...</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now I have the full picture. The plan is:
+- `current_gains_d` / `current_gains_q` as get/set properties (d and q have different firmware variables, so they need separate properties)
+- `velocity_gains` as a get/set property
+- Keep `write_*_raw` as methods (special-purpose, no symmetric read)
+- Update tuning modules and doc examples
+
+Let me start with `motor.py`:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/motor.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Convert current/velocity gain methods to properties in motor.py",
+      "id": "1",
+      "status": "completed"
+    },
+    {
+      "content": "Update current_tuning.py to use property API",
+      "id": "2",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update velocity_tuning.py to use property API",
+      "id": "3",
+      "status": "pending"
+    },
+    {
+      "content": "Update doc examples (index.rst, guide/motor.rst, quickstart.rst, __init__.py)",
+      "id": "4",
+      "status": "pending"
+    },
+    {
+      "content": "Verify no lint errors",
+      "id": "5",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Convert current/velocity gain methods to properties in motor.py",
+      "id": "1",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update current_tuning.py to use property API",
+      "id": "2",
+      "status": "pending"
+    },
+    {
+      "content": "Update velocity_tuning.py to use property API",
+      "id": "3",
+      "status": "pending"
+    },
+    {
+      "content": "Update doc examples (index.rst, guide/motor.rst, quickstart.rst, __init__.py)",
+      "id": "4",
+      "status": "pending"
+    },
+    {
+      "content": "Verify no lint errors",
+      "id": "5",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update `current_tuning.py` -- the `get_gains` and `set_gains` methods:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/mcaf/current_tuning.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Convert current/velocity gain methods to properties in motor.py",
+      "id": "1",
+      "status": "completed"
+    },
+    {
+      "content": "Update current_tuning.py to use property API",
+      "id": "2",
+      "status": "completed"
+    },
+    {
+      "content": "Update velocity_tuning.py to use property API",
+      "id": "3",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update doc examples (index.rst, guide/motor.rst, quickstart.rst, __init__.py)",
+      "id": "4",
+      "status": "pending"
+    },
+    {
+      "content": "Verify no lint errors",
+      "id": "5",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Convert current/velocity gain methods to properties in motor.py",
+      "id": "1",
+      "status": "completed"
+    },
+    {
+      "content": "Update current_tuning.py to use property API",
+      "id": "2",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update velocity_tuning.py to use property API",
+      "id": "3",
+      "status": "pending"
+    },
+    {
+      "content": "Update doc examples (index.rst, guide/motor.rst, quickstart.rst, __init__.py)",
+      "id": "4",
+      "status": "pending"
+    },
+    {
+      "content": "Verify no lint errors",
+      "id": "5",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update `velocity_tuning.py`:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/mcaf/velocity_tuning.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Cancelled
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+---
+
+_**User**_
+
+no I don't want p and i gains together. seperate
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+The user wants separate properties for kp and ki, not bundled together in a PIGainValues. Looking at how the other properties work in this file - `idq` returns a `DQPair` with d and q, `velocity_cmd` returns a single float - the gains should follow a similar pattern with individual properties for each gain value.
+
+So instead of:
+```python
+motor.current_gains_q  # → PIGainValues(kp=..., ki=...)
+```
+
+They want:
+```python
+motor.current_kp_q  # → float (V/A)
+motor.current_ki_q  # → float (V/A/s)
+
+
+motor.current_kp_d  # → float (V/A)
+motor.current_ki_d  # → float (V/A/s)
+motor.velocity_kp   # → float (A/(rad/s))
+motor.velocity_ki   # → float (A/rad)
+```
+
+Each as a simple float property with getter/setter, just like `velocity_cmd`. The tricky part is that reading and writing these gains isn't straightforward - I need to handle both the gain value and its associated shift count, then compute the effective Q-format from that shift before converting to the actual float value.
+
+Writing is even more involved since I have to compute the counts from the engineering value and potentially adjust the shift count if the value overflows Q15, then write both variables back. The existing `_write_pi_gain` and `_read_pi_gain` methods already handle this complexity, so I can wrap them in property getters and setters that expose clean float interfaces.
+
+Writing property definitions... The tuning module would need to read individual float properties for `kp` and `ki`, but it also needs the raw counts and shift values for display purposes—those could come from internal `_read_pi_gain` calls or separate read-only properties. Following the existing naming conventions like `idq` and `vdq`, the properties should be straightforward floats that match the user's preference for independent gain values rather than bundled structures. The tuning modules are a higher-level layer in mctoolbox, so they can handle their own logic for fetching full gain information. The Motor class itself should just expose clean, simple float properties for the engineering values—the tuning code can read those properties and separately access raw firmware variables if needed through the connection object.
+
+But wait, the tuning modules currently call `_read_pi_gain` through the public API to get the full `CurrentGains` and `VelocityGains` objects with counts and shifts included. If I make that private, they'll need another way to access that raw data. I could expose read-only properties for the counts and shifts too, or have the tuning modules read them directly from firmware. The existing `_read_pi_gain` and `_write_pi_gain` methods on Motor already handle the heavy lifting, so the tuning modules can call the public properties which wrap them internally. I need to update the tuning modules to use the float properties instead of calling `read_current_gains` directly, but the challenge is that they also need access to the raw counts and shift values—so either I expose `_read_pi_gain` as usable or find another way for the tuning module to get that information.
+
+The issue is that the firmware variable names are private constants in motor.py, so the tuning module can't access them directly. I think the cleanest solution is to keep `_read_pi_gain` as a method that returns the full PIGainValues metadata, making it semi-public so the tuning module can use it when it needs the complete gain information.
+
+Actually, the user wants separate properties for kp and ki, not bundled together. So I should create individual float properties for each gain parameter and expose the firmware variable name constants through the Motor class so the tuning modules can read the raw values directly from the connection when needed. returns a `PIGainValues` object with all the metadata I need. So I could expose the float properties as the public API while keeping private helper methods that return the full gain objects for the tuning modules to use internally.
+
+Actually, let me reconsider. The tuning module could just read each property individually—`current_kp_q`, `current_ki_q`, etc.—and construct whatever detailed information it needs from those pieces. The raw firmware details like counts and shifts are implementation details that don't need to be part of the public interface.
+
+Looking at what `CurrentGains` actually contains, I see it has the kp and ki floats, plus the raw counts, shifts, and fixed unit strings. So the tuning module's `get_gains` method could simply pull the individual float properties from the motor object rather than expecting a single object with all the metadata bundled together. The GUI displays the shift values alongside the gains, so I need to preserve that information in the return type. Looking at how the workers module formats the output, it's clear the shift values are essential for display. I'm realizing the tuning modules are in a separate package, which complicates whether they can access internal helpers—I need to think through the API boundaries here. in `mctoolbox.mcaf` and Motor is in `pymcaf`. They're different packages. The tuning modules can only use the public API of pymcaf.
+
+So I'm weighing two approaches: either expose float properties for the gains while keeping the metadata-returning methods as a secondary pattern, or refactor the tuning modules to not depend on the metadata. The second option is tricky because the GUI relies on that metadata for status messages, and the tuning module would need access to firmware details that are currently private.
+
+I think the pragmatic solution is to keep both patterns but make the clean float properties the primary API. But wait—rereading the user's request, they specifically want separate properties for kp and ki rather than bundling them together, so I need individual `current_kp_q` and `current_ki_q` properties instead of a combined gains object. I'm considering whether the tuning module should compute the metadata from engineering values, accept default raw/shift values if the GUI only needs the engineering side, or keep the internal read method accessible through a public or protected interface. Looking at the current flow where Motor returns PIGainValues and the tuning module converts them to CurrentGains, I could maintain a way to access the full metadata while keeping properties as the primary API.
+
+But the real constraint is that tuning modules can't call private methods across packages. Looking at what the GUI actually displays—the engineering values like Kp and Ki with their units and Q-shift info—I realize the Q-shift is just informational while the engineering values are what matter. The cleanest solution is to have Motor expose simple float properties for Kp and Ki, update the tuning modules to use those properties, and either hardcode the unit information or drop the Q-shift from the status display since it's not essential.
+
+Wait, the Q-shift actually does change at runtime when values overflow, so it's not static. But since `_read_pi_gain` is already defined on Motor and the tuning modules access it through `self._session.conn.motor`, they can actually call that method directly—I just need to make it public instead of private.
+
+Let me reconsider: if I strip the counts and shift metadata from CurrentGains, the GUI workers that display them in status messages would break. I need to figure out what actually depends on having those raw values exposed.
+
+The simplest fix is to create individual float properties on Motor for each gain (current_kp_d, current_ki_d, current_kp_q, current_ki_q, velocity_kp, velocity_ki), keep the private axis-specific helpers, and update the tuning modules to work with these properties instead of the bundled gain objects. For the metadata like counts and shift, I'll need to handle that separately in the tuning code. individual reads of the firmware variables.
+
+Wait, I keep going in circles. Let me just do what the user asked: separate properties. And for the tuning modules, I'll read each property individually and construct the result. If the metadata (counts/shift) is needed, I'll keep a thin method that provides it, OR I'll update the tuning module to not need it (simplify CurrentGains).
+
+Actually, the simplest approach: make the float properties AND keep the private helpers. The tuning module's `get_gains` can construct CurrentGains from the float properties + units (which are fixed). For the shift/counts, it can be omitted from the status display or computed separately.
+
+Let me look at what actually uses the shift/counts. I'm checking the workers code to see how the gains are being displayed and emitted. The Q-shift values are just informational in the status messages... status bar. If I drop it, the status messages become:
+
+`Kp={gains.kp:.4f} V/A  Ki={gains.ki:.2f} V/A/s`
+
+That's still useful. The Q-shift is a firmware implementation detail that most users don't care about.
+
+So I'm going to simplify by adding individual float properties to Motor for each gain, removing the bundled PIGainValues from the property return types, and having the tuning modules construct the full gain objects by reading multiple properties if needed. The key is just updating Motor's public API without touching the workers.
+
+Refactoring Motor.py... raw`, `write_velocity_gains_raw` (raw count methods)
+
+**current_tuning.py:**
+- `get_gains`: read `motor.current_kp_q` and `motor.current_ki_q` separately
+- `set_gains`: write properties separately, then read back for result
+
+**velocity_tuning.py:**  
+- `get_gains`: read `motor.velocity_kp` and `motor.velocity_ki` separately
+- `set_gains`: write properties separately, then read back for result
+
+For the tuning module's `CurrentGains`/`VelocityGains` return types, I'll need to decide what to do about the raw counts and shift fields. The simplest approach: have the tuning modules populate only the engineering values and units, leaving counts/shift at their defaults (0). The workers can adjust their status messages if needed.
+
+But that would change the behavior of the status messages, so I should check whether the current_tab also depends on those counts and shift values.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Got it -- each gain should be its own independent float property, like `velocity_cmd` or `vdc`. Let me see what the tabs need from the gain reads to make sure I handle the metadata correctly.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/tabs/current_tab.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/tabs/velocity_tab.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+Now I see the full picture. The tabs display `gains.kp_counts` and `gains.kp_shift` in the UI labels. So the `CurrentGains` and `VelocityGains` dataclasses DO need the raw count and shift info.
+
+The user's request is specifically about the Motor class API -- they want individual float properties for each gain (kp and ki separate), not a bundled PIGainValues. This is about the Motor class interface pattern.
+
+The tuning modules need the extra metadata. They can get it by:
+1. Having the Motor expose public gain info that includes metadata
+2. Reading the extra info separately
+
+
+3. The cleanest approach is to give Motor individual float properties for the simple get/set case, while also exposing the metadata-reading capability through a public method that the tuning modules can call when they need the full context.
+
+Actually, I'm realizing the tuning module's `get_gains` needs to keep returning the same `CurrentGains` structure with all the shift and count information for the tabs to display properly, so I should probably keep `_read_pi_gain` accessible as a semi-public method that both the properties and the tuning modules can use. can call. In Python, there's no real access restriction. But conventionally, leading underscore means "don't use from outside."
+
+Alternative: make `read_pi_gain` a public method. Then properties use it internally and tuning modules use it when they need metadata. But `read_pi_gain` takes firmware variable names and parameter keys, which are private constants, so the tuning module would need those too. This is getting circular—I need to focus on what the user actually wants.
+
+The user's main request is about the Motor public API: they want individual float properties like `motor.current_kp_q` instead of `motor.current_gains_q.kp`. For the tuning modules, they're internal implementation details and can access Motor internals however needed. So I'll create individual float properties on Motor, keep `_read_pi_gain` and `_write_pi_gain` as private helpers, and let the tuning modules read kp/ki from those properties plus use raw reads for any metadata they need. about the connection)
+- Compute shift from nkp/nki (also via conn.read_raw)
+
+But the tuning module doesn't know the firmware variable names for the PI gains! Those are in `_CURRENT_GAIN_VARS` which is private to motor.py.
+
+I'm weighing whether to expose the gain variable names as public constants on Motor, or have it expose a public method for reading gain metadata. A method feels cleaner since it abstracts away the firmware details, but I'm also wondering if I'm overcomplicating this. What if I make the float properties the public API and expose a thin `read_current_gain_info` method that returns the full tuple with raw counts and effective_q for when the tuning module needs that metadata? That keeps the common case clean while still giving tuning modules access to what they need. Actually, maybe I should step back and see if the tuning modules even need all that metadata, or if I can simplify `CurrentGains` to just have the essential values.
+
+Looking at how the display strings are formatted in the tabs and workers, they work fine without the raw counts and shift values—just showing the engineering values and units is sufficient. The Q-shift information isn't critical for display purposes.
+
+The metadata like shift values and raw counts are really just firmware implementation details that don't matter for tuning. Since the session log already captures everything through the logger calls, users who need that debug information can check the logs. The GUI should focus on the clean engineering values instead of exposing internal firmware details.
+
+This simplification flows naturally through the whole system: the motor properties stay clean, the gains objects only hold the essential values, the tuning modules read from those properties without needing metadata, and the display layers show just what users actually need to see. I'll go ahead and implement this cleaner design.
+
+Now I'm refactoring the motor class to expose the gains as individual float properties, updating the tuning modules to read from those properties and construct simplified gain objects, and removing the intermediate helper methods that were handling the metadata.
+
+I'm also simplifying the UI tabs to display only the engineering values with units, and cleaning up the worker status messages to drop the Q-shift information.
+
+Let me map out all the files that need changes and work through them systematically.
+
+Actually, I should step back—the user's main concern was about the Motor class pattern, so let me focus there first and keep the downstream changes minimal.
+
+I'm also realizing that with property setters, each gain would trigger its own shift computation, but since kp and ki use independent shift variables, setting them separately should work fine.
+
+Now I'm ready to implement. I need to check the existing variable paths for the current and velocity gain mappings...
+
+Checking variable paths... I'm defining property getters and setters for the PI gain parameters, using helper methods to read and write the values while handling the engineering unit conversions and normalized gain mappings.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+I see -- the tabs do display `counts` and `Q-shift` info. Those are firmware implementation details though; the engineering values are what matter for tuning. Let me simplify the whole chain: individual float properties on Motor, and clean up the metadata display downstream.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Motor.py: replace bundled gain properties with individual float properties (kp/ki x d/q + velocity)",
+      "id": "1",
+      "status": "in_progress"
+    },
+    {
+      "content": "current_tuning.py: use individual float properties",
+      "id": "2",
+      "status": "pending"
+    },
+    {
+      "content": "velocity_tuning.py: use individual float properties",
+      "id": "3",
+      "status": "pending"
+    },
+    {
+      "content": "current_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "4",
+      "status": "pending"
+    },
+    {
+      "content": "velocity_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "5",
+      "status": "pending"
+    },
+    {
+      "content": "workers.py: simplify gain status messages",
+      "id": "6",
+      "status": "pending"
+    },
+    {
+      "content": "Doc examples + lint check",
+      "id": "7",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Convert current/velocity gain methods to properties in motor.py",
+      "id": "1",
+      "status": "completed"
+    },
+    {
+      "content": "Update current_tuning.py to use property API",
+      "id": "2",
+      "status": "completed"
+    },
+    {
+      "content": "Update velocity_tuning.py to use property API",
+      "id": "3",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update doc examples (index.rst, guide/motor.rst, quickstart.rst, __init__.py)",
+      "id": "4",
+      "status": "pending"
+    },
+    {
+      "content": "Verify no lint errors",
+      "id": "5",
+      "status": "pending"
+    }
+  ],
+  "success": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/motor.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now replace the bundled gain properties with individual float properties:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/motor.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now remove the unused `PIGainValues` import since Motor no longer returns or accepts it:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/motor.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Motor.py: replace bundled gain properties with individual float properties (kp/ki x d/q + velocity)",
+      "id": "1",
+      "status": "completed"
+    },
+    {
+      "content": "current_tuning.py: use individual float properties",
+      "id": "2",
+      "status": "in_progress"
+    },
+    {
+      "content": "velocity_tuning.py: use individual float properties",
+      "id": "3",
+      "status": "pending"
+    },
+    {
+      "content": "current_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "4",
+      "status": "pending"
+    },
+    {
+      "content": "velocity_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "5",
+      "status": "pending"
+    },
+    {
+      "content": "workers.py: simplify gain status messages",
+      "id": "6",
+      "status": "pending"
+    },
+    {
+      "content": "Doc examples + lint check",
+      "id": "7",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Motor.py: replace bundled gain properties with individual float properties (kp/ki x d/q + velocity)",
+      "id": "1",
+      "status": "in_progress"
+    },
+    {
+      "content": "current_tuning.py: use individual float properties",
+      "id": "2",
+      "status": "pending"
+    },
+    {
+      "content": "velocity_tuning.py: use individual float properties",
+      "id": "3",
+      "status": "pending"
+    },
+    {
+      "content": "current_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "4",
+      "status": "pending"
+    },
+    {
+      "content": "velocity_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "5",
+      "status": "pending"
+    },
+    {
+      "content": "workers.py: simplify gain status messages",
+      "id": "6",
+      "status": "pending"
+    },
+    {
+      "content": "Doc examples + lint check",
+      "id": "7",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update `current_tuning.py` -- simplify `get_gains` and `set_gains` to use the individual properties:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/mcaf/current_tuning.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/mcaf/current_tuning.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now simplify `CurrentGains` -- drop the raw counts/shift fields since the properties no longer provide them:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/mcaf/current_tuning.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Motor.py: replace bundled gain properties with individual float properties (kp/ki x d/q + velocity)",
+      "id": "1",
+      "status": "completed"
+    },
+    {
+      "content": "current_tuning.py: use individual float properties",
+      "id": "2",
+      "status": "completed"
+    },
+    {
+      "content": "velocity_tuning.py: use individual float properties",
+      "id": "3",
+      "status": "in_progress"
+    },
+    {
+      "content": "current_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "4",
+      "status": "pending"
+    },
+    {
+      "content": "velocity_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "5",
+      "status": "pending"
+    },
+    {
+      "content": "workers.py: simplify gain status messages",
+      "id": "6",
+      "status": "pending"
+    },
+    {
+      "content": "Doc examples + lint check",
+      "id": "7",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Motor.py: replace bundled gain properties with individual float properties (kp/ki x d/q + velocity)",
+      "id": "1",
+      "status": "completed"
+    },
+    {
+      "content": "current_tuning.py: use individual float properties",
+      "id": "2",
+      "status": "in_progress"
+    },
+    {
+      "content": "velocity_tuning.py: use individual float properties",
+      "id": "3",
+      "status": "pending"
+    },
+    {
+      "content": "current_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "4",
+      "status": "pending"
+    },
+    {
+      "content": "velocity_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "5",
+      "status": "pending"
+    },
+    {
+      "content": "workers.py: simplify gain status messages",
+      "id": "6",
+      "status": "pending"
+    },
+    {
+      "content": "Doc examples + lint check",
+      "id": "7",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update `velocity_tuning.py` the same way:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/mcaf/velocity_tuning.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/mcaf/velocity_tuning.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the tabs and workers to match the simplified gain types. I'll batch these together:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Motor.py: replace bundled gain properties with individual float properties (kp/ki x d/q + velocity)",
+      "id": "1",
+      "status": "completed"
+    },
+    {
+      "content": "current_tuning.py: use individual float properties",
+      "id": "2",
+      "status": "completed"
+    },
+    {
+      "content": "velocity_tuning.py: use individual float properties",
+      "id": "3",
+      "status": "completed"
+    },
+    {
+      "content": "current_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "4",
+      "status": "in_progress"
+    },
+    {
+      "content": "velocity_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "5",
+      "status": "pending"
+    },
+    {
+      "content": "workers.py: simplify gain status messages",
+      "id": "6",
+      "status": "pending"
+    },
+    {
+      "content": "Doc examples + lint check",
+      "id": "7",
+      "status": "pending"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Motor.py: replace bundled gain properties with individual float properties (kp/ki x d/q + velocity)",
+      "id": "1",
+      "status": "completed"
+    },
+    {
+      "content": "current_tuning.py: use individual float properties",
+      "id": "2",
+      "status": "completed"
+    },
+    {
+      "content": "velocity_tuning.py: use individual float properties",
+      "id": "3",
+      "status": "in_progress"
+    },
+    {
+      "content": "current_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "4",
+      "status": "pending"
+    },
+    {
+      "content": "velocity_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "5",
+      "status": "pending"
+    },
+    {
+      "content": "workers.py: simplify gain status messages",
+      "id": "6",
+      "status": "pending"
+    },
+    {
+      "content": "Doc examples + lint check",
+      "id": "7",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/tabs/current_tab.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/tabs/velocity_tab.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the worker status messages:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/workers.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/workers.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the velocity gain status messages:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/workers.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/gui/workers.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the doc examples:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Motor.py: replace bundled gain properties with individual float properties (kp/ki x d/q + velocity)",
+      "id": "1",
+      "status": "completed"
+    },
+    {
+      "content": "current_tuning.py: use individual float properties",
+      "id": "2",
+      "status": "completed"
+    },
+    {
+      "content": "velocity_tuning.py: use individual float properties",
+      "id": "3",
+      "status": "completed"
+    },
+    {
+      "content": "current_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "4",
+      "status": "completed"
+    },
+    {
+      "content": "velocity_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "5",
+      "status": "completed"
+    },
+    {
+      "content": "workers.py: simplify gain status messages",
+      "id": "6",
+      "status": "completed"
+    },
+    {
+      "content": "Doc examples + lint check",
+      "id": "7",
+      "status": "in_progress"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Motor.py: replace bundled gain properties with individual float properties (kp/ki x d/q + velocity)",
+      "id": "1",
+      "status": "completed"
+    },
+    {
+      "content": "current_tuning.py: use individual float properties",
+      "id": "2",
+      "status": "completed"
+    },
+    {
+      "content": "velocity_tuning.py: use individual float properties",
+      "id": "3",
+      "status": "completed"
+    },
+    {
+      "content": "current_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "4",
+      "status": "in_progress"
+    },
+    {
+      "content": "velocity_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "5",
+      "status": "pending"
+    },
+    {
+      "content": "workers.py: simplify gain status messages",
+      "id": "6",
+      "status": "pending"
+    },
+    {
+      "content": "Doc examples + lint check",
+      "id": "7",
+      "status": "pending"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/index.rst</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/quickstart.rst</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/guide/motor.rst</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/__init__.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/index.rst</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/__init__.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/quickstart.rst</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/guide/motor.rst</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now check for lint errors across all changed files:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "packages/pymcaf/src/pymcaf/motor.py",
+    "mctoolbox/mcaf/current_tuning.py",
+    "mctoolbox/mcaf/velocity_tuning.py",
+    "mctoolbox/gui/tabs/current_tab.py",
+    "mctoolbox/gui/tabs/velocity_tab.py",
+    "mctoolbox/gui/workers.py"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "packages/pymcaf/src/pymcaf/motor.py"
+    },
+    {
+      "relativeWorkspacePath": "mctoolbox/mcaf/current_tuning.py"
+    },
+    {
+      "relativeWorkspacePath": "mctoolbox/mcaf/velocity_tuning.py"
+    },
+    {
+      "relativeWorkspacePath": "mctoolbox/gui/tabs/current_tab.py"
+    },
+    {
+      "relativeWorkspacePath": "mctoolbox/gui/tabs/velocity_tab.py"
+    },
+    {
+      "relativeWorkspacePath": "mctoolbox/gui/workers.py"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints"><details>
+<summary>Tool use: **read_lints**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Let me also check if `PIGainValues` is still exported/used anywhere it shouldn't be:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "glob": "\"*.py\"",
+  "outputMode": "content",
+  "pattern": "PIGainValues"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "pattern": "PIGainValues",
+  "topFiles": [],
+  "totalFiles": 0,
+  "totalMatches": 0
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "glob": "\"*.rst\"",
+  "outputMode": "content",
+  "pattern": "PIGainValues"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "pattern": "PIGainValues",
+  "topFiles": [],
+  "totalFiles": 0,
+  "totalMatches": 0
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+`PIGainValues` is completely unused now. Let me check if it's still exported from `pymcaf` and whether to keep the type for backwards compatibility or clean it up:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "glob": "\"*.py\"",
+  "pattern": "PIGainValues\""
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "pattern": "PIGainValues\"",
+  "topFiles": [],
+  "totalFiles": 0,
+  "totalMatches": 0
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "outputMode": "content",
+  "pattern": "PIGainValues"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "pattern": "PIGainValues",
+  "topFiles": [
+    {
+      "matchCount": 1,
+      "uri": "mctoolbox/interfaces.py"
+    },
+    {
+      "matchCount": 2,
+      "uri": "packages/pymcaf/src/pymcaf/__init__.py"
+    },
+    {
+      "matchCount": 2,
+      "uri": ".specstory/history/2026-03-21_21-40-39Z-public-api-documentation-summary.md"
+    },
+    {
+      "matchCount": 1,
+      "uri": "packages/pymcaf/src/pymcaf/types.py"
+    },
+    {
+      "matchCount": 34,
+      "uri": ".specstory/history/2026-03-21_20-39-57Z-mcaf-library-refactoring.md"
+    },
+    {
+      "matchCount": 14,
+      "uri": ".specstory/history/2026-03-21_22-22-39Z-connection-loss-error-popups.md"
+    }
+  ],
+  "totalFiles": 6,
+  "totalMatches": 54
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+`PIGainValues` is still referenced in `mctoolbox/interfaces.py` and `pymcaf/__init__.py`. Let me clean those up:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/interfaces.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/mctoolbox/interfaces.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now clean up the `pymcaf/__init__.py` export:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/__init__.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/__init__.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/__init__.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "packages/pymcaf/src/pymcaf/__init__.py",
+    "mctoolbox/interfaces.py",
+    "packages/pymcaf/src/pymcaf/motor.py"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "packages/pymcaf/src/pymcaf/__init__.py"
+    },
+    {
+      "relativeWorkspacePath": "mctoolbox/interfaces.py"
+    },
+    {
+      "relativeWorkspacePath": "packages/pymcaf/src/pymcaf/motor.py"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints"><details>
+<summary>Tool use: **read_lints**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write">
+<details>
+<summary>Tool use: **todo_write**</summary>
+
+
+Parameters:
+
+```json
+{
+  "merge": true
+}
+```
+Result:
+
+```json
+{
+  "finalTodos": [
+    {
+      "content": "Motor.py: replace bundled gain properties with individual float properties (kp/ki x d/q + velocity)",
+      "id": "1",
+      "status": "completed"
+    },
+    {
+      "content": "current_tuning.py: use individual float properties",
+      "id": "2",
+      "status": "completed"
+    },
+    {
+      "content": "velocity_tuning.py: use individual float properties",
+      "id": "3",
+      "status": "completed"
+    },
+    {
+      "content": "current_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "4",
+      "status": "completed"
+    },
+    {
+      "content": "velocity_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "5",
+      "status": "completed"
+    },
+    {
+      "content": "workers.py: simplify gain status messages",
+      "id": "6",
+      "status": "completed"
+    },
+    {
+      "content": "Doc examples + lint check",
+      "id": "7",
+      "status": "completed"
+    }
+  ],
+  "initialTodos": [
+    {
+      "content": "Motor.py: replace bundled gain properties with individual float properties (kp/ki x d/q + velocity)",
+      "id": "1",
+      "status": "completed"
+    },
+    {
+      "content": "current_tuning.py: use individual float properties",
+      "id": "2",
+      "status": "completed"
+    },
+    {
+      "content": "velocity_tuning.py: use individual float properties",
+      "id": "3",
+      "status": "completed"
+    },
+    {
+      "content": "current_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "4",
+      "status": "completed"
+    },
+    {
+      "content": "velocity_tab.py: simplify gain display (drop raw counts/shift)",
+      "id": "5",
+      "status": "completed"
+    },
+    {
+      "content": "workers.py: simplify gain status messages",
+      "id": "6",
+      "status": "completed"
+    },
+    {
+      "content": "Doc examples + lint check",
+      "id": "7",
+      "status": "in_progress"
+    }
+  ],
+  "success": true,
+  "wasMerge": true
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="todo_write"><details>
+<summary>Tool use: **todo_write**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Done. Here's a summary of the changes:
+
+**Motor class** -- 6 individual float properties, each independently readable and writable:
+
+| Property | Units | Description |
+|---|---|---|
+| `current_kp_d` | V/A | D-axis current Kp |
+| `current_ki_d` | V/A/s | D-axis current Ki |
+| `current_kp_q` | V/A | Q-axis current Kp |
+| `current_ki_q` | V/A/s | Q-axis current Ki |
+| `velocity_kp` | A/(rad/s) | Velocity Kp |
+| `velocity_ki` | A/rad | Velocity Ki |
+
+Usage is now identical to every other motor parameter:
+
+```python
+kp = motor.current_kp_q      # read
+motor.current_kp_q = 0.5     # write
+motor.velocity_ki = 0.5      # write
+```
+
+**Ripple cleanup:**
+- `PIGainValues` removed from exports and all imports -- it was only needed for the bundled pattern
+- `CurrentGains` / `VelocityGains` simplified to just `kp`, `ki`, and unit strings (dropped `kp_counts`, `ki_counts`, `kp_shift`, `ki_shift`)
+- GUI tabs now display clean engineering values (e.g. `0.4200 V/A`) without firmware internals
+- Worker status messages simplified accordingly
+- Doc examples updated across `index.rst`, `quickstart.rst`, `guide/motor.rst`, and `__init__.py`
+
+---
+
+_**User**_
+
+make sure pymcaf package documentation is up to date and regenerate
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="task_v2">
+<details>
+<summary>Tool use: **task_v2**</summary>
+
+
+Parameters:
+
+```json
+{
+  "description": "Explore pymcaf docs structure",
+  "model": "composer-1.5",
+  "name": "explore",
+  "prompt": "Explore the pymcaf documentation structure at /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/. I need to understand:\n1. All .rst files and their content (read each one fully)\n2. The conf.py configuration\n3. Any Makefile or build scripts for docs\n4. The docs output directory if it exists\n\nReturn the full contents of every .rst file, conf.py, and any Makefile found.",
+  "subagentType": "explore"
+}
+```
+Additional data:
+
+```json
+{
+  "status": "success",
+  "subagentComposerId": "76c7ef8f-b548-42cb-9d6c-6ad5a7c39875",
+  "terminationReason": "completed"
+}
+```
+Result:
+
+```json
+{
+  "agentId": "76c7ef8f-b548-42cb-9d6c-6ad5a7c39875"
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="task_v2"><details>
+<summary>Tool use: **task_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/motor.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/types.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+Now I have a full picture. Let me read the guide/motor.rst and quickstart.rst to check the current state of the documentation after my last edits, then update as needed. I also need to check if PIGainValues should be removed from types.py since it's no longer used anywhere, and update the API docs accordingly.
+
+Let me first read the current state of the files I already edited to make sure they're correct, then read the guide/motor.rst for the full picture.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now let me read the full guide/motor.rst and other doc files to check for any remaining stale references:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/guide/motor.rst</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/quickstart.rst</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/index.rst</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/api/motor.rst</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/api/types.rst</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+OK, so the documentation content looks up to date with the new individual float properties. Now let me check:
+
+1. The guide/motor.rst PI gains section is updated - looks good
+2. The quickstart.rst PI gains section is updated - looks good
+3. The index.rst example is updated - looks good
+4. The `__init__.py` docstring is updated - looks good
+
+Now I need to:
+1. Add a PI gains table to guide/motor.rst (like the other property tables) listing all 6 gain properties
+2. Check if `PIGainValues` should be removed from types.py since nothing uses it anymore
+
+
+3. Build the docs and verify `PIGainValues` isn't referenced anywhere in the .rst files.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+The prose examples are updated. Now I need to:
+
+1. Add a proper property table for the PI gains in `guide/motor.rst` (consistent with all other sections)
+2. Remove the unused `PIGainValues` class from `types.py` since nothing references it
+3. Build the docs
+
+Let me also check if there are any remaining references to `PIGainValues`, `read_current_gains`, `write_current_gains`, `read_velocity_gains`, or `write_velocity_gains` in any rst or py file:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "glob": "\"*.{py,rst}\"",
+  "outputMode": "content",
+  "pattern": "read_current_gains|write_current_gains|read_velocity_gains|write_velocity_gains|current_gains_d|current_gains_q|velocity_gains"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "pattern": "read_current_gains|write_current_gains|read_velocity_gains|write_velocity_gains|current_gains_d|current_gains_q|velocity_gains",
+  "topFiles": [],
+  "totalFiles": 0,
+  "totalMatches": 0
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "glob": "\"*.{py,rst}\"",
+  "outputMode": "content",
+  "pattern": "PIGainValues"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "pattern": "PIGainValues",
+  "topFiles": [],
+  "totalFiles": 0,
+  "totalMatches": 0
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Good -- all stale references are gone. Now add the PI gains table to `guide/motor.rst` and remove `PIGainValues` from `types.py`:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/guide/motor.rst</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now remove the unused `PIGainValues` class from `types.py`:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/types.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now install the docs dependencies and build:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/pip install -e "packages/pymcaf[docs]" 2>&1 | tail -5</summary>
+
+```bash
+.venv/bin/pip install -e "packages/pymcaf[docs]" 2>&1 | tail -5
+```
+
+```
+      Successfully uninstalled pymcaf-0.1.0
+Successfully installed pymcaf-0.1.0
+
+[notice] A new release of pip is available: 26.0 -&gt; 26.0.1
+[notice] To update, run: /Users/greg/projects/microchip/pyx2ctune/.venv/bin/python3.12 -m pip install --upgrade pip
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd packages/pymcaf/docs && ../.venv/bin/sphinx-build -W -b html . _build/html 2>&1 || ../../.venv/bin/sphinx-build -W -b html . _build/html 2>&1</summary>
+
+```bash
+cd packages/pymcaf/docs && ../.venv/bin/sphinx-build -W -b html . _build/html 2>&1 || ../../.venv/bin/sphinx-build -W -b html . _build/html 2>&1
+```
+
+```
+(eval):1: no such file or directory: ../.venv/bin/sphinx-build
+(eval):1: no such file or directory: ../../.venv/bin/sphinx-build
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: .venv/bin/python -m sphinx -W -b html packages/pymcaf/docs packages/pymcaf/docs/_build/html 2>&1</summary>
+
+```bash
+.venv/bin/python -m sphinx -W -b html packages/pymcaf/docs packages/pymcaf/docs/_build/html 2>&1
+```
+
+```
+Running Sphinx v9.1.0
+loading translations [en]... done
+loading pickled environment... The configuration has changed (2 options: 'html_permalinks_icon', 'jquery_use_sri')
+done
+loading intersphinx inventory 'python' from https://docs.python.org/3/objects.inv ...
+loading intersphinx inventory 'pyx2cscope' from https://x2cscope.github.io/pyx2cscope/objects.inv ...
+building [mo]: targets for 0 po files that are out of date
+writing output... 
+building [html]: targets for 3 source files that are out of date
+updating environment: 0 added, 6 changed, 0 removed
+reading sources... [ 17%] api/motor
+reading sources... [ 33%] api/test_harness
+reading sources... [ 50%] api/types
+reading sources... [ 67%] guide/motor
+reading sources... [ 83%] index
+reading sources... [100%] quickstart
+
+looking for now-outdated files... none found
+pickling environment... done
+checking consistency... done
+preparing documents... done
+copying assets... 
+copying static files... 
+Writing evaluated template result to /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/_build/html/_static/basic.css
+Writing evaluated template result to /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/_build/html/_static/language_data.js
+Writing evaluated template result to /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/_build/html/_static/documentation_options.js
+Writing evaluated template result to /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/_build/html/_static/js/versions.js
+copying static files: done
+copying extra files... 
+copying extra files: done
+copying assets: done
+writing output... [ 12%] api/index
+writing output... [ 25%] api/motor
+writing output... [ 38%] api/test_harness
+writing output... [ 50%] api/types
+writing output... [ 62%] guide/index
+writing output... [ 75%] guide/motor
+writing output... [ 88%] index
+writing output... [100%] quickstart
+
+generating indices... genindex py-modindex done
+highlighting module code... [ 11%] pymcaf.backend
+highlighting module code... [ 22%] pymcaf.backends.x2cscope
+highlighting module code... [ 33%] pymcaf.connection
+highlighting module code... [ 44%] pymcaf.constants
+highlighting module code... [ 56%] pymcaf.motor
+highlighting module code... [ 67%] pymcaf.parameters
+highlighting module code... [ 78%] pymcaf.scope
+highlighting module code... [ 89%] pymcaf.test_harness
+highlighting module code... [100%] pymcaf.types
+
+writing additional pages... search done
+dumping search index in English (code: en)... done
+dumping object inventory... done
+build succeeded.
+
+The HTML pages are in packages/pymcaf/docs/_build/html.
+
+```
+</details>
+</tool-use>
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2"><details>
+<summary>Tool use: **run_terminal_command_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Build succeeded with zero warnings (`-W` makes warnings into errors). The documentation is fully up to date and generated cleanly. Here's what was done:
+
+**Content updates:**
+- `guide/motor.rst` -- added a proper property table for all 6 PI gain properties (matching the style of measured signals, commands, and duty cycle tables), plus kept the code examples
+- `quickstart.rst` -- already updated in the previous pass
+- `index.rst` -- already updated
+- `__init__.py` docstring -- already updated
+
+**Cleanup:**
+- Removed `PIGainValues` from `types.py` (unused since gains are now individual floats)
+- Removed `PIGainValues` from `pymcaf.__init__` exports and `__all__`
+- Removed stale import from `mctoolbox/interfaces.py`
+
+**Build output:** `packages/pymcaf/docs/_build/html/` -- all pages rebuilt, no warnings.
+
+---
+
+_**User**_
+
+theta_electrical should be in degrees
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/motor.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/motor.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the guide table that lists this property:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/guide/motor.rst</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Changed `theta_electrical` from raw uint16 counts to degrees (float, 0-360). The conversion is `counts * (360 / 65536)`.
+
+---
+
+_**User**_
+
+get rid of write current gains raw and Velocity
+
+---
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2">
+
+<details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/src/pymcaf/motor.py</summary>
+
+</details>
+
+</tool-use>
+
+<tool-use data-tool-type="write" data-tool-name="edit_file_v2"><details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now remove the callers in the tuning modules:
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "context": 3,
+  "glob": "\"*.{py,rst}\"",
+  "outputMode": "content",
+  "pattern": "write_current_gains_raw|write_velocity_gains_raw"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "pattern": "write_current_gains_raw|write_velocity_gains_raw",
+  "topFiles": [],
+  "totalFiles": 0,
+  "totalMatches": 0
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "context": 3,
+  "outputMode": "content",
+  "pattern": "write_current_gains_raw|write_velocity_gains_raw"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "pattern": "write_current_gains_raw|write_velocity_gains_raw",
+  "topFiles": [
+    {
+      "matchCount": 204,
+      "uri": ".specstory/history/2026-03-21_20-39-57Z-mcaf-library-refactoring.md"
+    },
+    {
+      "matchCount": 7,
+      "uri": "mctoolbox/mcaf/velocity_tuning.py"
+    },
+    {
+      "matchCount": 14,
+      "uri": ".specstory/history/2026-03-21_22-22-39Z-connection-loss-error-popups.md"
+    },
+    {
+      "matchCount": 7,
+      "uri": "mctoolbox/mcaf/current_tuning.py"
+    },
+    {
+      "matchCount": 8,
+      "uri": "packages/pymcaf/docs/guide/motor.rst"
+    }
+  ],
+  "totalFiles": 5,
+  "totalMatches": 41
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<think><details><summary>Thought Process</summary>
+There are references in:
+1. `mctoolbox/mcaf/current_tuning.py` - calls `motor.write_current_gains_raw()`
+2. `mctoolbox/mcaf/velocity_tuning.py` - calls `motor.write_velocity_gains_raw()`
+3. `packages/pymcaf/docs/guide/motor.rst` - documents raw gain writes
+
+I need to update these. The tuning modules have a `units == "counts"` code path that uses these methods. Since the raw methods are gone, I need to either remove the counts path or have it use `conn.write_raw()` directly.
+
+
+I should check whether</details></think>

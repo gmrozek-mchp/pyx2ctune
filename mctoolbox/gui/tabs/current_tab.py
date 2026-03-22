@@ -290,26 +290,14 @@ class CurrentLoopTab(QWidget):
         self._halfperiod_spin.setValue(0.0)
 
     def on_gains_read(self, gains) -> None:
-        self._cur_kp_label.setText(
-            f"{gains.kp:.4f} {gains.kp_units}  "
-            f"(counts={gains.kp_counts}, Q{gains.kp_shift})"
-        )
-        self._cur_ki_label.setText(
-            f"{gains.ki:.2f} {gains.ki_units}  "
-            f"(counts={gains.ki_counts}, Q{gains.ki_shift})"
-        )
+        self._cur_kp_label.setText(f"{gains.kp:.4f} {gains.kp_units}")
+        self._cur_ki_label.setText(f"{gains.ki:.2f} {gains.ki_units}")
         self._kp_spin.setValue(gains.kp)
         self._ki_spin.setValue(gains.ki)
 
     def on_gains_set(self, result) -> None:
-        self._cur_kp_label.setText(
-            f"{result.kp:.4f} {result.kp_units}  "
-            f"(counts={result.kp_counts}, Q{result.kp_shift})"
-        )
-        self._cur_ki_label.setText(
-            f"{result.ki:.2f} {result.ki_units}  "
-            f"(counts={result.ki_counts}, Q{result.ki_shift})"
-        )
+        self._cur_kp_label.setText(f"{result.kp:.4f} {result.kp_units}")
+        self._cur_ki_label.setText(f"{result.ki:.2f} {result.ki_units}")
 
     def on_test_mode_entered(self, mode_name: str) -> None:
         self._mode_label.setText(mode_name)

@@ -16,7 +16,6 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from pymcaf.types import PIGainValues
 
 from mctoolbox import interfaces as _interfaces
 
@@ -33,22 +32,8 @@ _PARAM_ISR_DIVIDER = "timing.mcafIsrSubsampleDivider"
 class VelocityGains(_interfaces.PIGains):
     """Velocity loop PI gains in engineering units."""
 
-    kp_counts: int = 0
-    ki_counts: int = 0
-    kp_shift: int = 0
-    ki_shift: int = 0
     kp_units: str = "A/(rad/s)"
     ki_units: str = "A/rad"
-
-
-def _pi_to_velocity_gains(g: PIGainValues) -> VelocityGains:
-    """Convert a generic PIGainValues to the mctoolbox VelocityGains type."""
-    return VelocityGains(
-        kp=g.kp, ki=g.ki,
-        kp_counts=g.kp_raw, ki_counts=g.ki_raw,
-        kp_shift=g.kp_shift, ki_shift=g.ki_shift,
-        kp_units=g.kp_units, ki_units=g.ki_units,
-    )
 
 
 class VelocityTuning(_interfaces.LoopTuner):
@@ -64,54 +49,36 @@ class VelocityTuning(_interfaces.LoopTuner):
 
     # ── Gain Read / Write ─────────────────────────────────────────────
 
+    def _read_gains(self) -> VelocityGains:
+        motor = self._session.conn.motor
+        return VelocityGains(kp=motor.velocity_kp, ki=motor.velocity_ki)
+
     def get_gains(self, **kwargs: Any) -> VelocityGains:
         """Read velocity PI gains from firmware."""
-        motor = self._session.conn.motor
-        g = motor.read_velocity_gains()
-        result = _pi_to_velocity_gains(g)
+        result = self._read_gains()
         logger.info(
-            "Read velocity gains: Kp=%.6f %s (counts=%d, Q%d), "
-            "Ki=%.4f %s (counts=%d, Q%d)",
-            result.kp, result.kp_units, result.kp_counts, result.kp_shift,
-            result.ki, result.ki_units, result.ki_counts, result.ki_shift,
+            "Read velocity gains: Kp=%.6f %s, Ki=%.4f %s",
+            result.kp, result.kp_units, result.ki, result.ki_units,
         )
         return result
 
-    def set_gains(self, kp: float, ki: float,
-                  units: str = "engineering", **kwargs: Any) -> VelocityGains:
-        """Set velocity loop PI gains.
+    def set_gains(self, kp: float, ki: float, **kwargs: Any) -> VelocityGains:
+        """Set velocity loop PI gains in engineering units.
 
         Args:
-            kp: Proportional gain (A/(rad/s) in engineering units).
-            ki: Integral gain (A/rad in engineering units).
-            units: "engineering" or "counts".
+            kp: Proportional gain (A/(rad/s)).
+            ki: Integral gain (A/rad).
 
         Returns:
             VelocityGains reflecting the values actually written.
         """
         motor = self._session.conn.motor
-
-        if units == "counts":
-            kp_counts = int(kp)
-            ki_counts = int(ki)
-            motor.write_velocity_gains_raw(kp_counts, ki_counts)
-            return VelocityGains(
-                kp=float(kp_counts), ki=float(ki_counts),
-                kp_counts=kp_counts, ki_counts=ki_counts,
-            )
-
-        if units != "engineering":
-            raise ValueError(
-                f"units must be 'engineering' or 'counts', got {units!r}"
-            )
-
-        g = motor.write_velocity_gains(kp, ki)
-        result = _pi_to_velocity_gains(g)
+        motor.velocity_kp = kp
+        motor.velocity_ki = ki
+        result = self._read_gains()
         logger.info(
-            "Set velocity gains: Kp=%.6f %s (counts=%d, Q%d), "
-            "Ki=%.4f %s (counts=%d, Q%d)",
-            result.kp, result.kp_units, result.kp_counts, result.kp_shift,
-            result.ki, result.ki_units, result.ki_counts, result.ki_shift,
+            "Set velocity gains: Kp=%.6f %s, Ki=%.4f %s",
+            result.kp, result.kp_units, result.ki, result.ki_units,
         )
         return result
 

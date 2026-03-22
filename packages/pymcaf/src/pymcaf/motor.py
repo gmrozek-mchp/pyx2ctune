@@ -19,7 +19,6 @@ from pymcaf.types import (
     AlphaBetaPair,
     DQPair,
     MotorState,
-    PIGainValues,
 )
 
 if TYPE_CHECKING:
@@ -278,9 +277,9 @@ class Motor:
         return self._conn.read_q15(_VAR_OMEGA_ELECTRICAL, _FS_VELOCITY)
 
     @property
-    def theta_electrical(self) -> int:
-        """Electrical angle (raw counts, 0-65535 maps to 0-360 degrees)."""
-        return int(self._conn.read_raw(_VAR_THETA_ELECTRICAL))
+    def theta_electrical(self) -> float:
+        """Electrical angle (degrees, 0-360)."""
+        return int(self._conn.read_raw(_VAR_THETA_ELECTRICAL)) * (360.0 / 65536.0)
 
     @property
     def vdc(self) -> float:
@@ -360,146 +359,87 @@ class Motor:
         self._conn.write_raw(_VAR_DABC_B, round(value.b * _DUTY_SCALE))
         self._conn.write_raw(_VAR_DABC_C, round(value.c * _DUTY_SCALE))
 
-    # ── PI gains ──────────────────────────────────────────────────────
+    # ── Current loop PI gains ────────────────────────────────────────
 
-    def read_current_gains(self, axis: str = "q") -> PIGainValues:
-        """Read current loop PI gains in engineering units.
+    @property
+    def current_kp_d(self) -> float:
+        """D-axis current loop proportional gain (V/A)."""
+        v = _CURRENT_GAIN_VARS["d"]
+        eng, _, _ = self._read_pi_gain(v["kp"], v["nkp"], _PARAM_KIP)
+        return eng
 
-        Args:
-            axis: ``"q"`` or ``"d"`` -- which current controller to read.
+    @current_kp_d.setter
+    def current_kp_d(self, value: float) -> None:
+        v = _CURRENT_GAIN_VARS["d"]
+        self._write_pi_gain(v["kp"], v["nkp"], _PARAM_KIP, value)
 
-        Returns:
-            :class:`~pymcaf.types.PIGainValues` with kp in V/A and ki in V/A/s.
-        """
-        axis = axis.lower()
-        if axis not in _CURRENT_GAIN_VARS:
-            raise ValueError(f"axis must be 'q' or 'd', got {axis!r}")
-        v = _CURRENT_GAIN_VARS[axis]
-        kp_eng, kp_raw, kp_q = self._read_pi_gain(
-            v["kp"], v["nkp"], _PARAM_KIP,
-        )
-        ki_eng, ki_raw, ki_q = self._read_pi_gain(
-            v["ki"], v["nki"], _PARAM_KII,
-        )
-        return PIGainValues(
-            kp=kp_eng, ki=ki_eng,
-            kp_raw=kp_raw, ki_raw=ki_raw,
-            kp_shift=kp_q, ki_shift=ki_q,
-            kp_units="V/A", ki_units="V/A/s",
-        )
+    @property
+    def current_ki_d(self) -> float:
+        """D-axis current loop integral gain (V/A/s)."""
+        v = _CURRENT_GAIN_VARS["d"]
+        eng, _, _ = self._read_pi_gain(v["ki"], v["nki"], _PARAM_KII)
+        return eng
 
-    def write_current_gains(
-        self, axis: str, kp: float, ki: float,
-    ) -> PIGainValues:
-        """Write current loop PI gains in engineering units.
+    @current_ki_d.setter
+    def current_ki_d(self, value: float) -> None:
+        v = _CURRENT_GAIN_VARS["d"]
+        self._write_pi_gain(v["ki"], v["nki"], _PARAM_KII, value)
 
-        Args:
-            axis: ``"q"``, ``"d"``, or ``"both"``.
-            kp: Proportional gain in V/A.
-            ki: Integral gain in V/A/s.
+    @property
+    def current_kp_q(self) -> float:
+        """Q-axis current loop proportional gain (V/A)."""
+        v = _CURRENT_GAIN_VARS["q"]
+        eng, _, _ = self._read_pi_gain(v["kp"], v["nkp"], _PARAM_KIP)
+        return eng
 
-        Returns:
-            :class:`~pymcaf.types.PIGainValues` reflecting values written.
-        """
-        axes = ["d", "q"] if axis.lower() == "both" else [axis.lower()]
-        kp_raw = ki_raw = kp_q = ki_q = 0
-        for ax in axes:
-            if ax not in _CURRENT_GAIN_VARS:
-                raise ValueError(f"axis must be 'q', 'd', or 'both', got {ax!r}")
-            v = _CURRENT_GAIN_VARS[ax]
-            kp_raw, nkp = self._write_pi_gain(
-                v["kp"], v["nkp"], _PARAM_KIP, kp,
-            )
-            ki_raw, nki = self._write_pi_gain(
-                v["ki"], v["nki"], _PARAM_KII, ki,
-            )
-            kp_q = 15 - nkp
-            ki_q = 15 - nki
-        return PIGainValues(
-            kp=kp, ki=ki,
-            kp_raw=kp_raw, ki_raw=ki_raw,
-            kp_shift=kp_q, ki_shift=ki_q,
-            kp_units="V/A", ki_units="V/A/s",
-        )
+    @current_kp_q.setter
+    def current_kp_q(self, value: float) -> None:
+        v = _CURRENT_GAIN_VARS["q"]
+        self._write_pi_gain(v["kp"], v["nkp"], _PARAM_KIP, value)
 
-    def read_velocity_gains(self) -> PIGainValues:
-        """Read velocity loop PI gains in engineering units.
+    @property
+    def current_ki_q(self) -> float:
+        """Q-axis current loop integral gain (V/A/s)."""
+        v = _CURRENT_GAIN_VARS["q"]
+        eng, _, _ = self._read_pi_gain(v["ki"], v["nki"], _PARAM_KII)
+        return eng
 
-        Returns:
-            :class:`~pymcaf.types.PIGainValues` with kp in A/(rad/s) and ki in A/rad.
-        """
-        kp_eng, kp_raw, kp_q = self._read_pi_gain(
+    @current_ki_q.setter
+    def current_ki_q(self, value: float) -> None:
+        v = _CURRENT_GAIN_VARS["q"]
+        self._write_pi_gain(v["ki"], v["nki"], _PARAM_KII, value)
+
+    # ── Velocity loop PI gains ────────────────────────────────────────
+
+    @property
+    def velocity_kp(self) -> float:
+        """Velocity loop proportional gain (A/(rad/s))."""
+        eng, _, _ = self._read_pi_gain(
             _VELOCITY_GAIN_VARS["kp"], _VELOCITY_GAIN_VARS["nkp"], _PARAM_KWP,
         )
-        ki_eng, ki_raw, ki_q = self._read_pi_gain(
+        return eng
+
+    @velocity_kp.setter
+    def velocity_kp(self, value: float) -> None:
+        self._write_pi_gain(
+            _VELOCITY_GAIN_VARS["kp"], _VELOCITY_GAIN_VARS["nkp"],
+            _PARAM_KWP, value,
+        )
+
+    @property
+    def velocity_ki(self) -> float:
+        """Velocity loop integral gain (A/rad)."""
+        eng, _, _ = self._read_pi_gain(
             _VELOCITY_GAIN_VARS["ki"], _VELOCITY_GAIN_VARS["nki"], _PARAM_KWI,
         )
-        return PIGainValues(
-            kp=kp_eng, ki=ki_eng,
-            kp_raw=kp_raw, ki_raw=ki_raw,
-            kp_shift=kp_q, ki_shift=ki_q,
-            kp_units="A/(rad/s)", ki_units="A/rad",
-        )
+        return eng
 
-    def write_velocity_gains(self, kp: float, ki: float) -> PIGainValues:
-        """Write velocity loop PI gains in engineering units.
-
-        Args:
-            kp: Proportional gain in A/(rad/s).
-            ki: Integral gain in A/rad.
-
-        Returns:
-            :class:`~pymcaf.types.PIGainValues` reflecting values written.
-        """
-        kp_raw, nkp = self._write_pi_gain(
-            _VELOCITY_GAIN_VARS["kp"], _VELOCITY_GAIN_VARS["nkp"],
-            _PARAM_KWP, kp,
-        )
-        ki_raw, nki = self._write_pi_gain(
+    @velocity_ki.setter
+    def velocity_ki(self, value: float) -> None:
+        self._write_pi_gain(
             _VELOCITY_GAIN_VARS["ki"], _VELOCITY_GAIN_VARS["nki"],
-            _PARAM_KWI, ki,
+            _PARAM_KWI, value,
         )
-        return PIGainValues(
-            kp=kp, ki=ki,
-            kp_raw=kp_raw, ki_raw=ki_raw,
-            kp_shift=15 - nkp, ki_shift=15 - nki,
-            kp_units="A/(rad/s)", ki_units="A/rad",
-        )
-
-    # ── Raw gain writes (no unit conversion) ────────────────────────
-
-    def write_current_gains_raw(
-        self, axis: str, kp_counts: int, ki_counts: int,
-    ) -> None:
-        """Write current loop PI gain counts directly without conversion.
-
-        Useful when the caller already has raw fixed-point values and
-        does not want Q-format conversion.
-
-        Args:
-            axis: ``"q"``, ``"d"``, or ``"both"``.
-            kp_counts: Raw Kp value to write.
-            ki_counts: Raw Ki value to write.
-        """
-        axes = ["d", "q"] if axis.lower() == "both" else [axis.lower()]
-        for ax in axes:
-            if ax not in _CURRENT_GAIN_VARS:
-                raise ValueError(f"axis must be 'q', 'd', or 'both', got {ax!r}")
-            v = _CURRENT_GAIN_VARS[ax]
-            self._conn.write_raw(v["kp"], kp_counts)
-            self._conn.write_raw(v["ki"], ki_counts)
-
-    def write_velocity_gains_raw(
-        self, kp_counts: int, ki_counts: int,
-    ) -> None:
-        """Write velocity loop PI gain counts directly without conversion.
-
-        Args:
-            kp_counts: Raw Kp value to write.
-            ki_counts: Raw Ki value to write.
-        """
-        self._conn.write_raw(_VELOCITY_GAIN_VARS["kp"], kp_counts)
-        self._conn.write_raw(_VELOCITY_GAIN_VARS["ki"], ki_counts)
 
     def __repr__(self) -> str:
         return f"Motor(conn={self._conn!r})"

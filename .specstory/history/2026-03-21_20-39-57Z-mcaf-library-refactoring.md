@@ -12937,8 +12937,17 @@ update documentation for pymcaf
 
 _**Agent (claude-4.6-opus-high-thinking)**_
 
+<think><details><summary>Thought Process</summary>
+The user wants me to update the pymcaf documentation to reflect the new additions: the public `VAR_*` class constants, `write_current_gains_raw()`, `write_velocity_gains_raw()`, and `VAR_VELOCITY_REF`. Let me check what documentation exists and what needs updating.</details></think>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Let me check the current documentation to see what needs updating.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
 <tool-use data-tool-type="read" data-tool-name="read_file_v2">
-<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/api/motor.rst</summary>
 
 </details>
 </tool-use>
@@ -12951,7 +12960,7 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 _**Agent (claude-4.6-opus-high-thinking)**_
 
 <tool-use data-tool-type="read" data-tool-name="read_file_v2">
-<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/guide/motor.rst</summary>
 
 </details>
 </tool-use>
@@ -12964,7 +12973,7 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 _**Agent (claude-4.6-opus-high-thinking)**_
 
 <tool-use data-tool-type="read" data-tool-name="read_file_v2">
-<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/guide/scope.rst</summary>
 
 </details>
 </tool-use>
@@ -12977,7 +12986,24 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 _**Agent (claude-4.6-opus-high-thinking)**_
 
 <tool-use data-tool-type="read" data-tool-name="read_file_v2">
-<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/guide/custom_backend.rst</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Let me also check the remaining doc pages to see what else might reference the old patterns.
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/guide/test_harness.rst</summary>
 
 </details>
 </tool-use>
@@ -12990,7 +13016,7 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 _**Agent (claude-4.6-opus-high-thinking)**_
 
 <tool-use data-tool-type="read" data-tool-name="read_file_v2">
-<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/quickstart.rst</summary>
 
 </details>
 </tool-use>
@@ -13002,16 +13028,11 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 
 _**Agent (claude-4.6-opus-high-thinking)**_
 
-<tool-use data-tool-type="read" data-tool-name="read_file_v2">
-<details><summary>Tool use: **read_file_v2** • Read file: </summary>
+Now I have a clear picture of what needs updating. The key documentation changes are:
 
-</details>
-</tool-use>
-
-<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
-<summary>Tool use: **read_file_v2**</summary>
-
-</details></tool-use>
+1. **`guide/motor.rst`** -- Add sections for variable identifiers and raw gain writes
+2. **`guide/scope.rst`** -- Update code examples to use `Motor.VAR_*` instead of hardcoded strings
+3. **`guide/custom_backend.rst`** -- Update mock backend example to use `Motor.VAR_*`
 
 _**Agent (claude-4.6-opus-high-thinking)**_
 
@@ -13019,8 +13040,6 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 
 <details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/guide/motor.rst</summary>
 
-Status: **loading**
-
 </details>
 
 </tool-use>
@@ -13029,6 +13048,10 @@ Status: **loading**
 <summary>Tool use: **edit_file_v2**</summary>
 
 </details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the scope guide to use `Motor.VAR_*` constants instead of hardcoded strings.
 
 _**Agent (claude-4.6-opus-high-thinking)**_
 
@@ -13036,8 +13059,6 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 
 <details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/guide/scope.rst</summary>
 
-Status: **loading**
-
 </details>
 
 </tool-use>
@@ -13046,6 +13067,10 @@ Status: **loading**
 <summary>Tool use: **edit_file_v2**</summary>
 
 </details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+Now update the custom backend guide to use `Motor.VAR_*` in the mock example.
 
 _**Agent (claude-4.6-opus-high-thinking)**_
 
@@ -13053,8 +13078,6 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 
 <details><summary>Tool use: **edit_file_v2** • Edit file: /Users/greg/projects/microchip/pyx2ctune/packages/pymcaf/docs/guide/custom_backend.rst</summary>
 
-Status: **loading**
-
 </details>
 
 </tool-use>
@@ -13066,9 +13089,40 @@ Status: **loading**
 
 _**Agent (claude-4.6-opus-high-thinking)**_
 
-<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
-<details><summary>Tool use: **run_terminal_command_v2**</summary>
+Now let me verify the docs build cleanly.
 
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd packages/pymcaf && ../../.venv/bin/python -m sphinx -b html docs docs/_build/html 2>&1 | tail -20</summary>
+
+```bash
+cd packages/pymcaf && ../../.venv/bin/python -m sphinx -b html docs docs/_build/html 2>&1 | tail -20
+```
+
+```
+writing output... [ 83%] guide/motor
+writing output... [100%] guide/scope
+
+generating indices... genindex py-modindex done
+highlighting module code... [ 11%] pymcaf.backend
+highlighting module code... [ 22%] pymcaf.backends.x2cscope
+highlighting module code... [ 33%] pymcaf.connection
+highlighting module code... [ 44%] pymcaf.constants
+highlighting module code... [ 56%] pymcaf.motor
+highlighting module code... [ 67%] pymcaf.parameters
+highlighting module code... [ 78%] pymcaf.scope
+highlighting module code... [ 89%] pymcaf.test_harness
+highlighting module code... [100%] pymcaf.types
+
+writing additional pages... search done
+dumping search index in English (code: en)... done
+dumping object inventory... done
+build succeeded, 2 warnings.
+
+The HTML pages are in docs/_build/html.
+
+```
 </details>
 </tool-use>
 
@@ -13079,9 +13133,23 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 
 _**Agent (claude-4.6-opus-high-thinking)**_
 
-<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
-<details><summary>Tool use: **run_terminal_command_v2**</summary>
+Build succeeded. Let me check what the 2 warnings are.
 
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_command_v2">
+<details><summary>Tool use: **run_terminal_command_v2** • Run command: cd packages/pymcaf && ../../.venv/bin/python -m sphinx -b html docs docs/_build/html 2>&1 | grep -i warning</summary>
+
+```bash
+cd packages/pymcaf && ../../.venv/bin/python -m sphinx -b html docs docs/_build/html 2>&1 | grep -i warning
+```
+
+```
+WARNING: failed to reach any of the inventories with the following issues:
+WARNING: failed to reach any of the inventories with the following issues:
+build succeeded, 2 warnings.
+
+```
 </details>
 </tool-use>
 
@@ -13089,3 +13157,14 @@ _**Agent (claude-4.6-opus-high-thinking)**_
 <summary>Tool use: **run_terminal_command_v2**</summary>
 
 </details></tool-use>
+
+_**Agent (claude-4.6-opus-high-thinking)**_
+
+The only warnings are the intersphinx inventory network errors (sandbox limitation) -- same as before, not a documentation issue.
+
+Documentation is updated. Here's what changed:
+
+- **`guide/motor.rst`** -- Added "Raw gain writes" subsection showing `write_current_gains_raw()` and `write_velocity_gains_raw()`. Added "Variable identifiers" section with a table of all `VAR_*` constants and a code example showing their use with scope channels.
+- **`guide/scope.rst`** -- Updated all code examples to use `Motor.VAR_*` constants (e.g. `Motor.VAR_CURRENT_DQ_Q`) instead of hardcoded strings like `"motor.idq.q"`.
+- **`guide/custom_backend.rst`** -- Updated the mock backend example to use `Motor.VAR_CURRENT_DQ_D` and `Motor.VAR_CURRENT_DQ_Q` instead of raw strings.
+- **API reference** (`api/motor.rst`) already uses `automodule` with `:members:`, so the new class constants and methods are automatically included.

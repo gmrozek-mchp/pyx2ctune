@@ -75,30 +75,3 @@ class MotorState:
     """Numeric state code from firmware."""
     name: str
     """Human-readable state name (e.g. ``"RUNNING"``)."""
-
-
-@dataclass
-class PIGainValues:
-    """PI controller gain values in engineering units.
-
-    The ``kp`` and ``ki`` fields hold values in engineering units
-    (e.g. V/A, V/A/s for current gains).  Raw firmware representation
-    is available via the ``*_raw`` and ``*_shift`` fields.
-    """
-
-    kp: float
-    """Proportional gain in engineering units."""
-    ki: float
-    """Integral gain in engineering units."""
-    kp_raw: int = 0
-    """Proportional gain as raw fixed-point counts."""
-    ki_raw: int = 0
-    """Integral gain as raw fixed-point counts."""
-    kp_shift: int = 0
-    """Effective Q-format shift for Kp (Q value)."""
-    ki_shift: int = 0
-    """Effective Q-format shift for Ki (Q value)."""
-    kp_units: str = ""
-    """Unit string for Kp (e.g. ``"V/A"``)."""
-    ki_units: str = ""
-    """Unit string for Ki (e.g. ``"V/A/s"``)."""

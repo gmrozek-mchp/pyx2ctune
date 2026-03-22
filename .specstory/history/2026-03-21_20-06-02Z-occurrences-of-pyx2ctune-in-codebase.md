@@ -752,7 +752,37 @@ _**Agent (composer-1.5)**_
 <details>
 <summary>Tool use: **ripgrep_raw_search**</summary>
 
-Status: **loading**
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "glob": "*.spec",
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune",
+  "pattern": "pyx2ctune"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune",
+  "pattern": "pyx2ctune",
+  "topFiles": [
+    {
+      "matchCount": 6,
+      "uri": "pyx2ctune.spec"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 6
+}
+```
+Status: **completed**
 
 
 </details>
@@ -762,3 +792,573 @@ Status: **loading**
 <summary>Tool use: **ripgrep_raw_search**</summary>
 
 </details></tool-use>
+
+_**Agent (composer-1.5)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune.spec</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (composer-1.5)**_
+
+
+
+
+
+_**Agent (composer-1.5)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/SPEC.md",
+  "pattern": "pyx2ctune"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/SPEC.md",
+  "pattern": "pyx2ctune",
+  "topFiles": [
+    {
+      "matchCount": 22,
+      "uri": "SPEC.md"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 22
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (composer-1.5)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/README.md",
+  "pattern": "pyx2ctune"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/README.md",
+  "pattern": "pyx2ctune",
+  "topFiles": [
+    {
+      "matchCount": 10,
+      "uri": "README.md"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 10
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (composer-1.5)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/THIRD-PARTY-LICENSES.md",
+  "pattern": "pyx2ctune"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/THIRD-PARTY-LICENSES.md",
+  "pattern": "pyx2ctune",
+  "topFiles": [
+    {
+      "matchCount": 6,
+      "uri": "THIRD-PARTY-LICENSES.md"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 6
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (composer-1.5)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "glob": "*.json",
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune",
+  "pattern": "pyx2ctune"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune",
+  "pattern": "pyx2ctune",
+  "topFiles": [
+    {
+      "matchCount": 1,
+      "uri": ".specstory/.project.json"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 1
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (composer-1.5)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "glob": "*.log",
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune",
+  "pattern": "pyx2ctune"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune",
+  "pattern": "pyx2ctune",
+  "topFiles": [
+    {
+      "matchCount": 18,
+      "uri": "motorbench/mclv-48v-300w/mclv-48v-300w.X/motorbench/log/board-config.log"
+    },
+    {
+      "matchCount": 6,
+      "uri": "motorbench/mclv-48v-300w/mclv-48v-300w.X/motorbench/log/MCAF-code-generation.log"
+    }
+  ],
+  "totalFiles": 2,
+  "totalMatches": 24
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (composer-1.5)**_
+
+
+
+
+
+_**Agent (composer-1.5)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/wizards",
+  "pattern": "pyx2ctune"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune/pyx2ctune/wizards",
+  "pattern": "pyx2ctune",
+  "topFiles": [
+    {
+      "matchCount": 1,
+      "uri": "pyx2ctune/wizards/__init__.py"
+    }
+  ],
+  "totalFiles": 1,
+  "totalMatches": 1
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (composer-1.5)**_
+
+<tool-use data-tool-type="search" data-tool-name="glob_file_search">
+<details>
+<summary>Tool use: **glob_file_search** • Searched codebase "" • **3** results in **1** directory</summary>
+
+Directory: **/Users/greg/projects/microchip/pyx2ctune** (3 files)
+
+| File |
+|------|
+| `.cursor/rules/python-venv.mdc` |
+| `.cursor/rules/no-motorbench-changes.mdc` |
+| `.cursor/rules/project-spec.mdc` |
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="search" data-tool-name="glob_file_search"><details>
+<summary>Tool use: **glob_file_search**</summary>
+
+</details></tool-use>
+
+_**Agent (composer-1.5)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/pyx2ctune/gui/__main__.py</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (composer-1.5)**_
+
+
+
+
+
+_**Agent (composer-1.5)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "caseInsensitive": false,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune",
+  "pattern": "\\.pyx2ctune"
+}
+```
+Additional data:
+
+```json
+{
+  "isPruned": true,
+  "outputMode": "content",
+  "path": "/Users/greg/projects/microchip/pyx2ctune",
+  "pattern": "\\.pyx2ctune",
+  "topFiles": [
+    {
+      "matchCount": 1,
+      "uri": "pyx2ctune.spec"
+    },
+    {
+      "matchCount": 1,
+      "uri": ".specstory/history/2026-03-13_16-05-32Z-gui-tuning-tool-for-microchip-motorbench.md"
+    },
+    {
+      "matchCount": 1,
+      "uri": ".specstory/history/2026-03-21_18-16-44Z-workflow-and-state-machine-search.md"
+    },
+    {
+      "matchCount": 1,
+      "uri": "pyx2ctune/gui/__main__.py"
+    }
+  ],
+  "totalFiles": 4,
+  "totalMatches": 4
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search"><details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+</details></tool-use>
+
+_**Agent (composer-1.5)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/.cursor/rules/python-venv.mdc</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (composer-1.5)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/greg/projects/microchip/pyx2ctune/.cursor/rules/no-motorbench-changes.mdc</summary>
+
+</details>
+</tool-use>
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2"><details>
+<summary>Tool use: **read_file_v2**</summary>
+
+</details></tool-use>
+
+_**Agent (composer-1.5)**_
+
+
+Here’s a concise audit of all occurrences of `pyx2ctune` in the workspace.
+
+---
+
+## Summary: `pyx2ctune` occurrences for rename planning
+
+### 1. Python files (*.py)
+
+| File | Count | Notes |
+|------|-------|-------|
+| `pyx2ctune/__init__.py` | 2 | Module docstring; `from pyx2ctune.mcaf.session` |
+| `pyx2ctune/analysis.py` | 1 | `from pyx2ctune.capture` |
+| `pyx2ctune/capture.py` | 1 | Docstring reference to `pyx2ctune.mcaf.capture` |
+| `pyx2ctune/gui/__init__.py` | 3 | Docstring; `from pyx2ctune.gui.main_window`; `setApplicationName("pyx2ctune")` |
+| `pyx2ctune/gui/__main__.py` | 4 | `python -m pyx2ctune.gui`; `.pyx2ctune` home dir; `from pyx2ctune.gui` |
+| `pyx2ctune/gui/main_window.py` | 12 | Imports; window title; `QSettings("pyx2ctune", "pyx2ctune")`; default filename `pyx2ctune_{view}` |
+| `pyx2ctune/gui/plot_widget.py` | 2 | Imports from `pyx2ctune.analysis`, `pyx2ctune.capture` |
+| `pyx2ctune/gui/tabs/__init__.py` | 1 | Docstring "pyx2ctune GUI" |
+| `pyx2ctune/gui/tabs/openloop_tab.py` | 1 | `from pyx2ctune.mcaf.test_harness` |
+| `pyx2ctune/gui/wizard/engine.py` | 3 | Docstring; imports |
+| `pyx2ctune/gui/wizard/__init__.py` | 3 | Imports from `pyx2ctune.gui.wizard`, `pyx2ctune.wizard_schema` |
+| `pyx2ctune/gui/wizard/input_factory.py` | 1 | `from pyx2ctune.wizard_schema` |
+| `pyx2ctune/gui/wizard/panel.py` | 6 | Imports; `QSettings("pyx2ctune", "pyx2ctune")` |
+| `pyx2ctune/gui/workers.py` | 6 | Docstrings; imports from `pyx2ctune.mcaf`, `pyx2ctune.analysis` |
+| `pyx2ctune/interfaces.py` | 1 | Docstring reference to `pyx2ctune.capture` |
+| `pyx2ctune/mcaf/__init__.py` | 6 | All imports `from pyx2ctune.mcaf.*` |
+| `pyx2ctune/mcaf/capture.py` | 3 | Imports |
+| `pyx2ctune/mcaf/current_tuning.py` | 2 | Imports |
+| `pyx2ctune/mcaf/session.py` | 9 | Imports; `logging.getLogger("pyx2ctune")`; docstring |
+| `pyx2ctune/mcaf/test_harness.py` | 3 | Imports; thread name `"pyx2ctune-guard-refresh"` |
+| `pyx2ctune/mcaf/velocity_tuning.py` | 2 | Imports |
+| `pyx2ctune/plotting.py` | 2 | Imports |
+| `pyx2ctune/wizard_schema.py` | 1 | `importlib.resources.files("pyx2ctune")` |
+| `pyx2ctune/wizards/__init__.py` | 1 | Docstring |
+| `examples/current_loop_tune.py` | 3 | Imports |
+| `examples/gain_sweep.py` | 3 | Imports |
+
+**Total: ~75 occurrences across 24 Python files**
+
+---
+
+### 2. YAML files (*.yaml, *.yml)
+
+| File | Count | Notes |
+|------|-------|-------|
+| `pyx2ctune/wizards/*.yaml` | 0 | No matches |
+| `.github/workflows/build.yml` | 19 | Artifact names (`pyx2ctune-linux`, etc.); `pyinstaller pyx2ctune.spec`; paths like `dist/pyx2ctune.app`, `/opt/pyx2ctune`, `pyx2ctune.desktop`, `Package: pyx2ctune` |
+
+---
+
+### 3. pyproject.toml
+
+| Line | Content |
+|------|---------|
+| 6 | `name = "pyx2ctune"` |
+| 30 | `pyx2ctune-gui = "pyx2ctune.gui:main"` (script entry point) |
+| 34 | `include = ["pyx2ctune*"]` (package find) |
+| 37 | `"pyx2ctune.wizards" = ["*.yaml", "*.yml"]` (package-data) |
+
+**Total: 5 occurrences**
+
+---
+
+### 4. Markdown files (*.md)
+
+| File | Count | Notes |
+|------|-------|-------|
+| `SPEC.md` | 22 | Project name, package refs, examples, artifact names |
+| `README.md` | 10 | Title, install instructions, `pyx2ctune-gui`, examples |
+| `THIRD-PARTY-LICENSES.md` | 7 | Project name in licensing text |
+| `.specstory/history/*.md` | ~600+ | Many files; mostly paths and tool mentions, historical only |
+
+---
+
+### 5. Cursor rules (*.mdc)
+
+| File | Count | Notes |
+|------|-------|-------|
+| `.cursor/rules/project-spec.mdc` | 2 | Description; section header "# pyx2ctune Project Context" |
+
+---
+
+### 6. Jupyter notebooks (*.ipynb)
+
+| File | Count | Notes |
+|------|-------|-------|
+| `notebooks/current_loop_tuning.ipynb` | 5 | Markdown title; `from pyx2ctune import ...`; `from pyx2ctune.analysis`; `from pyx2ctune.plotting` |
+
+---
+
+### 7. Other files
+
+| File | Count | Notes |
+|------|-------|-------|
+| `pyx2ctune.spec` | 6 | Docstring; `pyx2ctune/gui/__main__.py`; `name='pyx2ctune'`; `pyx2ctune.app`; `com.microchip.pyx2ctune` |
+| `.specstory/.project.json` | 1 | `"project_name": "pyx2ctune"` |
+| `motorbench/.../board-config.log` | 18 | `logdir=.../pyx2ctune/motorbench/...` (absolute paths, auto-generated) |
+| `motorbench/.../MCAF-code-generation.log` | 6 | Same pattern (auto-generated logs) |
+
+---
+
+### 8. Directories to rename
+
+| Path | Notes |
+|------|-------|
+| `/Users/greg/projects/microchip/pyx2ctune` | Project root (usually renamed via repo clone/move) |
+| `pyx2ctune/` | Main package directory at repo root |
+| `.venv/lib/python3.12/site-packages/pyx2ctune-0.1.0.dist-info` | Build artifact; will change after reinstall |
+| `pyx2ctune.egg-info/` | Build artifact; regenerated on build |
+
+---
+
+### Notable patterns
+
+1. **User data directory**: `~/.pyx2ctune` (in `pyx2ctune/gui/__main__.py`) – decide whether to rename to `~/.mctoolbox` and how to handle migration of existing data.
+2. **QSettings**: `QSettings("pyx2ctune", "pyx2ctune")` in `main_window.py` and `panel.py` – changing this changes settings storage; consider migration.
+3. **Logging**: `logging.getLogger("pyx2ctune")` in `mcaf/session.py`.
+4. **Thread name**: `"pyx2ctune-guard-refresh"` in `mcaf/test_harness.py` – optional.
+5. **Bundle identifier**: `com.microchip.pyx2ctune` in `pyx2ctune.spec` – affects macOS app identity.
+
+---
+
+### Recommended order for rename
+
+1. Rename package directory: `pyx2ctune/` → `mctoolbox/`
+2. Update `pyproject.toml` (name, script, packages, package-data)
+3. Update all Python imports and string literals
+4. Update `pyx2ctune.spec` or rename to `mctoolbox.spec`
+5. Update `.github/workflows/build.yml`
+6. Update `SPEC.md`, `README.md`, `THIRD-PARTY-LICENSES.md`
+7. Update `.cursor/rules/project-spec.mdc`
+8. Update `notebooks/current_loop_tuning.ipynb`
+9. Update `.specstory/.project.json`
+10. Optionally update `.specstory/history/*.md` and motorbench logs (low priority; logs are auto-generated)

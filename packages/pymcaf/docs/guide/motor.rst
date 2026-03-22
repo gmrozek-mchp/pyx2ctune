@@ -37,8 +37,8 @@ Measured signals (read-only)
      - RPM
      - Estimated motor velocity
    * - :attr:`~pymcaf.Motor.theta_electrical`
-     - counts
-     - Electrical angle (0--65535 = 0--360 degrees)
+     - degrees
+     - Electrical angle (0--360)
    * - :attr:`~pymcaf.Motor.vdc`
      - Volts
      - DC link voltage
@@ -93,36 +93,50 @@ Duty cycles are fractional values from 0.0 to 1.0.
 PI gains
 --------
 
-PI gains are read and written via methods rather than properties, since they
-involve multiple firmware variables per operation.
+PI gains are individual float properties, consistent with all other motor
+parameters.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 20 50
+
+   * - Property
+     - Units
+     - Description
+   * - :attr:`~pymcaf.Motor.current_kp_d`
+     - V/A
+     - D-axis current loop proportional gain (read/write)
+   * - :attr:`~pymcaf.Motor.current_ki_d`
+     - V/A/s
+     - D-axis current loop integral gain (read/write)
+   * - :attr:`~pymcaf.Motor.current_kp_q`
+     - V/A
+     - Q-axis current loop proportional gain (read/write)
+   * - :attr:`~pymcaf.Motor.current_ki_q`
+     - V/A/s
+     - Q-axis current loop integral gain (read/write)
+   * - :attr:`~pymcaf.Motor.velocity_kp`
+     - A/(rad/s)
+     - Velocity loop proportional gain (read/write)
+   * - :attr:`~pymcaf.Motor.velocity_ki`
+     - A/rad
+     - Velocity loop integral gain (read/write)
 
 .. code-block:: python
 
    # Current loop (per-axis)
-   gains = motor.read_current_gains(axis="q")
-   motor.write_current_gains(axis="both", kp=0.5, ki=100.0)
+   kp = motor.current_kp_q          # read
+   motor.current_kp_q = 0.5         # write
+   motor.current_ki_q = 100.0
+
+   # Both axes
+   motor.current_kp_d = motor.current_kp_q = 0.5
+   motor.current_ki_d = motor.current_ki_q = 100.0
 
    # Velocity loop
-   gains = motor.read_velocity_gains()
-   motor.write_velocity_gains(kp=0.01, ki=0.5)
-
-Each method returns a :class:`~pymcaf.PIGainValues` dataclass containing
-the engineering-unit values, raw firmware counts, Q-format shift, and unit
-strings.
-
-Raw gain writes
-^^^^^^^^^^^^^^^
-
-When you already have raw fixed-point gain values and want to write them
-without Q-format conversion:
-
-.. code-block:: python
-
-   motor.write_current_gains_raw(axis="q", kp_counts=5000, ki_counts=200)
-   motor.write_velocity_gains_raw(kp_counts=1200, ki_counts=80)
-
-These methods bypass the engineering-to-counts conversion and write the
-integer values directly to firmware.
+   kp = motor.velocity_kp
+   motor.velocity_kp = 0.01
+   motor.velocity_ki = 0.5
 
 Variable identifiers
 --------------------

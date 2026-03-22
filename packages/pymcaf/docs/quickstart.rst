@@ -71,12 +71,12 @@ Read and write PI controller gains in engineering units:
 .. code-block:: python
 
    # Read q-axis current loop gains
-   gains = motor.read_current_gains(axis="q")
-   print(f"Kp = {gains.kp:.4f} {gains.kp_units}")
-   print(f"Ki = {gains.ki:.4f} {gains.ki_units}")
+   print(f"Kp = {motor.current_kp_q:.4f} V/A")
+   print(f"Ki = {motor.current_ki_q:.2f} V/A/s")
 
    # Write new gains
-   motor.write_current_gains(axis="q", kp=0.5, ki=100.0)
+   motor.current_kp_q = 0.5
+   motor.current_ki_q = 100.0
 
 Test harness
 ------------

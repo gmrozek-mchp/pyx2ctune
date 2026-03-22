@@ -40,8 +40,9 @@ Features
    conn.motor.velocity_cmd = 1000.0
 
    # Read current-loop PI gains
-   gains = conn.motor.read_current_gains(axis="q")
-   print(f"Kp = {gains.kp} {gains.kp_units}")
+   kp = conn.motor.current_kp_q
+   ki = conn.motor.current_ki_q
+   print(f"Kp = {kp:.4f} V/A, Ki = {ki:.2f} V/A/s")
 
    conn.disconnect()
 

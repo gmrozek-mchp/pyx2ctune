@@ -16,7 +16,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from pymcaf.types import DQPair, PIGainValues
+from pymcaf.types import DQPair
 
 from mctoolbox import interfaces as _interfaces
 
@@ -34,22 +34,8 @@ _PARAM_MAX_CURRENT_CMD = "sat_pi.currentMaximumCommand"
 class CurrentGains(_interfaces.PIGains):
     """Current loop PI gains in engineering units."""
 
-    kp_counts: int = 0
-    ki_counts: int = 0
-    kp_shift: int = 0
-    ki_shift: int = 0
     kp_units: str = "V/A"
     ki_units: str = "V/A/s"
-
-
-def _pi_to_current_gains(g: PIGainValues) -> CurrentGains:
-    """Convert a generic PIGainValues to the mctoolbox CurrentGains type."""
-    return CurrentGains(
-        kp=g.kp, ki=g.ki,
-        kp_counts=g.kp_raw, ki_counts=g.ki_raw,
-        kp_shift=g.kp_shift, ki_shift=g.ki_shift,
-        kp_units=g.kp_units, ki_units=g.ki_units,
-    )
 
 
 class CurrentTuning(_interfaces.LoopTuner):
@@ -63,23 +49,25 @@ class CurrentTuning(_interfaces.LoopTuner):
     def __init__(self, session: TuningSession):
         self._session = session
 
+    def _read_axis(self, axis: str) -> CurrentGains:
+        motor = self._session.conn.motor
+        if axis == "d":
+            return CurrentGains(kp=motor.current_kp_d, ki=motor.current_ki_d)
+        return CurrentGains(kp=motor.current_kp_q, ki=motor.current_ki_q)
+
     def get_gains(self, axis: str = "q", **kwargs: Any) -> CurrentGains:
-        """Read current PI gains from firmware and convert to engineering units.
+        """Read current PI gains from firmware in engineering units.
 
         Args:
             axis: "q" or "d" (which current loop to read).
 
         Returns:
-            CurrentGains with both engineering values and raw counts.
+            CurrentGains with kp (V/A) and ki (V/A/s).
         """
-        motor = self._session.conn.motor
-        g = motor.read_current_gains(axis)
-        result = _pi_to_current_gains(g)
+        result = self._read_axis(axis.lower())
         logger.info(
-            "Read %s-axis gains: Kp=%.4f %s (counts=%d, Q%d), "
-            "Ki=%.2f %s (counts=%d, Q%d)",
-            axis, result.kp, result.kp_units, result.kp_counts, result.kp_shift,
-            result.ki, result.ki_units, result.ki_counts, result.ki_shift,
+            "Read %s-axis gains: Kp=%.4f %s, Ki=%.2f %s",
+            axis, result.kp, result.kp_units, result.ki, result.ki_units,
         )
         return result
 
@@ -87,20 +75,14 @@ class CurrentTuning(_interfaces.LoopTuner):
         self,
         kp: float,
         ki: float,
-        units: str = "engineering",
         axes: str = "both",
         **kwargs: Any,
     ) -> CurrentGains:
-        """Set current loop PI gains.
-
-        When units="engineering", kp is in V/A and ki is in V/A/s.
-        When units="counts", kp and ki are written directly as integer
-        counts (shift counts are not modified).
+        """Set current loop PI gains in engineering units (V/A, V/A/s).
 
         Args:
-            kp: Proportional gain.
-            ki: Integral gain.
-            units: "engineering" or "counts".
+            kp: Proportional gain (V/A).
+            ki: Integral gain (V/A/s).
             axes: "both", "q", or "d" -- which axes to write.
 
         Returns:
@@ -108,26 +90,18 @@ class CurrentTuning(_interfaces.LoopTuner):
         """
         motor = self._session.conn.motor
 
-        if units == "counts":
-            kp_counts = int(kp)
-            ki_counts = int(ki)
-            motor.write_current_gains_raw(axes, kp_counts, ki_counts)
-            return CurrentGains(
-                kp=float(kp_counts), ki=float(ki_counts),
-                kp_counts=kp_counts, ki_counts=ki_counts,
-            )
+        if axes.lower() in ("both", "d"):
+            motor.current_kp_d = kp
+            motor.current_ki_d = ki
+        if axes.lower() in ("both", "q"):
+            motor.current_kp_q = kp
+            motor.current_ki_q = ki
 
-        if units != "engineering":
-            raise ValueError(f"units must be 'engineering' or 'counts', got {units!r}")
-
-        g = motor.write_current_gains(axes, kp, ki)
-        result = _pi_to_current_gains(g)
+        read_axis = "q" if axes.lower() in ("both", "q") else "d"
+        result = self._read_axis(read_axis)
         logger.info(
-            "Set current gains: Kp=%.4f %s (counts=%d, Q%d), "
-            "Ki=%.2f %s (counts=%d, Q%d) on axes=%s",
-            result.kp, result.kp_units, result.kp_counts, result.kp_shift,
-            result.ki, result.ki_units, result.ki_counts, result.ki_shift,
-            axes,
+            "Set current gains: Kp=%.4f %s, Ki=%.2f %s on axes=%s",
+            result.kp, result.kp_units, result.ki, result.ki_units, axes,
         )
         return result
 
