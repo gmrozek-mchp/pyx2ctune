@@ -34,6 +34,7 @@ _VAR_IALPHABETA_ALPHA = "motor.ialphabeta.alpha"
 _VAR_IALPHABETA_BETA = "motor.ialphabeta.beta"
 _VAR_IABC_A = "motor.iabc.a"
 _VAR_IABC_B = "motor.iabc.b"
+_VAR_IABC_C = "motor.iabc.c"
 
 _VAR_VDQ_D = "motor.vdq.d"
 _VAR_VDQ_Q = "motor.vdq.q"
@@ -234,6 +235,16 @@ class Motor:
         return self._read_dq(_VAR_IDQ_D, _VAR_IDQ_Q, _FS_CURRENT)
 
     @property
+    def idq_d(self) -> float:
+        """Measured d-axis current (Amps)."""
+        return self._conn.read_q15(_VAR_IDQ_D, _FS_CURRENT)
+
+    @property
+    def idq_q(self) -> float:
+        """Measured q-axis current (Amps)."""
+        return self._conn.read_q15(_VAR_IDQ_Q, _FS_CURRENT)
+
+    @property
     def ialphabeta(self) -> AlphaBetaPair:
         """Measured stationary-frame current (Amps)."""
         return self._read_ab(
@@ -241,21 +252,51 @@ class Motor:
         )
 
     @property
-    def iabc(self) -> ABCTriple:
-        """Measured three-phase current (Amps).
+    def ialphabeta_alpha(self) -> float:
+        """Measured alpha-axis current (Amps)."""
+        return self._conn.read_q15(_VAR_IALPHABETA_ALPHA, _FS_CURRENT)
 
-        MCAF typically only measures phases a and b; c may be derived.
-        """
-        return ABCTriple(
-            a=self._conn.read_q15(_VAR_IABC_A, _FS_CURRENT),
-            b=self._conn.read_q15(_VAR_IABC_B, _FS_CURRENT),
-            c=0.0,
+    @property
+    def ialphabeta_beta(self) -> float:
+        """Measured beta-axis current (Amps)."""
+        return self._conn.read_q15(_VAR_IALPHABETA_BETA, _FS_CURRENT)
+
+    @property
+    def iabc(self) -> ABCTriple:
+        """Measured three-phase current (Amps)."""
+        return self._read_abc_q15(
+            _VAR_IABC_A, _VAR_IABC_B, _VAR_IABC_C, _FS_CURRENT,
         )
+
+    @property
+    def iabc_a(self) -> float:
+        """Measured phase-A current (Amps)."""
+        return self._conn.read_q15(_VAR_IABC_A, _FS_CURRENT)
+
+    @property
+    def iabc_b(self) -> float:
+        """Measured phase-B current (Amps)."""
+        return self._conn.read_q15(_VAR_IABC_B, _FS_CURRENT)
+
+    @property
+    def iabc_c(self) -> float:
+        """Measured phase-C current (Amps)."""
+        return self._conn.read_q15(_VAR_IABC_C, _FS_CURRENT)
 
     @property
     def vdq(self) -> DQPair:
         """Output dq-frame voltage (Volts)."""
         return self._read_dq(_VAR_VDQ_D, _VAR_VDQ_Q, _FS_VOLTAGE)
+
+    @property
+    def vdq_d(self) -> float:
+        """Output d-axis voltage (Volts)."""
+        return self._conn.read_q15(_VAR_VDQ_D, _FS_VOLTAGE)
+
+    @property
+    def vdq_q(self) -> float:
+        """Output q-axis voltage (Volts)."""
+        return self._conn.read_q15(_VAR_VDQ_Q, _FS_VOLTAGE)
 
     @property
     def valphabeta(self) -> AlphaBetaPair:
@@ -265,11 +306,36 @@ class Motor:
         )
 
     @property
+    def valphabeta_alpha(self) -> float:
+        """Output alpha-axis voltage (Volts)."""
+        return self._conn.read_q15(_VAR_VALPHABETA_ALPHA, _FS_VOLTAGE)
+
+    @property
+    def valphabeta_beta(self) -> float:
+        """Output beta-axis voltage (Volts)."""
+        return self._conn.read_q15(_VAR_VALPHABETA_BETA, _FS_VOLTAGE)
+
+    @property
     def vabc(self) -> ABCTriple:
         """Desired phase voltages (Volts)."""
         return self._read_abc_q15(
             _VAR_VABC_A, _VAR_VABC_B, _VAR_VABC_C, _FS_VOLTAGE,
         )
+
+    @property
+    def vabc_a(self) -> float:
+        """Desired phase-A voltage (Volts)."""
+        return self._conn.read_q15(_VAR_VABC_A, _FS_VOLTAGE)
+
+    @property
+    def vabc_b(self) -> float:
+        """Desired phase-B voltage (Volts)."""
+        return self._conn.read_q15(_VAR_VABC_B, _FS_VOLTAGE)
+
+    @property
+    def vabc_c(self) -> float:
+        """Desired phase-C voltage (Volts)."""
+        return self._conn.read_q15(_VAR_VABC_C, _FS_VOLTAGE)
 
     @property
     def omega(self) -> float:
@@ -305,9 +371,37 @@ class Motor:
         self._write_dq(_VAR_IDQCMDRAW_D, _VAR_IDQCMDRAW_Q, _FS_CURRENT, value)
 
     @property
+    def idq_cmd_raw_d(self) -> float:
+        """D-axis current command pre-perturbation (Amps)."""
+        return self._conn.read_q15(_VAR_IDQCMDRAW_D, _FS_CURRENT)
+
+    @idq_cmd_raw_d.setter
+    def idq_cmd_raw_d(self, value: float) -> None:
+        self._conn.write_q15(_VAR_IDQCMDRAW_D, value, _FS_CURRENT)
+
+    @property
+    def idq_cmd_raw_q(self) -> float:
+        """Q-axis current command pre-perturbation (Amps)."""
+        return self._conn.read_q15(_VAR_IDQCMDRAW_Q, _FS_CURRENT)
+
+    @idq_cmd_raw_q.setter
+    def idq_cmd_raw_q(self, value: float) -> None:
+        self._conn.write_q15(_VAR_IDQCMDRAW_Q, value, _FS_CURRENT)
+
+    @property
     def idq_cmd(self) -> DQPair:
         """Current command post-perturbation (Amps, read-only)."""
         return self._read_dq(_VAR_IDQCMD_D, _VAR_IDQCMD_Q, _FS_CURRENT)
+
+    @property
+    def idq_cmd_d(self) -> float:
+        """D-axis current command post-perturbation (Amps, read-only)."""
+        return self._conn.read_q15(_VAR_IDQCMD_D, _FS_CURRENT)
+
+    @property
+    def idq_cmd_q(self) -> float:
+        """Q-axis current command post-perturbation (Amps, read-only)."""
+        return self._conn.read_q15(_VAR_IDQCMD_Q, _FS_CURRENT)
 
     @property
     def vdq_cmd(self) -> DQPair:
@@ -317,6 +411,24 @@ class Motor:
     @vdq_cmd.setter
     def vdq_cmd(self, value: DQPair) -> None:
         self._write_dq(_VAR_VDQCMD_D, _VAR_VDQCMD_Q, _FS_VOLTAGE, value)
+
+    @property
+    def vdq_cmd_d(self) -> float:
+        """D-axis voltage command (Volts)."""
+        return self._conn.read_q15(_VAR_VDQCMD_D, _FS_VOLTAGE)
+
+    @vdq_cmd_d.setter
+    def vdq_cmd_d(self, value: float) -> None:
+        self._conn.write_q15(_VAR_VDQCMD_D, value, _FS_VOLTAGE)
+
+    @property
+    def vdq_cmd_q(self) -> float:
+        """Q-axis voltage command (Volts)."""
+        return self._conn.read_q15(_VAR_VDQCMD_Q, _FS_VOLTAGE)
+
+    @vdq_cmd_q.setter
+    def vdq_cmd_q(self, value: float) -> None:
+        self._conn.write_q15(_VAR_VDQCMD_Q, value, _FS_VOLTAGE)
 
     @property
     def velocity_cmd(self) -> float:
@@ -342,11 +454,41 @@ class Motor:
         )
 
     @property
+    def dabc_raw_a(self) -> float:
+        """Phase-A duty cycle before dead-time comp, ZSM, and clipping (0.0-1.0)."""
+        return self._conn.read_raw(_VAR_DABC_RAW_A) / _DUTY_SCALE
+
+    @property
+    def dabc_raw_b(self) -> float:
+        """Phase-B duty cycle before dead-time comp, ZSM, and clipping (0.0-1.0)."""
+        return self._conn.read_raw(_VAR_DABC_RAW_B) / _DUTY_SCALE
+
+    @property
+    def dabc_raw_c(self) -> float:
+        """Phase-C duty cycle before dead-time comp, ZSM, and clipping (0.0-1.0)."""
+        return self._conn.read_raw(_VAR_DABC_RAW_C) / _DUTY_SCALE
+
+    @property
     def dabc_unshifted(self) -> ABCTriple:
         """Duty cycles after dead-time comp, before ZSM and clipping (0.0-1.0)."""
         return self._read_abc_duty(
             _VAR_DABC_UNSHIFTED_A, _VAR_DABC_UNSHIFTED_B, _VAR_DABC_UNSHIFTED_C,
         )
+
+    @property
+    def dabc_unshifted_a(self) -> float:
+        """Phase-A duty cycle after dead-time comp, before ZSM and clipping (0.0-1.0)."""
+        return self._conn.read_raw(_VAR_DABC_UNSHIFTED_A) / _DUTY_SCALE
+
+    @property
+    def dabc_unshifted_b(self) -> float:
+        """Phase-B duty cycle after dead-time comp, before ZSM and clipping (0.0-1.0)."""
+        return self._conn.read_raw(_VAR_DABC_UNSHIFTED_B) / _DUTY_SCALE
+
+    @property
+    def dabc_unshifted_c(self) -> float:
+        """Phase-C duty cycle after dead-time comp, before ZSM and clipping (0.0-1.0)."""
+        return self._conn.read_raw(_VAR_DABC_UNSHIFTED_C) / _DUTY_SCALE
 
     @property
     def dabc(self) -> ABCTriple:
@@ -358,6 +500,33 @@ class Motor:
         self._conn.write_raw(_VAR_DABC_A, round(value.a * _DUTY_SCALE))
         self._conn.write_raw(_VAR_DABC_B, round(value.b * _DUTY_SCALE))
         self._conn.write_raw(_VAR_DABC_C, round(value.c * _DUTY_SCALE))
+
+    @property
+    def dabc_a(self) -> float:
+        """Final phase-A duty cycle (0.0-1.0)."""
+        return self._conn.read_raw(_VAR_DABC_A) / _DUTY_SCALE
+
+    @dabc_a.setter
+    def dabc_a(self, value: float) -> None:
+        self._conn.write_raw(_VAR_DABC_A, round(value * _DUTY_SCALE))
+
+    @property
+    def dabc_b(self) -> float:
+        """Final phase-B duty cycle (0.0-1.0)."""
+        return self._conn.read_raw(_VAR_DABC_B) / _DUTY_SCALE
+
+    @dabc_b.setter
+    def dabc_b(self, value: float) -> None:
+        self._conn.write_raw(_VAR_DABC_B, round(value * _DUTY_SCALE))
+
+    @property
+    def dabc_c(self) -> float:
+        """Final phase-C duty cycle (0.0-1.0)."""
+        return self._conn.read_raw(_VAR_DABC_C) / _DUTY_SCALE
+
+    @dabc_c.setter
+    def dabc_c(self, value: float) -> None:
+        self._conn.write_raw(_VAR_DABC_C, round(value * _DUTY_SCALE))
 
     # ── Current loop PI gains ────────────────────────────────────────
 

@@ -34,7 +34,11 @@ signals:
 
    motor = conn.motor
 
-   # Measured dq-frame current (Amps)
+   # Read individual axis currents (Amps)
+   print(f"Iq = {motor.idq_q:.3f} A")
+   print(f"Id = {motor.idq_d:.3f} A")
+
+   # Or read both axes at once via the compound property
    idq = motor.idq
    print(f"Id = {idq.d:.3f} A, Iq = {idq.q:.3f} A")
 
@@ -55,9 +59,11 @@ Writable properties accept engineering-unit values:
 
 .. code-block:: python
 
-   from pymcaf import DQPair
+   # Set q-axis current command (Amps)
+   motor.idq_cmd_raw_q = 0.5
 
-   # Set current command (Amps)
+   # Or set both axes at once via DQPair
+   from pymcaf import DQPair
    motor.idq_cmd_raw = DQPair(d=0.0, q=0.5)
 
    # Set velocity command (RPM)

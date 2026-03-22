@@ -5,34 +5,66 @@ The :class:`~pymcaf.Motor` class provides typed, property-based access to
 MCAF motor control variables.  All values are in engineering units.  Access
 it via :attr:`conn.motor <pymcaf.Connection.motor>`.
 
+Each compound signal (dq, alpha-beta, abc) is available as both a compound
+property returning a structured type and as individual scalar properties
+for per-component access:
+
+.. code-block:: python
+
+   # Compound access -- reads both axes in one call
+   idq = motor.idq          # DQPair(d=..., q=...)
+   print(idq.d, idq.q)
+
+   # Individual access -- reads a single axis
+   iq = motor.idq_q          # float
+   motor.idq_cmd_raw_q = 0.5 # write just q-axis
+
 Measured signals (read-only)
 ----------------------------
 
 .. list-table::
    :header-rows: 1
-   :widths: 25 20 55
+   :widths: 30 15 55
 
    * - Property
      - Units
      - Description
    * - :attr:`~pymcaf.Motor.idq`
      - Amps
-     - Measured dq-frame current
+     - Measured dq-frame current (DQPair)
+   * - :attr:`~pymcaf.Motor.idq_d`, :attr:`~pymcaf.Motor.idq_q`
+     - Amps
+     - Measured d/q-axis current (individual)
    * - :attr:`~pymcaf.Motor.ialphabeta`
      - Amps
-     - Measured stationary-frame current
+     - Measured stationary-frame current (AlphaBetaPair)
+   * - :attr:`~pymcaf.Motor.ialphabeta_alpha`, :attr:`~pymcaf.Motor.ialphabeta_beta`
+     - Amps
+     - Measured alpha/beta-axis current (individual)
    * - :attr:`~pymcaf.Motor.iabc`
      - Amps
-     - Measured three-phase current (c may be zero)
+     - Measured three-phase current (ABCTriple)
+   * - :attr:`~pymcaf.Motor.iabc_a`, :attr:`~pymcaf.Motor.iabc_b`, :attr:`~pymcaf.Motor.iabc_c`
+     - Amps
+     - Measured phase-A/B/C current (individual)
    * - :attr:`~pymcaf.Motor.vdq`
      - Volts
-     - Output dq-frame voltage
+     - Output dq-frame voltage (DQPair)
+   * - :attr:`~pymcaf.Motor.vdq_d`, :attr:`~pymcaf.Motor.vdq_q`
+     - Volts
+     - Output d/q-axis voltage (individual)
    * - :attr:`~pymcaf.Motor.valphabeta`
      - Volts
-     - Output stationary-frame voltage
+     - Output stationary-frame voltage (AlphaBetaPair)
+   * - :attr:`~pymcaf.Motor.valphabeta_alpha`, :attr:`~pymcaf.Motor.valphabeta_beta`
+     - Volts
+     - Output alpha/beta-axis voltage (individual)
    * - :attr:`~pymcaf.Motor.vabc`
      - Volts
-     - Desired phase voltages
+     - Desired phase voltages (ABCTriple)
+   * - :attr:`~pymcaf.Motor.vabc_a`, :attr:`~pymcaf.Motor.vabc_b`, :attr:`~pymcaf.Motor.vabc_c`
+     - Volts
+     - Desired phase-A/B/C voltage (individual)
    * - :attr:`~pymcaf.Motor.omega`
      - RPM
      - Estimated motor velocity
@@ -51,20 +83,29 @@ Command signals
 
 .. list-table::
    :header-rows: 1
-   :widths: 25 20 55
+   :widths: 30 15 55
 
    * - Property
      - Units
      - Description
    * - :attr:`~pymcaf.Motor.idq_cmd_raw`
      - Amps
-     - Current command pre-perturbation (read/write)
+     - Current command pre-perturbation (DQPair, read/write)
+   * - :attr:`~pymcaf.Motor.idq_cmd_raw_d`, :attr:`~pymcaf.Motor.idq_cmd_raw_q`
+     - Amps
+     - D/Q-axis current command pre-perturbation (individual, read/write)
    * - :attr:`~pymcaf.Motor.idq_cmd`
      - Amps
-     - Current command post-perturbation (read-only)
+     - Current command post-perturbation (DQPair, read-only)
+   * - :attr:`~pymcaf.Motor.idq_cmd_d`, :attr:`~pymcaf.Motor.idq_cmd_q`
+     - Amps
+     - D/Q-axis current command post-perturbation (individual, read-only)
    * - :attr:`~pymcaf.Motor.vdq_cmd`
      - Volts
-     - Voltage command (read/write)
+     - Voltage command (DQPair, read/write)
+   * - :attr:`~pymcaf.Motor.vdq_cmd_d`, :attr:`~pymcaf.Motor.vdq_cmd_q`
+     - Volts
+     - D/Q-axis voltage command (individual, read/write)
    * - :attr:`~pymcaf.Motor.velocity_cmd`
      - RPM
      - Velocity command (read/write)
@@ -79,16 +120,22 @@ Duty cycles are fractional values from 0.0 to 1.0.
 
 .. list-table::
    :header-rows: 1
-   :widths: 25 55
+   :widths: 30 70
 
    * - Property
      - Description
    * - :attr:`~pymcaf.Motor.dabc_raw`
-     - Before dead-time compensation, ZSM, and clipping
+     - Before dead-time compensation, ZSM, and clipping (ABCTriple)
+   * - :attr:`~pymcaf.Motor.dabc_raw_a`, :attr:`~pymcaf.Motor.dabc_raw_b`, :attr:`~pymcaf.Motor.dabc_raw_c`
+     - Individual phase duty cycles before dead-time comp
    * - :attr:`~pymcaf.Motor.dabc_unshifted`
-     - After dead-time comp, before ZSM and clipping
+     - After dead-time comp, before ZSM and clipping (ABCTriple)
+   * - :attr:`~pymcaf.Motor.dabc_unshifted_a`, :attr:`~pymcaf.Motor.dabc_unshifted_b`, :attr:`~pymcaf.Motor.dabc_unshifted_c`
+     - Individual phase duty cycles after dead-time comp
    * - :attr:`~pymcaf.Motor.dabc`
-     - Final duty cycles (read/write)
+     - Final duty cycles (ABCTriple, read/write)
+   * - :attr:`~pymcaf.Motor.dabc_a`, :attr:`~pymcaf.Motor.dabc_b`, :attr:`~pymcaf.Motor.dabc_c`
+     - Individual final phase duty cycles (read/write)
 
 PI gains
 --------
@@ -129,9 +176,11 @@ parameters.
    motor.current_kp_q = 0.5         # write
    motor.current_ki_q = 100.0
 
-   # Both axes
-   motor.current_kp_d = motor.current_kp_q = 0.5
-   motor.current_ki_d = motor.current_ki_q = 100.0
+   # Set both axes to the same value
+   motor.current_kp_d = 0.5
+   motor.current_kp_q = 0.5
+   motor.current_ki_d = 100.0
+   motor.current_ki_q = 100.0
 
    # Velocity loop
    kp = motor.velocity_kp

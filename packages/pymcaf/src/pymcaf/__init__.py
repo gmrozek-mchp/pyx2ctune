@@ -14,8 +14,8 @@ Quick start::
         parameters_json="parameters.json",
     )
 
-    # Read measured current in Amps
-    iq = conn.motor.idq.q
+    # Read measured q-axis current in Amps
+    iq = conn.motor.idq_q
 
     # Set velocity command in RPM
     conn.motor.velocity_cmd = 1000.0
